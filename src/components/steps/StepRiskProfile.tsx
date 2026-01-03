@@ -35,8 +35,29 @@ const profiles = [
 ];
 
 const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPrev, loading }) => {
+    const formatCurrency = (val: number) => new Intl.NumberFormat('ru-RU').format(val) + ' ₽';
+    const isInvestment = data.goalTypeId === 3;
+
     return (
         <div>
+            {isInvestment && (
+                <div style={{ marginBottom: '40px', padding: '20px', background: 'rgba(255,255,255,0.03)', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <label className="label" style={{ marginBottom: 0 }}>Ваш ежемесячный доход (2-НДФЛ)</label>
+                        <span style={{ color: 'var(--primary)', fontWeight: '600' }}>{formatCurrency(data.avgMonthlyIncome)}</span>
+                    </div>
+                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px' }}>Это поможет нам точнее подобрать налоговые вычеты и льготы</p>
+                    <input
+                        type="range"
+                        min="30000"
+                        max="1000000"
+                        step="5000"
+                        value={data.avgMonthlyIncome}
+                        onChange={(e) => setData({ ...data, avgMonthlyIncome: parseInt(e.target.value) })}
+                    />
+                </div>
+            )}
+
             <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '24px', textAlign: 'center' }}>Риск-профиль</h2>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '32px' }}>

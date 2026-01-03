@@ -19,6 +19,7 @@ export interface CJMData {
     targetAmount: number;
     termMonths: number;
     initialCapital: number;
+    monthlyReplenishment: number;
     avgMonthlyIncome: number;
     riskProfile: 'CONSERVATIVE' | 'BALANCED' | 'AGGRESSIVE';
 }
@@ -34,6 +35,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete }) => {
         targetAmount: 1500000,
         termMonths: 60,
         initialCapital: 100000,
+        monthlyReplenishment: 50000,
         avgMonthlyIncome: 150000,
         riskProfile: 'BALANCED'
     });
@@ -53,7 +55,8 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete }) => {
                         term_months: data.termMonths,
                         risk_profile: data.riskProfile,
                         initial_capital: data.initialCapital,
-                        avg_monthly_income: data.avgMonthlyIncome
+                        avg_monthly_income: data.avgMonthlyIncome,
+                        monthly_replenishment: data.goalTypeId === 3 ? data.monthlyReplenishment : undefined
                     }
                 ],
                 client: {
