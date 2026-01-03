@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, ChevronLeft, User, Calendar, Target, ShieldCheck } from 'lucide-react';
+import { User, Calendar, Target, ShieldCheck } from 'lucide-react';
 import StepGenderAge from './steps/StepGenderAge';
 import StepGoalSelection from './steps/StepGoalSelection';
 import StepGoalDetails from './steps/StepGoalDetails';

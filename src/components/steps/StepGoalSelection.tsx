@@ -1,5 +1,5 @@
 import React from 'react';
-import { CJMData } from '../CJMFlow';
+import type { CJMData } from '../CJMFlow';
 import { TrendingUp, Wallet, Home, GraduationCap, Briefcase } from 'lucide-react';
 
 interface StepProps {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import './App.css'
 import LoginPage from './components/LoginPage'
 import CJMFlow from './components/CJMFlow'

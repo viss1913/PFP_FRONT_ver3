@@ -1,5 +1,5 @@
 import React from 'react';
-import { CJMData } from '../CJMFlow';
+import type { CJMData } from '../CJMFlow';
 import { Shield, ShieldAlert, Rocket, Loader2 } from 'lucide-react';
 
 interface StepProps {
