@@ -5,7 +5,7 @@ import StepGenderAge from './steps/StepGenderAge';
 import StepGoalSelection from './steps/StepGoalSelection';
 import StepGoalDetails from './steps/StepGoalDetails';
 import StepRiskProfile from './steps/StepRiskProfile';
-import axios from 'axios';
+import { clientApi } from '../api/clientApi';
 
 interface CJMFlowProps {
     onComplete: (result: any) => void;
@@ -101,56 +101,22 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
 
             let response;
             if (clientId) {
-                // UPDATE existing client
-                // Note: The /client/first-run logic combines update+calculate. 
-                // But if we want purely UPDATE, we use PUT /client/:id. 
-                // However, the task implies we want to calculate a plan too.
-                // The prompt says "Редактирование клиента... при вызове бэкенд полностью обновляет профиль...".
-                // And we probably still want to see the RESULT page.
-                // Re-using the same flow: clientApi.firstRun handles upsert logic based on email/phone usually, 
-                // but strictly speaking PUT is for updates. 
-                // To keep it simple and consistent with "First Run" calculation flow:
+                // UPDATE existing client + Calculate
+                // 1. Update Profile (using clientApi which has auth)
+                await clientApi.updateClient(clientId, payload.client);
 
-                // If we want to strictly use PUT /client/:id, we should call that. 
-                // BUT, PUT /client/:id returns FullClientResponse (profile + assets), NOT the Calculation Result.
-                // The task says: "Аналогично /first-run (объект с полями client, assets...)"
-                // But if we want to show the RESULT page after, we need the calculation.
-                // If PUT doesn't return calculation, we might need to call Calculate separately.
-
-                // Let's assume for now we use first-run logic which is "Atomically creates/updates ... and performs ... calculation".
-                // If we specifically need to use PUT as per task requirement:
-                // "Эндпоинт: PUT /api/client/:id"
-
-                // Let's try to update first, then calculate.
-                // OR check if backend /first-run handles explicit ID updates if passed. 
-                // pfp-api.yaml for /first-run says "If a client with the same email already exists..."
-
-                // Use the explicit PUT if clientId is present, then Calculate.
-
-                // 1. Update Profile
-                // await axios.put(`https://pfpbackend-production.up.railway.app/api/client/${clientId}`, payload);
-
-                // 2. Calculate
-                // Not ideal to double request. 
-                // Let's stick to the existing POST /first-run for now as it does everything we need for the flow (calc+save),
-                // UNLESS the user strictly wants to test the PUT endpoint.
-                // The Task #3 says "Эндпоинт: PUT /api/client/:id". I should use it.
-
-                await axios.put(`https://pfpbackend-production.up.railway.app/api/client/${clientId}`, payload);
-
-                // After update, we need calculation result to show on next page.
-                const calcResponse = await axios.post('https://pfpbackend-production.up.railway.app/api/client/calculate', {
+                // 2. Calculate (using clientApi)
+                response = await clientApi.calculate({
                     goals: payload.goals,
                     client: payload.client
                 });
-                response = calcResponse;
 
             } else {
-                // NEW Client
-                response = await axios.post('https://pfpbackend-production.up.railway.app/api/client/first-run', payload);
+                // NEW Client (using clientApi)
+                response = await clientApi.firstRun(payload);
             }
 
-            onComplete(response.data);
+            onComplete(response);
         } catch (error) {
             console.error('Calculation error:', error);
             alert('Ошибка при расчете. Пожалуйста, попробуйте снова.');
@@ -174,8 +140,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
             // Using a self-executing function or just simpler here
             const loadClient = async () => {
                 try {
-                    const clientData = await axios.get(`https://pfpbackend-production.up.railway.app/api/client/${clientId}`);
-                    const client = clientData.data.client;
+                    const client = await clientApi.getClient(clientId);
                     // Map API client to CJMData
                     setData(prev => ({
                         ...prev,

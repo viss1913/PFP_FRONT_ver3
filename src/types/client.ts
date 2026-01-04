@@ -4,7 +4,7 @@ export interface Client {
     last_name: string; // Required in API, but might be empty if we only have FIO string
     middle_name?: string;
     birth_date?: string;
-    gender?: 'male' | 'female';
+    sex?: 'male' | 'female'; // Renamed from gender to match API
     phone?: string;
     email?: string;
     avg_monthly_income?: number;
