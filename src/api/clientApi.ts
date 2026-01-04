@@ -10,6 +10,15 @@ const api = axios.create({
     },
 });
 
+// Add request interceptor to inject the token
+api.interceptors.request.use((config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+});
+
 export const clientApi = {
     // Get list of clients for the dashboard
     getAgentClients: async (filters: ClientFilters = {}): Promise<ClientListResponse> => {
