@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Calendar, Target, ShieldCheck } from 'lucide-react';
+import { User, Target, ShieldCheck, Briefcase } from 'lucide-react';
 import StepGenderAge from './steps/StepGenderAge';
+import StepAssets from './steps/StepAssets';
 import StepGoalSelection from './steps/StepGoalSelection';
-import StepGoalDetails from './steps/StepGoalDetails';
 import StepRiskProfile from './steps/StepRiskProfile';
 import { clientApi } from '../api/clientApi';
+import type { Asset, ClientGoal } from '../types/client';
 
 interface CJMFlowProps {
     onComplete: (result: any) => void;
@@ -22,15 +23,23 @@ export interface CJMData {
     // ... existing fields ...
     gender: 'male' | 'female';
     age: number;
-    goalTypeId: number;
-    goalName: string;
-    targetAmount: number;
-    termMonths: number;
-    initialCapital: number;
-    monthlyReplenishment: number;
+    // Legacy single-goal fields (deprecated but kept for compatibility during refactor)
+    goalTypeId?: number;
+    goalName?: string;
+    targetAmount?: number;
+    termMonths?: number;
+    initialCapital?: number;
+    monthlyReplenishment?: number;
+
+    // Global Financials
     avgMonthlyIncome: number;
     riskProfile: 'CONSERVATIVE' | 'BALANCED' | 'AGGRESSIVE';
-    // New optional fields for passing through
+
+    // v3 New Structures
+    assets?: Asset[];
+    goals?: ClientGoal[];
+
+    // Identifiers
     fio?: string;
     phone?: string;
     uuid?: string;
@@ -65,26 +74,46 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
             const lastName = fioParts[1] || 'Unknown';
             const middleName = fioParts[2] || '';
 
+            // Calculate Total Liquid Capital from Assets
+            const assetsInitial = (data.assets || []).reduce((sum, a) => sum + (a.current_value || 0), 0);
+
+            // Construct Goals Payload
+            const goalsPayload = (data.goals || []).map(g => ({
+                goal_type_id: g.goal_type_id,
+                name: g.name,
+                target_amount: g.insurance_limit || g.target_amount || 0, // Fallback for Life/Safety
+                term_months: g.term_months || 120,
+                risk_profile: (g.risk_profile || data.riskProfile || 'BALANCED') as "CONSERVATIVE" | "BALANCED" | "AGGRESSIVE",
+                initial_capital: 0, // Now calculated by backend or from assets distribution
+                avg_monthly_income: data.avgMonthlyIncome, // Required for some logic
+                monthly_replenishment: undefined,
+                inflation_rate: g.inflation_rate || 10,
+                desired_monthly_income: g.desired_monthly_income
+            }));
+
+            // Fallback for legacy flow if no goals (should not happen with new UI)
+            if (goalsPayload.length === 0 && data.goalTypeId) {
+                goalsPayload.push({
+                    goal_type_id: data.goalTypeId!,
+                    name: data.goalName!,
+                    target_amount: data.targetAmount || 0,
+                    term_months: data.termMonths || 120,
+                    risk_profile: data.riskProfile,
+                    initial_capital: data.initialCapital || 0,
+                    avg_monthly_income: data.avgMonthlyIncome,
+                    monthly_replenishment: undefined,
+                    inflation_rate: 10,
+                    desired_monthly_income: undefined
+                });
+            }
+
             const payload = {
-                goals: [
-                    {
-                        goal_type_id: data.goalTypeId,
-                        name: data.goalName,
-                        target_amount: data.targetAmount,
-                        term_months: data.termMonths,
-                        risk_profile: data.riskProfile,
-                        initial_capital: data.initialCapital,
-                        avg_monthly_income: data.avgMonthlyIncome,
-                        monthly_replenishment: data.goalTypeId === 3 ? data.monthlyReplenishment : undefined,
-                        // Add defaults for required API fields if missing in UI
-                        inflation_rate: 10,
-                    }
-                ],
+                goals: goalsPayload,
                 client: {
                     birth_date: new Date(new Date().getFullYear() - data.age, 0, 1).toISOString().split('T')[0],
                     sex: data.gender,
                     avg_monthly_income: data.avgMonthlyIncome,
-                    total_liquid_capital: data.initialCapital,
+                    total_liquid_capital: assetsInitial,
                     // New fields
                     first_name: firstName,
                     last_name: lastName,
@@ -94,7 +123,16 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     // If editing, might need ID, but usually handled by URL parameter in PUT
                 },
                 // Pass existing assets if needed, or if the API requires full replacement
-                assets: [],
+                assets: (data.assets || []).map(a => ({
+                    // Map frontend Asset to API ClientAsset
+                    type: a.type,
+                    name: a.name,
+                    current_value: a.current_value,
+                    currency: a.currency || 'RUB',
+                    // Default fields for now
+                    start_date: new Date().toISOString().split('T')[0],
+                    risk_level: 'conservative'
+                })),
                 liabilities: [],
                 expenses: []
             };
@@ -127,8 +165,8 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
 
     const steps = [
         { title: 'Личные данные', icon: <User size={20} /> },
-        { title: 'Выбор цели', icon: <Target size={20} /> },
-        { title: 'Параметры', icon: <Calendar size={20} /> },
+        { title: 'Активы', icon: <Briefcase size={20} /> },
+        { title: 'Цели', icon: <Target size={20} /> },
         { title: 'Риск-профиль', icon: <ShieldCheck size={20} /> }
     ];
 
@@ -219,8 +257,8 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     className="premium-card"
                 >
                     {step === 1 && <StepGenderAge data={data} setData={setData} onNext={nextStep} />}
-                    {step === 2 && <StepGoalSelection data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
-                    {step === 3 && <StepGoalDetails data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
+                    {step === 2 && <StepAssets data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
+                    {step === 3 && <StepGoalSelection data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
                     {step === 4 && <StepRiskProfile data={data} setData={setData} onComplete={handleCalculate} onPrev={prevStep} loading={loading} />}
                 </motion.div>
             </AnimatePresence>

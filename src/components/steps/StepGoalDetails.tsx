@@ -1,105 +1,110 @@
-import React from 'react';
-import type { CJMData } from '../CJMFlow';
+import React, { useState } from 'react';
+import type { ClientGoal } from '../../types/client';
 
-interface StepProps {
-    data: CJMData;
-    setData: (data: CJMData) => void;
-    onNext: () => void;
-    onPrev: () => void;
+interface StepGoalDetailsProps {
+    goal: ClientGoal; // The goal being edited
+    onSave: (updatedGoal: ClientGoal) => void;
+    onCancel: () => void;
 }
 
-const StepGoalDetails: React.FC<StepProps> = ({ data, setData, onNext, onPrev }) => {
-    const formatCurrency = (val: number) => new Intl.NumberFormat('ru-RU').format(val) + ' ₽';
-    const isInvestment = data.goalTypeId === 3;
+const StepGoalDetails: React.FC<StepGoalDetailsProps> = ({ goal, onSave, onCancel }) => {
+    // Local state for the goal being edited
+    const [localGoal, setLocalGoal] = useState<ClientGoal>({ ...goal });
+
+    // Constants for configuration
+    const isLifeGoal = localGoal.goal_type_id === 5; // Assuming 5 is Life/Safety
+    const isPassiveIncome = localGoal.goal_type_id === 2; // Passive Income
+
+    const handleSave = () => {
+        onSave(localGoal);
+    };
+
+    const handleChange = (field: keyof ClientGoal, value: any) => {
+        setLocalGoal(prev => ({ ...prev, [field]: value }));
+    };
 
     return (
-        <div>
-            <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '24px', textAlign: 'center' }}>{data.goalName}</h2>
+        <div style={{ background: 'var(--card-bg)', padding: '24px', borderRadius: '16px' }}>
+            <h3 style={{ marginBottom: '20px', color: 'var(--primary)' }}>
+                {isLifeGoal ? 'Параметры страхования' : `Параметры цели "${localGoal.name}"`}
+            </h3>
 
-            {!isInvestment && (
-                <div style={{ marginBottom: '24px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <label className="label">Сумма цели</label>
-                        <span style={{ color: 'var(--primary)', fontWeight: '600' }}>{formatCurrency(data.targetAmount)}</span>
+            {/* Life Insurance Specific Fields */}
+            {isLifeGoal && (
+                <>
+                    <div className="input-group">
+                        <label className="label">Страховая сумма (Лимит)</label>
+                        <input
+                            type="number"
+                            value={localGoal.insurance_limit || localGoal.target_amount || ''}
+                            onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setLocalGoal(prev => ({
+                                    ...prev,
+                                    insurance_limit: val,
+                                    target_amount: val
+                                }));
+                            }}
+                            placeholder="Например: 10 000 000"
+                        />
+                        <span className="hint">Сумма, которую выплатят при наступлении страхового случая</span>
                     </div>
-                    <input
-                        type="range"
-                        min="100000"
-                        max="20000000"
-                        step="100000"
-                        value={data.targetAmount}
-                        onChange={(e) => setData({ ...data, targetAmount: parseInt(e.target.value) })}
-                    />
-                </div>
+
+                    <div className="input-group">
+                        <label className="label">Срок страхования (лет)</label>
+                        <input
+                            type="number"
+                            value={Math.floor((localGoal.term_months || 0) / 12) || ''}
+                            onChange={(e) => handleChange('term_months', Number(e.target.value) * 12)}
+                            placeholder="Например: 20"
+                        />
+                    </div>
+                </>
             )}
 
-            <div style={{ marginBottom: '24px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <label className="label">Срок (месяцев)</label>
-                    <span style={{ color: 'var(--primary)', fontWeight: '600' }}>{data.termMonths} мес.</span>
-                </div>
-                <input
-                    type="range"
-                    min="6"
-                    max="360"
-                    step="6"
-                    value={data.termMonths}
-                    onChange={(e) => setData({ ...data, termMonths: parseInt(e.target.value) })}
-                />
-            </div>
-
-            <div style={{ marginBottom: '24px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <label className="label">Первоначальный капитал</label>
-                    <span style={{ color: 'var(--primary)', fontWeight: '600' }}>{formatCurrency(data.initialCapital)}</span>
-                </div>
-                <input
-                    type="range"
-                    min="0"
-                    max="10000000"
-                    step="50000"
-                    value={data.initialCapital}
-                    onChange={(e) => setData({ ...data, initialCapital: parseInt(e.target.value) })}
-                />
-            </div>
-
-            {isInvestment && (
-                <div style={{ marginBottom: '24px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <label className="label">Ежемесячное пополнение</label>
-                        <span style={{ color: 'var(--primary)', fontWeight: '600' }}>{formatCurrency(data.monthlyReplenishment)}</span>
+            {/* Standard Goal Fields (Investment, Pension, etc) */}
+            {!isLifeGoal && (
+                <>
+                    <div className="input-group">
+                        <label className="label">
+                            {isPassiveIncome ? 'Желаемый ежемесячный доход' : 'Целевая сумма'}
+                        </label>
+                        <input
+                            type="number"
+                            value={isPassiveIncome ? (localGoal.desired_monthly_income || '') : (localGoal.target_amount || '')}
+                            onChange={(e) => {
+                                const val = Number(e.target.value);
+                                if (isPassiveIncome) handleChange('desired_monthly_income', val);
+                                else handleChange('target_amount', val);
+                            }}
+                            placeholder="0"
+                        />
                     </div>
-                    <input
-                        type="range"
-                        min="0"
-                        max="500000"
-                        step="5000"
-                        value={data.monthlyReplenishment}
-                        onChange={(e) => setData({ ...data, monthlyReplenishment: parseInt(e.target.value) })}
-                    />
-                </div>
+
+                    <div className="input-group">
+                        <label className="label">Срок (лет)</label>
+                        <input
+                            type="number"
+                            value={Math.floor((localGoal.term_months || 0) / 12) || ''}
+                            onChange={(e) => handleChange('term_months', Number(e.target.value) * 12)}
+                            placeholder="10"
+                        />
+                    </div>
+
+                    <div className="input-group">
+                        <label className="label">Инфляция (%)</label>
+                        <input
+                            type="number"
+                            value={localGoal.inflation_rate || 10}
+                            onChange={(e) => handleChange('inflation_rate', Number(e.target.value))}
+                        />
+                    </div>
+                </>
             )}
 
-            {!isInvestment && (
-                <div style={{ marginBottom: '40px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <label className="label">Ежемесячный доход (2-НДФЛ)</label>
-                        <span style={{ color: 'var(--primary)', fontWeight: '600' }}>{formatCurrency(data.avgMonthlyIncome)}</span>
-                    </div>
-                    <input
-                        type="range"
-                        min="30000"
-                        max="1000000"
-                        step="5000"
-                        value={data.avgMonthlyIncome}
-                        onChange={(e) => setData({ ...data, avgMonthlyIncome: parseInt(e.target.value) })}
-                    />
-                </div>
-            )}
-
-            <div style={{ display: 'flex', gap: '12px', marginTop: isInvestment ? '40px' : '0' }}>
-                <button className="btn-primary" style={{ flex: 1, background: 'rgba(255,255,255,0.1)', color: '#fff' }} onClick={onPrev}>Назад</button>
-                <button className="btn-primary" style={{ flex: 2 }} onClick={onNext}>Далее</button>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                <button className="btn-secondary" onClick={onCancel} style={{ flex: 1 }}>Отмена</button>
+                <button className="btn-primary" onClick={handleSave} style={{ flex: 1 }}>Сохранить</button>
             </div>
         </div>
     );
