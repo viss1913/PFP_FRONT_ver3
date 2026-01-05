@@ -78,8 +78,10 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
             // Calculate Total Liquid Capital from Assets
             const assetsInitial = (data.assets || []).reduce((sum, a) => sum + (a.current_value || 0), 0);
 
-            // Construct Goals Payload
-            const goalsPayload = (data.goals || []).map(g => {
+            // Construct Goals Payload - фильтруем НСЖ (id=5), не отправляем на расчет
+            const goalsPayload = (data.goals || [])
+                .filter(g => g.goal_type_id !== 5) // Убираем НСЖ из расчета
+                .map(g => {
                 // For RENT (id=8), use initial_capital from goal itself
                 // For other goals, use global initialCapital from StepFinReserve
                 const initialCapital = g.goal_type_id === 8 

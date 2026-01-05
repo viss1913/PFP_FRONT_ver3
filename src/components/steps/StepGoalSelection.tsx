@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Target, Plus, Edit2, Trash2, Shield, Home, GraduationCap, Leaf, Coins } from 'lucide-react';
 import type { CJMData } from '../CJMFlow';
 import type { ClientGoal } from '../../types/client';
@@ -12,12 +12,12 @@ interface StepGoalSelectionProps {
 }
 
 // Goal Types mapping (ID -> Icon/Name)
+// НСЖ (id=5) убрано из списка - не показываем и не отправляем на расчет
 const GOAL_TYPES = [
     { id: 1, name: 'Финансовая подушка', icon: <Shield size={24} />, description: 'На случай чп' },
     { id: 2, name: 'Пассивный доход', icon: <Leaf size={24} />, description: 'Жить на проценты' },
     { id: 3, name: 'Крупная покупка', icon: <Target size={24} />, description: 'Авто, дача и т.д.' }, // Generic Investment/Purchase
     { id: 4, name: 'Недвижимость', icon: <Home size={24} />, description: 'Квартира, дом' },
-    { id: 5, name: 'Безопасность (НСЖ)', icon: <Shield size={24} />, description: 'Страхование жизни', mandatory: true },
     { id: 6, name: 'Образование', icon: <GraduationCap size={24} />, description: 'Детям или себе' },
     { id: 7, name: 'Пенсия', icon: <Leaf size={24} />, description: 'На старость' },
     { id: 8, name: 'Рента', icon: <Coins size={24} />, description: 'Пассивный доход от капитала' },
@@ -29,21 +29,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [isAddingMode, setIsAddingMode] = useState(false);
 
-    // Initial check to ensure mandatory goals exist
-    useEffect(() => {
-        const hasLifeGoal = goals.some(g => g.goal_type_id === 5);
-        if (!hasLifeGoal) {
-            // Auto-add Life goal if missing
-            const lifeGoal: ClientGoal = {
-                goal_type_id: 5,
-                name: 'Страхование жизни',
-                insurance_limit: 10000000,
-                term_months: 240, // 20 years default
-                risk_profile: 'CONSERVATIVE'
-            };
-            setData(prev => ({ ...prev, goals: [...(prev.goals || []), lifeGoal] }));
-        }
-    }, [goals.length]); // Check on mount/update
+    // НСЖ убрано из фронтенда - не добавляем автоматически
 
     const handleAddGoal = (typeId: number) => {
         const typeInfo = GOAL_TYPES.find(t => t.id === typeId);
@@ -69,11 +55,6 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
     };
 
     const handleDeleteGoal = (index: number) => {
-        const goal = goals[index];
-        if (goal.goal_type_id === 5) {
-            alert("Цель 'Безопасность/НСЖ' рекомендована и не может быть удалена полностью (вы можете изменить её параметры).");
-            return;
-        }
         const newGoals = [...goals];
         newGoals.splice(index, 1);
         setData(prev => ({ ...prev, goals: newGoals }));
@@ -110,7 +91,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
             <div style={{ textAlign: 'center' }}>
                 <h2 className="step-title">Выберите тип цели</h2>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '16px', marginBottom: '30px' }}>
-                    {GOAL_TYPES.filter(t => t.id !== 5).map(type => ( // Hide Life as it is auto-added
+                    {GOAL_TYPES.map(type => (
                         <div
                             key={type.id}
                             className={`goal-card`}
@@ -150,8 +131,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                     return (
                         <div key={index} style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            padding: '16px', background: 'var(--card-bg)', borderRadius: '12px',
-                            borderLeft: goal.goal_type_id === 5 ? '4px solid var(--primary)' : 'none'
+                            padding: '16px', background: 'var(--card-bg)', borderRadius: '12px'
                         }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                 <div style={{ color: 'var(--primary)' }}>
@@ -162,18 +142,15 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                     <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                                         {goal.target_amount ? `${goal.target_amount.toLocaleString()} ₽` : 'Сумма не задана'} • {Math.floor((goal.term_months || 0) / 12)} лет
                                     </div>
-                                    {goal.goal_type_id === 5 && <div style={{ fontSize: '10px', color: '#4caf50' }}>Рекомендовано</div>}
                                 </div>
                             </div>
                             <div style={{ display: 'flex', gap: '8px' }}>
                                 <button onClick={() => handleEditGoal(index)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fff' }}>
                                     <Edit2 size={18} />
                                 </button>
-                                {goal.goal_type_id !== 5 && (
-                                    <button onClick={() => handleDeleteGoal(index)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ff4d4d' }}>
-                                        <Trash2 size={18} />
-                                    </button>
-                                )}
+                                <button onClick={() => handleDeleteGoal(index)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ff4d4d' }}>
+                                    <Trash2 size={18} />
+                                </button>
                             </div>
                         </div>
                     );
