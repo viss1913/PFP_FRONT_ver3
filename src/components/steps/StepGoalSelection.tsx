@@ -19,7 +19,7 @@ const GOAL_TYPES = [
     { id: 3, name: 'Крупная покупка', icon: <Target size={24} />, description: 'Авто, дача и т.д.' }, // Generic Investment/Purchase
     { id: 4, name: 'Недвижимость', icon: <Home size={24} />, description: 'Квартира, дом' },
     { id: 6, name: 'Образование', icon: <GraduationCap size={24} />, description: 'Детям или себе' },
-    { id: 7, name: 'Пенсия', icon: <Leaf size={24} />, description: 'На старость' },
+    { id: 7, name: 'Финансовый резерв', icon: <Shield size={24} />, description: 'Финрезерв на год' },
     { id: 8, name: 'Рента', icon: <Coins size={24} />, description: 'Пассивный доход от капитала' },
 ];
 
@@ -34,13 +34,15 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
     const handleAddGoal = (typeId: number) => {
         const typeInfo = GOAL_TYPES.find(t => t.id === typeId);
         const isRent = typeId === 8;
+        const isFinReserve = typeId === 7;
         const newGoal: ClientGoal = {
             goal_type_id: typeId,
             name: typeInfo?.name || 'Новая цель',
-            target_amount: isRent ? undefined : 0,
-            term_months: isRent ? undefined : 120, // 10 years default
+            target_amount: isRent ? undefined : (isFinReserve ? undefined : 0),
+            term_months: isRent ? undefined : (isFinReserve ? 12 : 120), // FIN_RESERVE: 12 months, RENT: undefined, others: 120
             risk_profile: data.riskProfile || 'BALANCED',
-            initial_capital: isRent ? 0 : undefined // For RENT, set initial_capital
+            initial_capital: (isRent || isFinReserve) ? 0 : undefined, // For RENT and FIN_RESERVE, set initial_capital
+            monthly_replenishment: isFinReserve ? 0 : undefined // For FIN_RESERVE, set monthly_replenishment
         };
 
         // Open Editor immediately

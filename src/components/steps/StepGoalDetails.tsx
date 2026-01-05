@@ -15,6 +15,7 @@ const StepGoalDetails: React.FC<StepGoalDetailsProps> = ({ goal, onSave, onCance
     const isLifeGoal = localGoal.goal_type_id === 5; // Assuming 5 is Life/Safety
     const isPassiveIncome = localGoal.goal_type_id === 2; // Passive Income
     const isRent = localGoal.goal_type_id === 8; // RENT
+    const isFinReserve = localGoal.goal_type_id === 7; // FIN_RESERVE
 
     const handleSave = () => {
         onSave(localGoal);
@@ -79,8 +80,35 @@ const StepGoalDetails: React.FC<StepGoalDetailsProps> = ({ goal, onSave, onCance
                 </>
             )}
 
+            {/* FIN_RESERVE Goal Fields */}
+            {isFinReserve && (
+                <>
+                    <div className="input-group">
+                        <label className="label">Начальный капитал</label>
+                        <input
+                            type="number"
+                            value={localGoal.initial_capital || ''}
+                            onChange={(e) => handleChange('initial_capital', Number(e.target.value))}
+                            placeholder="Например: 300 000"
+                        />
+                        <span className="hint">Начальная сумма для финрезерва</span>
+                    </div>
+
+                    <div className="input-group">
+                        <label className="label">Ежемесячное пополнение</label>
+                        <input
+                            type="number"
+                            value={localGoal.monthly_replenishment || ''}
+                            onChange={(e) => handleChange('monthly_replenishment', Number(e.target.value))}
+                            placeholder="0"
+                        />
+                        <span className="hint">Сумма, которую вы планируете добавлять ежемесячно (опционально)</span>
+                    </div>
+                </>
+            )}
+
             {/* Standard Goal Fields (Investment, Pension, etc) */}
-            {!isLifeGoal && !isRent && (
+            {!isLifeGoal && !isRent && !isFinReserve && (
                 <>
                     <div className="input-group">
                         <label className="label">

@@ -79,30 +79,45 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
             const assetsInitial = (data.assets || []).reduce((sum, a) => sum + (a.current_value || 0), 0);
 
             // Construct Goals Payload - фильтруем НСЖ (id=5), не отправляем на расчет
-            const goalsPayload = (data.goals || [])
-                .filter(g => g.goal_type_id !== 5) // Убираем НСЖ из расчета
-                .map(g => {
-                // For RENT (id=8), use initial_capital from goal itself
+            let goalsToProcess = (data.goals || []).filter(g => g.goal_type_id !== 5);
+            
+            // Автоматически добавляем FIN_RESERVE (id=7), если указаны initialCapital или monthlyReplenishment в StepFinReserve
+            // и еще нет цели FIN_RESERVE в списке
+            const hasFinReserveGoal = goalsToProcess.some(g => g.goal_type_id === 7);
+            if (!hasFinReserveGoal && (data.initialCapital || data.monthlyReplenishment)) {
+                goalsToProcess.push({
+                    goal_type_id: 7,
+                    name: 'Финансовый резерв',
+                    initial_capital: data.initialCapital || 0,
+                    monthly_replenishment: data.monthlyReplenishment || 0,
+                    term_months: 12, // FIN_RESERVE всегда 12 месяцев
+                    risk_profile: 'CONSERVATIVE'
+                });
+            }
+            
+            const goalsPayload = goalsToProcess.map(g => {
+                // For RENT (id=8) and FIN_RESERVE (id=7), use initial_capital from goal itself
                 // For other goals, use global initialCapital from StepFinReserve
-                const initialCapital = g.goal_type_id === 8 
+                const initialCapital = (g.goal_type_id === 8 || g.goal_type_id === 7)
                     ? (g.initial_capital || 0) 
                     : (g.initial_capital || data.initialCapital || 0);
                 
-                // For FIN_RESERVE (id=7) and other goals, use monthly_replenishment
+                // For FIN_RESERVE (id=7) and other goals, use monthly_replenishment from goal or global
                 // For RENT (id=8), monthly_replenishment is not used
                 const monthlyReplenishment = g.goal_type_id === 8 
                     ? undefined 
-                    : (g.monthly_replenishment || data.monthlyReplenishment || undefined);
+                    : (g.monthly_replenishment !== undefined ? g.monthly_replenishment : (data.monthlyReplenishment || undefined));
 
-                // For RENT (id=8), target_amount and term_months are not required by API
+                // For RENT (id=8) and FIN_RESERVE (id=7), target_amount and term_months are not required by API
                 // but we'll set defaults to avoid validation errors
                 const isRent = g.goal_type_id === 8;
+                const isFinReserve = g.goal_type_id === 7;
                 
                 return {
                     goal_type_id: g.goal_type_id,
                     name: g.name,
-                    target_amount: isRent ? (g.initial_capital || 0) : (g.insurance_limit || g.target_amount || 0), // For RENT, use initial_capital as target_amount
-                    term_months: isRent ? 12 : (g.term_months || 120), // For RENT, use 12 months (ignored by backend)
+                    target_amount: isRent ? (g.initial_capital || 0) : (isFinReserve ? (g.initial_capital || 0) : (g.insurance_limit || g.target_amount || 0)), // For RENT and FIN_RESERVE, use initial_capital as target_amount
+                    term_months: isRent ? 12 : (isFinReserve ? 12 : (g.term_months || 120)), // For RENT and FIN_RESERVE, use 12 months
                     risk_profile: (g.risk_profile || data.riskProfile || 'BALANCED') as "CONSERVATIVE" | "BALANCED" | "AGGRESSIVE",
                     initial_capital: initialCapital,
                     avg_monthly_income: data.avgMonthlyIncome, // Required for some logic
