@@ -35,11 +35,14 @@ const StepAssets: React.FC<StepAssetsProps> = ({ data, setData, onNext, onPrev }
     const totalAssets = assets.reduce((sum, a) => sum + (a.current_value || 0), 0);
 
     const handleAdd = () => {
-        if (!newAsset.name || !newAsset.current_value) return;
+        if (!newAsset.current_value) return;
+
+        // Используем название типа актива как имя
+        const assetTypeLabel = ASSET_TYPES.find(t => t.type === newAsset.type)?.label || newAsset.type;
 
         const assetToAdd: Asset = {
             type: newAsset.type as AssetType,
-            name: newAsset.name,
+            name: assetTypeLabel, // Используем тип как название
             current_value: Number(newAsset.current_value),
             currency: 'RUB'
         };
@@ -129,22 +132,20 @@ const StepAssets: React.FC<StepAssetsProps> = ({ data, setData, onNext, onPrev }
                         <select
                             value={newAsset.type}
                             onChange={(e) => setNewAsset({ ...newAsset, type: e.target.value as AssetType })}
-                            style={{ width: '100%', padding: '12px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }}
+                            style={{ 
+                                width: '100%', 
+                                padding: '12px', 
+                                background: 'rgba(255,255,255,0.05)', 
+                                border: '1px solid var(--border-color)', 
+                                borderRadius: '8px', 
+                                color: '#fff',
+                                fontSize: '16px'
+                            }}
                         >
                             {ASSET_TYPES.map(t => (
-                                <option key={t.type} value={t.type}>{t.label}</option>
+                                <option key={t.type} value={t.type} style={{ background: 'var(--card-bg)', color: '#fff' }}>{t.label}</option>
                             ))}
                         </select>
-                    </div>
-
-                    <div className="input-group">
-                        <label className="label">Название</label>
-                        <input
-                            type="text"
-                            value={newAsset.name}
-                            onChange={(e) => setNewAsset({ ...newAsset, name: e.target.value })}
-                            placeholder="Например: Вклад в Сбербанке"
-                        />
                     </div>
 
                     <div className="input-group">
@@ -161,7 +162,7 @@ const StepAssets: React.FC<StepAssetsProps> = ({ data, setData, onNext, onPrev }
                         <button
                             className="btn-primary"
                             onClick={handleAdd}
-                            disabled={!newAsset.name || !newAsset.current_value}
+                            disabled={!newAsset.current_value}
                         >
                             Добавить
                         </button>

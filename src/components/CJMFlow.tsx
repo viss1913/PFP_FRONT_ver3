@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Target, ShieldCheck, Briefcase, PiggyBank } from 'lucide-react';
+import { User, Target, ShieldCheck, Briefcase, PiggyBank, DollarSign } from 'lucide-react';
 import StepGenderAge from './steps/StepGenderAge';
-import StepAssets from './steps/StepAssets';
 import StepGoalSelection from './steps/StepGoalSelection';
+import StepAssets from './steps/StepAssets';
 import StepFinReserve from './steps/StepFinReserve';
+import StepIncome from './steps/StepIncome';
 import StepRiskProfile from './steps/StepRiskProfile';
 import { clientApi } from '../api/clientApi';
 import type { Asset, ClientGoal } from '../types/client';
@@ -96,11 +97,11 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
             }
             
             const goalsPayload = goalsToProcess.map(g => {
-                // For RENT (id=8) and FIN_RESERVE (id=7), use initial_capital from goal itself
-                // For other goals, use global initialCapital from StepFinReserve
-                const initialCapital = (g.goal_type_id === 8 || g.goal_type_id === 7)
+                // Only for FIN_RESERVE (id=7) and RENT (id=8), use initial_capital from goal itself
+                // For other goals, бэк сам распределит из активов - не передаем initial_capital
+                const initialCapital = (g.goal_type_id === 7 || g.goal_type_id === 8)
                     ? (g.initial_capital || 0) 
-                    : (g.initial_capital || data.initialCapital || 0);
+                    : undefined; // Не передаем для остальных целей - бэк сам распределит
                 
                 // For FIN_RESERVE (id=7) and other goals, use monthly_replenishment from goal or global
                 // For RENT (id=8), monthly_replenishment is not used
@@ -112,19 +113,40 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                 // but we'll set defaults to avoid validation errors
                 const isRent = g.goal_type_id === 8;
                 const isFinReserve = g.goal_type_id === 7;
+                const isPension = g.goal_type_id === 1; // PENSION
+                const isPassiveIncome = g.goal_type_id === 2; // PASSIVE_INCOME
                 
-                return {
+                const payload: any = {
                     goal_type_id: g.goal_type_id,
                     name: g.name,
-                    target_amount: isRent ? (g.initial_capital || 0) : (isFinReserve ? (g.initial_capital || 0) : (g.insurance_limit || g.target_amount || 0)), // For RENT and FIN_RESERVE, use initial_capital as target_amount
-                    term_months: isRent ? 12 : (isFinReserve ? 12 : (g.term_months || 120)), // For RENT and FIN_RESERVE, use 12 months
                     risk_profile: (g.risk_profile || data.riskProfile || 'BALANCED') as "CONSERVATIVE" | "BALANCED" | "AGGRESSIVE",
-                    initial_capital: initialCapital,
-                    avg_monthly_income: data.avgMonthlyIncome, // Required for some logic
-                    monthly_replenishment: monthlyReplenishment,
-                    inflation_rate: g.inflation_rate || 10,
-                    desired_monthly_income: g.desired_monthly_income
+                    inflation_rate: g.inflation_rate || 10
                 };
+                
+                // Для PENSION и PASSIVE_INCOME: target_amount = desired_monthly_income, term_months не нужен
+                if (isPension || isPassiveIncome) {
+                    payload.target_amount = g.desired_monthly_income || 0;
+                    payload.term_months = g.term_months || 120; // Все равно нужен для API, но бэк может игнорировать
+                    if (g.desired_monthly_income !== undefined) {
+                        payload.desired_monthly_income = g.desired_monthly_income;
+                    }
+                } else {
+                    // Для остальных целей
+                    payload.target_amount = isRent ? (g.initial_capital || 0) : (isFinReserve ? (g.initial_capital || 0) : (g.insurance_limit || g.target_amount || 0));
+                    payload.term_months = isRent ? 12 : (isFinReserve ? 12 : (g.term_months || 120));
+                }
+                
+                // Только для FIN_RESERVE и RENT передаем initial_capital
+                if (initialCapital !== undefined) {
+                    payload.initial_capital = initialCapital;
+                }
+                
+                // Только для FIN_RESERVE передаем monthly_replenishment
+                if (monthlyReplenishment !== undefined) {
+                    payload.monthly_replenishment = monthlyReplenishment;
+                }
+                
+                return payload;
             });
 
             // Fallback for legacy flow if no goals (should not happen with new UI)
@@ -136,7 +158,6 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     term_months: data.termMonths || 120,
                     risk_profile: data.riskProfile,
                     initial_capital: data.initialCapital || 0,
-                    avg_monthly_income: data.avgMonthlyIncome,
                     monthly_replenishment: undefined,
                     inflation_rate: 10,
                     desired_monthly_income: undefined
@@ -201,9 +222,10 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
 
     const steps = [
         { title: 'Личные данные', icon: <User size={20} /> },
-        { title: 'Активы', icon: <Briefcase size={20} /> },
         { title: 'Цели', icon: <Target size={20} /> },
+        { title: 'Активы', icon: <Briefcase size={20} /> },
         { title: 'Финрезерв', icon: <PiggyBank size={20} /> },
+        { title: 'Доход', icon: <DollarSign size={20} /> },
         { title: 'Риск-профиль', icon: <ShieldCheck size={20} /> }
     ];
 
@@ -294,10 +316,11 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     className="premium-card"
                 >
                     {step === 1 && <StepGenderAge data={data} setData={setData} onNext={nextStep} />}
-                    {step === 2 && <StepAssets data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
-                    {step === 3 && <StepGoalSelection data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
+                    {step === 2 && <StepGoalSelection data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
+                    {step === 3 && <StepAssets data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
                     {step === 4 && <StepFinReserve data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
-                    {step === 5 && <StepRiskProfile data={data} setData={setData} onComplete={handleCalculate} onPrev={prevStep} loading={loading} />}
+                    {step === 5 && <StepIncome data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
+                    {step === 6 && <StepRiskProfile data={data} setData={setData} onComplete={handleCalculate} onPrev={prevStep} loading={loading} />}
                 </motion.div>
             </AnimatePresence>
         </div>
