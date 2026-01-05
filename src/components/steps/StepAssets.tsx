@@ -35,14 +35,14 @@ const StepAssets: React.FC<StepAssetsProps> = ({ data, setData, onNext, onPrev }
     const totalAssets = assets.reduce((sum, a) => sum + (a.current_value || 0), 0);
 
     const handleAdd = () => {
-        if (!newAsset.current_value) return;
+        if (!newAsset.current_value || !newAsset.type) return;
 
         // Используем название типа актива как имя
         const assetTypeLabel = ASSET_TYPES.find(t => t.type === newAsset.type)?.label || newAsset.type;
 
         const assetToAdd: Asset = {
             type: newAsset.type as AssetType,
-            name: assetTypeLabel, // Используем тип как название
+            name: assetTypeLabel || 'Актив', // Используем тип как название, fallback на 'Актив'
             current_value: Number(newAsset.current_value),
             currency: 'RUB'
         };
