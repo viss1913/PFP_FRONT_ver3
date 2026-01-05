@@ -103,11 +103,12 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     ? (g.initial_capital || 0) 
                     : undefined; // Не передаем для остальных целей - бэк сам распределит
                 
-                // For FIN_RESERVE (id=7) and other goals, use monthly_replenishment from goal or global
-                // For RENT (id=8), monthly_replenishment is not used
-                const monthlyReplenishment = g.goal_type_id === 8 
-                    ? undefined 
-                    : (g.monthly_replenishment !== undefined ? g.monthly_replenishment : (data.monthlyReplenishment || undefined));
+                // monthly_replenishment передаем только для Investment (id=3) и FIN_RESERVE (id=7)
+                // Для остальных целей (PASSIVE_INCOME, PENSION, RENT и др.) не передаем
+                const isInvestment = g.goal_type_id === 3;
+                const monthlyReplenishment = (isFinReserve || isInvestment)
+                    ? (g.monthly_replenishment !== undefined ? g.monthly_replenishment : (data.monthlyReplenishment || undefined))
+                    : undefined;
 
                 // For RENT (id=8) and FIN_RESERVE (id=7), target_amount and term_months are not required by API
                 // but we'll set defaults to avoid validation errors
@@ -141,7 +142,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     payload.initial_capital = initialCapital;
                 }
                 
-                // Только для FIN_RESERVE передаем monthly_replenishment
+                // Только для FIN_RESERVE (id=7) и Investment (id=3) передаем monthly_replenishment
                 if (monthlyReplenishment !== undefined) {
                     payload.monthly_replenishment = monthlyReplenishment;
                 }
