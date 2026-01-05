@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Target, ShieldCheck, Briefcase } from 'lucide-react';
+import { User, Target, ShieldCheck, Briefcase, PiggyBank } from 'lucide-react';
 import StepGenderAge from './steps/StepGenderAge';
 import StepAssets from './steps/StepAssets';
 import StepGoalSelection from './steps/StepGoalSelection';
+import StepFinReserve from './steps/StepFinReserve';
 import StepRiskProfile from './steps/StepRiskProfile';
 import { clientApi } from '../api/clientApi';
 import type { Asset, ClientGoal } from '../types/client';
@@ -78,18 +79,36 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
             const assetsInitial = (data.assets || []).reduce((sum, a) => sum + (a.current_value || 0), 0);
 
             // Construct Goals Payload
-            const goalsPayload = (data.goals || []).map(g => ({
-                goal_type_id: g.goal_type_id,
-                name: g.name,
-                target_amount: g.insurance_limit || g.target_amount || 0, // Fallback for Life/Safety
-                term_months: g.term_months || 120,
-                risk_profile: (g.risk_profile || data.riskProfile || 'BALANCED') as "CONSERVATIVE" | "BALANCED" | "AGGRESSIVE",
-                initial_capital: 0, // Now calculated by backend or from assets distribution
-                avg_monthly_income: data.avgMonthlyIncome, // Required for some logic
-                monthly_replenishment: undefined,
-                inflation_rate: g.inflation_rate || 10,
-                desired_monthly_income: g.desired_monthly_income
-            }));
+            const goalsPayload = (data.goals || []).map(g => {
+                // For RENT (id=8), use initial_capital from goal itself
+                // For other goals, use global initialCapital from StepFinReserve
+                const initialCapital = g.goal_type_id === 8 
+                    ? (g.initial_capital || 0) 
+                    : (g.initial_capital || data.initialCapital || 0);
+                
+                // For FIN_RESERVE (id=7) and other goals, use monthly_replenishment
+                // For RENT (id=8), monthly_replenishment is not used
+                const monthlyReplenishment = g.goal_type_id === 8 
+                    ? undefined 
+                    : (g.monthly_replenishment || data.monthlyReplenishment || undefined);
+
+                // For RENT (id=8), target_amount and term_months are not required by API
+                // but we'll set defaults to avoid validation errors
+                const isRent = g.goal_type_id === 8;
+                
+                return {
+                    goal_type_id: g.goal_type_id,
+                    name: g.name,
+                    target_amount: isRent ? (g.initial_capital || 0) : (g.insurance_limit || g.target_amount || 0), // For RENT, use initial_capital as target_amount
+                    term_months: isRent ? 12 : (g.term_months || 120), // For RENT, use 12 months (ignored by backend)
+                    risk_profile: (g.risk_profile || data.riskProfile || 'BALANCED') as "CONSERVATIVE" | "BALANCED" | "AGGRESSIVE",
+                    initial_capital: initialCapital,
+                    avg_monthly_income: data.avgMonthlyIncome, // Required for some logic
+                    monthly_replenishment: monthlyReplenishment,
+                    inflation_rate: g.inflation_rate || 10,
+                    desired_monthly_income: g.desired_monthly_income
+                };
+            });
 
             // Fallback for legacy flow if no goals (should not happen with new UI)
             if (goalsPayload.length === 0 && data.goalTypeId) {
@@ -167,6 +186,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
         { title: 'Личные данные', icon: <User size={20} /> },
         { title: 'Активы', icon: <Briefcase size={20} /> },
         { title: 'Цели', icon: <Target size={20} /> },
+        { title: 'Финрезерв', icon: <PiggyBank size={20} /> },
         { title: 'Риск-профиль', icon: <ShieldCheck size={20} /> }
     ];
 
@@ -259,7 +279,8 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     {step === 1 && <StepGenderAge data={data} setData={setData} onNext={nextStep} />}
                     {step === 2 && <StepAssets data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
                     {step === 3 && <StepGoalSelection data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
-                    {step === 4 && <StepRiskProfile data={data} setData={setData} onComplete={handleCalculate} onPrev={prevStep} loading={loading} />}
+                    {step === 4 && <StepFinReserve data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
+                    {step === 5 && <StepRiskProfile data={data} setData={setData} onComplete={handleCalculate} onPrev={prevStep} loading={loading} />}
                 </motion.div>
             </AnimatePresence>
         </div>

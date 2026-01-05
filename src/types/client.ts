@@ -47,7 +47,8 @@ export interface ClientGoal {
     desired_monthly_income?: number; // For Passive Income
     term_months?: number;
     risk_profile?: string;
-    initial_capital?: number; // Deprecated in UI, but API might use it? inferred from assets
+    initial_capital?: number; // Initial capital for the goal
+    monthly_replenishment?: number; // Monthly replenishment amount
     inflation_rate?: number;
     // Life Insurance specific
     insurance_limit?: number; // Map to target_amount in UI?

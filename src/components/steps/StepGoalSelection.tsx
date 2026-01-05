@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Target, Plus, Edit2, Trash2, Shield, Home, GraduationCap, Leaf } from 'lucide-react';
+import { Target, Plus, Edit2, Trash2, Shield, Home, GraduationCap, Leaf, Coins } from 'lucide-react';
 import type { CJMData } from '../CJMFlow';
 import type { ClientGoal } from '../../types/client';
 import StepGoalDetails from './StepGoalDetails';
@@ -20,6 +20,7 @@ const GOAL_TYPES = [
     { id: 5, name: 'Безопасность (НСЖ)', icon: <Shield size={24} />, description: 'Страхование жизни', mandatory: true },
     { id: 6, name: 'Образование', icon: <GraduationCap size={24} />, description: 'Детям или себе' },
     { id: 7, name: 'Пенсия', icon: <Leaf size={24} />, description: 'На старость' },
+    { id: 8, name: 'Рента', icon: <Coins size={24} />, description: 'Пассивный доход от капитала' },
 ];
 
 const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, onNext, onPrev }) => {
@@ -46,12 +47,14 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
 
     const handleAddGoal = (typeId: number) => {
         const typeInfo = GOAL_TYPES.find(t => t.id === typeId);
+        const isRent = typeId === 8;
         const newGoal: ClientGoal = {
             goal_type_id: typeId,
             name: typeInfo?.name || 'Новая цель',
-            target_amount: 0,
-            term_months: 120, // 10 years default
-            risk_profile: data.riskProfile || 'BALANCED'
+            target_amount: isRent ? undefined : 0,
+            term_months: isRent ? undefined : 120, // 10 years default
+            risk_profile: data.riskProfile || 'BALANCED',
+            initial_capital: isRent ? 0 : undefined // For RENT, set initial_capital
         };
 
         // Open Editor immediately

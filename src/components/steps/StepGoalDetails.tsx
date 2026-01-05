@@ -14,6 +14,7 @@ const StepGoalDetails: React.FC<StepGoalDetailsProps> = ({ goal, onSave, onCance
     // Constants for configuration
     const isLifeGoal = localGoal.goal_type_id === 5; // Assuming 5 is Life/Safety
     const isPassiveIncome = localGoal.goal_type_id === 2; // Passive Income
+    const isRent = localGoal.goal_type_id === 8; // RENT
 
     const handleSave = () => {
         onSave(localGoal);
@@ -62,8 +63,24 @@ const StepGoalDetails: React.FC<StepGoalDetailsProps> = ({ goal, onSave, onCance
                 </>
             )}
 
+            {/* RENT Goal Fields */}
+            {isRent && (
+                <>
+                    <div className="input-group">
+                        <label className="label">Капитал</label>
+                        <input
+                            type="number"
+                            value={localGoal.initial_capital || ''}
+                            onChange={(e) => handleChange('initial_capital', Number(e.target.value))}
+                            placeholder="Например: 5 000 000"
+                        />
+                        <span className="hint">Сумма капитала, с которого будет получаться рента</span>
+                    </div>
+                </>
+            )}
+
             {/* Standard Goal Fields (Investment, Pension, etc) */}
-            {!isLifeGoal && (
+            {!isLifeGoal && !isRent && (
                 <>
                     <div className="input-group">
                         <label className="label">
