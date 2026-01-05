@@ -27,8 +27,20 @@ const StepGoalDetails: React.FC<StepGoalDetailsProps> = ({ goal, onSave, onCance
     };
 
     return (
-        <div style={{ background: 'var(--card-bg)', padding: '24px', borderRadius: '16px' }}>
-            <h3 style={{ marginBottom: '20px', color: 'var(--primary)' }}>
+        <div style={{ 
+            background: 'var(--card-bg)', 
+            backdropFilter: 'blur(20px)',
+            padding: '32px', 
+            borderRadius: '20px',
+            border: '1px solid var(--border-color)',
+            boxShadow: 'var(--shadow-soft)'
+        }}>
+            <h3 style={{ 
+                marginBottom: '24px', 
+                color: 'var(--text-main)',
+                fontSize: '28px',
+                fontWeight: '700'
+            }}>
                 {isLifeGoal ? 'Параметры страхования' : `Параметры цели "${localGoal.name}"`}
             </h3>
 
@@ -108,8 +120,8 @@ const StepGoalDetails: React.FC<StepGoalDetailsProps> = ({ goal, onSave, onCance
                 </>
             )}
 
-            {/* PENSION and PASSIVE_INCOME Goal Fields (без срока) */}
-            {(isPension || isPassiveIncome) && (
+            {/* PENSION Goal Fields (без срока) */}
+            {isPension && (
                 <>
                     <div className="input-group">
                         <label className="label">Желаемый ежемесячный доход</label>
@@ -120,6 +132,41 @@ const StepGoalDetails: React.FC<StepGoalDetailsProps> = ({ goal, onSave, onCance
                             placeholder="0"
                         />
                         <span className="hint">Сумма, которую вы хотите получать ежемесячно</span>
+                    </div>
+
+                    <div className="input-group">
+                        <label className="label">Инфляция (%)</label>
+                        <input
+                            type="number"
+                            value={localGoal.inflation_rate || 10}
+                            onChange={(e) => handleChange('inflation_rate', Number(e.target.value))}
+                        />
+                    </div>
+                </>
+            )}
+
+            {/* PASSIVE_INCOME Goal Fields (со сроком) */}
+            {isPassiveIncome && (
+                <>
+                    <div className="input-group">
+                        <label className="label">Желаемый ежемесячный доход</label>
+                        <input
+                            type="number"
+                            value={localGoal.desired_monthly_income || ''}
+                            onChange={(e) => handleChange('desired_monthly_income', Number(e.target.value))}
+                            placeholder="0"
+                        />
+                        <span className="hint">Сумма, которую вы хотите получать ежемесячно</span>
+                    </div>
+
+                    <div className="input-group">
+                        <label className="label">Срок (лет)</label>
+                        <input
+                            type="number"
+                            value={Math.floor((localGoal.term_months || 0) / 12) || ''}
+                            onChange={(e) => handleChange('term_months', Number(e.target.value) * 12)}
+                            placeholder="10"
+                        />
                     </div>
 
                     <div className="input-group">

@@ -50,11 +50,13 @@ const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPre
                             padding: '20px',
                             borderRadius: '16px',
                             border: `2px solid ${data.riskProfile === p.id ? p.color : 'var(--border-color)'}`,
-                            background: data.riskProfile === p.id ? `${p.color}15` : 'rgba(255,255,255,0.03)',
-                            color: '#fff',
+                            background: data.riskProfile === p.id ? `${p.color}15` : 'var(--card-bg)',
+                            backdropFilter: 'blur(20px)',
+                            color: 'var(--text-main)',
                             cursor: 'pointer',
                             transition: 'all 0.2s ease',
-                            textAlign: 'left'
+                            textAlign: 'left',
+                            boxShadow: data.riskProfile === p.id ? 'var(--shadow-soft)' : 'none'
                         }}
                         onClick={() => setData({ ...data, riskProfile: p.id as any })}
                     >
@@ -71,7 +73,7 @@ const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPre
                             {p.icon}
                         </div>
                         <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: '600', marginBottom: '4px' }}>{p.name}</div>
+                            <div style={{ fontWeight: '600', marginBottom: '4px', color: 'var(--text-main)' }}>{p.name}</div>
                             <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{p.desc}</div>
                         </div>
                     </button>
@@ -79,7 +81,7 @@ const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPre
             </div>
 
             <div style={{ display: 'flex', gap: '12px' }}>
-                <button className="btn-primary" style={{ flex: 1, background: 'rgba(255,255,255,0.1)', color: '#fff' }} onClick={onPrev} disabled={loading}>Назад</button>
+                <button className="btn-secondary" style={{ flex: 1 }} onClick={onPrev} disabled={loading}>Назад</button>
                 <button className="btn-primary" style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} onClick={onComplete} disabled={loading}>
                     {loading ? <Loader2 className="animate-spin" size={20} /> : 'Рассчитать план'}
                 </button>

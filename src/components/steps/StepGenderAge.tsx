@@ -22,9 +22,12 @@ const StepGenderAge: React.FC<StepProps> = ({ data, setData, onNext }) => {
                             padding: '20px',
                             borderRadius: '16px',
                             border: `2px solid ${data.gender === 'male' ? 'var(--primary)' : 'var(--border-color)'}`,
-                            background: data.gender === 'male' ? 'rgba(255,199,80,0.1)' : 'transparent',
-                            color: '#fff',
-                            cursor: 'pointer'
+                            background: data.gender === 'male' ? 'rgba(255,199,80,0.1)' : 'var(--card-bg)',
+                            color: 'var(--text-main)',
+                            cursor: 'pointer',
+                            fontWeight: '600',
+                            fontSize: '16px',
+                            transition: 'all 0.2s ease'
                         }}
                         onClick={() => setData({ ...data, gender: 'male' })}
                     >
@@ -37,9 +40,12 @@ const StepGenderAge: React.FC<StepProps> = ({ data, setData, onNext }) => {
                             padding: '20px',
                             borderRadius: '16px',
                             border: `2px solid ${data.gender === 'female' ? 'var(--primary)' : 'var(--border-color)'}`,
-                            background: data.gender === 'female' ? 'rgba(255,199,80,0.1)' : 'transparent',
-                            color: '#fff',
-                            cursor: 'pointer'
+                            background: data.gender === 'female' ? 'rgba(255,199,80,0.1)' : 'var(--card-bg)',
+                            color: 'var(--text-main)',
+                            cursor: 'pointer',
+                            fontWeight: '600',
+                            fontSize: '16px',
+                            transition: 'all 0.2s ease'
                         }}
                         onClick={() => setData({ ...data, gender: 'female' })}
                     >

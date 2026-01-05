@@ -124,8 +124,16 @@ const StepAssets: React.FC<StepAssetsProps> = ({ data, setData, onNext, onPrev }
             </div>
 
             {isAdding ? (
-                <div style={{ padding: '20px', background: 'rgba(255,255,255,0.05)', borderRadius: '16px', marginBottom: '24px' }}>
-                    <h3 style={{ fontSize: '16px', marginBottom: '16px' }}>Добавить актив</h3>
+                <div style={{ 
+                    padding: '24px', 
+                    background: 'var(--card-bg)', 
+                    backdropFilter: 'blur(20px)',
+                    borderRadius: '20px', 
+                    marginBottom: '24px',
+                    border: '1px solid var(--border-color)',
+                    boxShadow: 'var(--shadow-soft)'
+                }}>
+                    <h3 style={{ fontSize: '20px', marginBottom: '20px', fontWeight: '700', color: 'var(--text-main)' }}>Добавить актив</h3>
 
                     <div className="input-group">
                         <label className="label">Тип актива</label>
@@ -134,16 +142,19 @@ const StepAssets: React.FC<StepAssetsProps> = ({ data, setData, onNext, onPrev }
                             onChange={(e) => setNewAsset({ ...newAsset, type: e.target.value as AssetType })}
                             style={{ 
                                 width: '100%', 
-                                padding: '12px', 
-                                background: 'rgba(255,255,255,0.05)', 
+                                padding: '16px 20px', 
+                                background: 'rgba(255, 255, 255, 0.8)', 
                                 border: '1px solid var(--border-color)', 
-                                borderRadius: '8px', 
-                                color: '#fff',
-                                fontSize: '16px'
+                                borderRadius: '16px', 
+                                color: 'var(--text-main)',
+                                fontSize: '16px',
+                                outline: 'none',
+                                transition: 'all 0.2s ease',
+                                backdropFilter: 'blur(10px)'
                             }}
                         >
                             {ASSET_TYPES.map(t => (
-                                <option key={t.type} value={t.type} style={{ background: 'var(--card-bg)', color: '#fff' }}>{t.label}</option>
+                                <option key={t.type} value={t.type} style={{ background: 'var(--card-bg)', color: 'var(--text-main)' }}>{t.label}</option>
                             ))}
                         </select>
                     </div>

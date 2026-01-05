@@ -36,9 +36,11 @@ const StepIncome: React.FC<StepIncomeProps> = ({ data, setData, onNext, onPrev }
             <div style={{ 
                 marginBottom: '30px', 
                 padding: '20px', 
-                background: 'rgba(255,255,255,0.03)', 
+                background: 'var(--card-bg)', 
+                backdropFilter: 'blur(20px)',
                 borderRadius: '16px', 
-                border: '1px solid var(--border-color)' 
+                border: '1px solid var(--border-color)',
+                boxShadow: 'var(--shadow-soft)'
             }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                     <label className="label" style={{ marginBottom: 0 }}>Ваш ежемесячный доход (2-НДФЛ)</label>
