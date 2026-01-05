@@ -97,25 +97,24 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
             }
             
             const goalsPayload = goalsToProcess.map(g => {
+                // Определяем типы целей сначала
+                const isRent = g.goal_type_id === 8;
+                const isFinReserve = g.goal_type_id === 7;
+                const isInvestment = g.goal_type_id === 3;
+                const isPension = g.goal_type_id === 1; // PENSION
+                const isPassiveIncome = g.goal_type_id === 2; // PASSIVE_INCOME
+                
                 // Only for FIN_RESERVE (id=7) and RENT (id=8), use initial_capital from goal itself
                 // For other goals, бэк сам распределит из активов - не передаем initial_capital
-                const initialCapital = (g.goal_type_id === 7 || g.goal_type_id === 8)
+                const initialCapital = (isFinReserve || isRent)
                     ? (g.initial_capital || 0) 
                     : undefined; // Не передаем для остальных целей - бэк сам распределит
                 
                 // monthly_replenishment передаем только для Investment (id=3) и FIN_RESERVE (id=7)
                 // Для остальных целей (PASSIVE_INCOME, PENSION, RENT и др.) не передаем
-                const isInvestment = g.goal_type_id === 3;
                 const monthlyReplenishment = (isFinReserve || isInvestment)
                     ? (g.monthly_replenishment !== undefined ? g.monthly_replenishment : (data.monthlyReplenishment || undefined))
                     : undefined;
-
-                // For RENT (id=8) and FIN_RESERVE (id=7), target_amount and term_months are not required by API
-                // but we'll set defaults to avoid validation errors
-                const isRent = g.goal_type_id === 8;
-                const isFinReserve = g.goal_type_id === 7;
-                const isPension = g.goal_type_id === 1; // PENSION
-                const isPassiveIncome = g.goal_type_id === 2; // PASSIVE_INCOME
                 
                 const payload: any = {
                     goal_type_id: g.goal_type_id,
