@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PiggyBank, TrendingUp } from 'lucide-react';
+import { PiggyBank } from 'lucide-react';
 import type { CJMData } from '../CJMFlow';
 
 interface StepFinReserveProps {
@@ -44,8 +44,8 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
                     <PiggyBank size={32} color="#000" />
                 </div>
                 <h2 className="step-title">Финансовый резерв</h2>
-                <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>
-                    Выделите часть средств на финансовый резерв для ваших целей
+                <p style={{ color: 'var(--text-muted)', marginTop: '8px', fontSize: '18px' }}>
+                    Укажите параметры для цели "Финансовый резерв"
                 </p>
             </div>
 
@@ -53,13 +53,15 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
             <div style={{ 
                 marginBottom: '30px', 
                 padding: '20px', 
-                background: 'rgba(255,255,255,0.03)', 
+                background: 'var(--card-bg)', 
+                backdropFilter: 'blur(20px)',
                 borderRadius: '16px', 
-                border: '1px solid var(--border-color)' 
+                border: '1px solid var(--border-color)',
+                boxShadow: 'var(--shadow-soft)'
             }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Доступный капитал</span>
-                    <span style={{ color: 'var(--primary)', fontWeight: '600', fontSize: '18px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '16px' }}>Доступный капитал</span>
+                    <span style={{ color: 'var(--primary)', fontWeight: '700', fontSize: '24px' }}>
                         {formatCurrency(totalLiquidCapital)}
                     </span>
                 </div>
@@ -67,8 +69,8 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
 
             {/* Initial Capital Input */}
             <div className="input-group" style={{ marginBottom: '24px' }}>
-                <label className="label">
-                    Первоначальный капитал для целей
+                <label className="label" style={{ fontSize: '16px', fontWeight: '600', color: 'var(--text-main)' }}>
+                    Первоначальный капитал в цели Финансовый резерв
                 </label>
                 <input
                     type="number"
@@ -78,18 +80,9 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
                     value={initialCapital || ''}
                     onChange={(e) => setInitialCapital(Number(e.target.value))}
                     placeholder="0"
-                    style={{ 
-                        width: '100%', 
-                        padding: '14px', 
-                        borderRadius: '12px', 
-                        background: 'rgba(255,255,255,0.05)', 
-                        border: '1px solid var(--border-color)',
-                        color: '#fff',
-                        fontSize: '16px'
-                    }}
                 />
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px' }}>
-                    <span className="hint">Часть средств, которую вы хотите выделить на цели</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', alignItems: 'center' }}>
+                    <span className="hint" style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Начальная сумма для финрезерва</span>
                     {totalLiquidCapital > 0 && (
                         <button
                             type="button"
@@ -98,10 +91,18 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
                                 background: 'transparent',
                                 border: '1px solid var(--primary)',
                                 color: 'var(--primary)',
-                                padding: '4px 12px',
-                                borderRadius: '6px',
+                                padding: '8px 16px',
+                                borderRadius: '8px',
                                 cursor: 'pointer',
-                                fontSize: '12px'
+                                fontSize: '14px',
+                                fontWeight: '500',
+                                transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'rgba(255, 199, 80, 0.1)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'transparent';
                             }}
                         >
                             Все средства
@@ -111,9 +112,9 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
             </div>
 
             {/* Monthly Replenishment Input */}
-            <div className="input-group" style={{ marginBottom: '30px' }}>
-                <label className="label">
-                    Ежемесячное пополнение
+            <div className="input-group" style={{ marginBottom: '40px' }}>
+                <label className="label" style={{ fontSize: '16px', fontWeight: '600', color: 'var(--text-main)' }}>
+                    Ежемесячное пополнение Финансового резерва
                 </label>
                 <input
                     type="number"
@@ -122,46 +123,11 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
                     value={monthlyReplenishment || ''}
                     onChange={(e) => setMonthlyReplenishment(Number(e.target.value))}
                     placeholder="0"
-                    style={{ 
-                        width: '100%', 
-                        padding: '14px', 
-                        borderRadius: '12px', 
-                        background: 'rgba(255,255,255,0.05)', 
-                        border: '1px solid var(--border-color)',
-                        color: '#fff',
-                        fontSize: '16px'
-                    }}
                 />
-                <span className="hint">Сумма, которую вы планируете добавлять ежемесячно к целям</span>
+                <span className="hint" style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '8px', display: 'block' }}>
+                    Сумма, которую вы планируете добавлять ежемесячно к финрезерву (опционально)
+                </span>
             </div>
-
-            {/* Summary */}
-            {(initialCapital > 0 || monthlyReplenishment > 0) && (
-                <div style={{ 
-                    marginBottom: '30px', 
-                    padding: '20px', 
-                    background: 'rgba(16, 185, 129, 0.1)', 
-                    borderRadius: '16px', 
-                    border: '1px solid rgba(16, 185, 129, 0.3)' 
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                        <TrendingUp size={20} color="#10b981" />
-                        <span style={{ fontWeight: '600', color: '#10b981' }}>Итого</span>
-                    </div>
-                    {initialCapital > 0 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                            <span style={{ color: 'var(--text-muted)' }}>Первоначальный капитал:</span>
-                            <span style={{ color: '#fff', fontWeight: '600' }}>{formatCurrency(initialCapital)}</span>
-                        </div>
-                    )}
-                    {monthlyReplenishment > 0 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--text-muted)' }}>Ежемесячное пополнение:</span>
-                            <span style={{ color: '#fff', fontWeight: '600' }}>{formatCurrency(monthlyReplenishment)}</span>
-                        </div>
-                    )}
-                </div>
-            )}
 
             <div style={{ display: 'flex', gap: '16px' }}>
                 <button className="btn-secondary" onClick={onPrev} style={{ flex: 1 }}>Назад</button>

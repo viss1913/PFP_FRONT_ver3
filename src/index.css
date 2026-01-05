@@ -111,6 +111,12 @@ body {
     font-size: 14px;
 }
 
+.hint {
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
 input[type="text"],
 input[type="password"],
 input[type="email"],
