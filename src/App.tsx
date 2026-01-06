@@ -11,7 +11,7 @@ type Page = 'login' | 'list' | 'cjm' | 'edit' | 'result' | 'test'
 
 function App() {
     // Для тестирования: устанавливаем 'test' чтобы сразу видеть страницу результатов
-    const [currentPage, setCurrentPage] = useState<Page>('test')
+    const [currentPage, setCurrentPage] = useState<Page>('login')
     const [calculationResult, setCalculationResult] = useState<any>(null)
     const [newClientData, setNewClientData] = useState<{ fio: string, phone: string, uuid: string } | null>(null);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
