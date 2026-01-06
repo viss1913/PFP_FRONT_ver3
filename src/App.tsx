@@ -3,13 +3,15 @@ import './App.css'
 import LoginPage from './components/LoginPage'
 import CJMFlow from './components/CJMFlow'
 import ResultPage from './components/ResultPage'
+import ResultPageTest from './components/ResultPageTest'
 import ClientList from './components/ClientList'
 import type { Client } from './types/client'
 
-type Page = 'login' | 'list' | 'cjm' | 'edit' | 'result'
+type Page = 'login' | 'list' | 'cjm' | 'edit' | 'result' | 'test'
 
 function App() {
-    const [currentPage, setCurrentPage] = useState<Page>('login')
+    // Для тестирования: устанавливаем 'test' чтобы сразу видеть страницу результатов
+    const [currentPage, setCurrentPage] = useState<Page>('test')
     const [calculationResult, setCalculationResult] = useState<any>(null)
     const [newClientData, setNewClientData] = useState<{ fio: string, phone: string, uuid: string } | null>(null);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -68,6 +70,8 @@ function App() {
                     onRestart={() => setCurrentPage('list')}
                 />
             )}
+
+            {currentPage === 'test' && <ResultPageTest />}
         </div>
     )
 }
