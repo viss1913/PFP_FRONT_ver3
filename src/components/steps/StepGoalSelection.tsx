@@ -189,7 +189,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
             {/* Main Grid: 4 items per row, smaller cards */}
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', // Allows ~4 in a typical desktop view (1000px+)
+                gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', // Standard width for desktop to fit 4
                 gap: '20px'
             }}>
                 {GOAL_GALLERY_ITEMS.map(item => (
@@ -201,12 +201,10 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                             overflow: 'hidden',
                             position: 'relative',
                             cursor: 'pointer',
-                            height: '140px', // Smaller height
-                            background: '#FFC845', // Yellow background from screenshot
+                            height: '140px', // Compact height
                             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                             transition: 'all 0.2s ease',
-                            display: 'flex',
-                            alignItems: 'stretch'
+                            backgroundColor: '#fff' // Base background
                         }}
                         onMouseEnter={(e) => {
                             e.currentTarget.style.transform = 'translateY(-4px)';
@@ -217,41 +215,46 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                             e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)';
                         }}>
 
-                        {/* Left: Text Title */}
+                        {/* Background Image (Full Cover) */}
                         <div style={{
-                            flex: '0 0 45%', // Takes up left side
-                            padding: '16px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'flex-start',
-                            fontWeight: '700',
-                            fontSize: '14px',
-                            color: '#1F2937',
-                            lineHeight: '1.2',
-                            zIndex: 1
+                            position: 'absolute',
+                            top: 0, left: 0, right: 0, bottom: 0,
                         }}>
-                            {item.title}
+                            <img
+                                src={item.image}
+                                alt={item.title}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center right' }}
+                            />
                         </div>
 
-                        {/* Right: Image with Diagonal Clip */}
+                        {/* Yellow Overlay with Diagonal Cut */}
                         <div style={{
-                            flex: 1,
-                            position: 'relative',
-                            marginLeft: '-10px' // Slight overlap to ensure no gaps if needed
+                            position: 'absolute',
+                            top: 0, bottom: 0, left: 0, right: '35%', // Covers left side up to 65%
+                            background: '#FFC845',
+                            clipPath: 'polygon(0 0, 100% 0, 85% 100%, 0% 100%)', // Slanted edge on the right
+                            zIndex: 1,
+                            display: 'flex',
+                            alignItems: 'center', // Vertically center text
+                            padding: '16px',
+                            // Ensure text container extends enough
+                            width: '75%'
                         }}>
                             <div style={{
-                                position: 'absolute',
-                                top: 0, bottom: 0, right: 0, left: 0,
-                                clipPath: 'polygon(25% 0, 100% 0, 100% 100%, 0% 100%)', // Diagonal cut
-                                background: '#fff' // Fallback
+                                fontWeight: '700',
+                                fontSize: '15px',
+                                color: '#1F2937',
+                                lineHeight: '1.2',
+                                width: '80%' // Restrict text width to stay away from the slant
                             }}>
-                                <img
-                                    src={item.image}
-                                    alt={item.title}
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                />
+                                {item.title}
                             </div>
                         </div>
+
+                        {/* Alternative approach if the user wants the yellow block to be a solid block on the left and image on the right without gap:
+                            The above clipPath handles the slant. The image is underneath.
+                            So effectively: Yellow shape ON TOP of Image.
+                         */}
                     </div>
                 ))}
             </div>
