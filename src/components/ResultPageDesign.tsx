@@ -1,5 +1,7 @@
 import React from 'react';
+
 import { X, User, ChevronDown, Plus } from 'lucide-react';
+import { getGoalImage } from '../utils/GoalImages';
 
 interface ResultPageDesignProps {
   calculationData: any;
@@ -204,18 +206,25 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
             marginBottom: '40px',
           }}>
             {/* Карточки целей */}
-            {goalCards.map((goal: GoalResult, index: number) => {
-              // Different gradients based on index or type
-              let bgGradient = 'linear-gradient(108.52deg, #D4145A 0%, #FBB03B 100%)';
-              if (index % 2 !== 0) {
-                bgGradient = 'linear-gradient(108.52deg, #C2185B 0%, #E91E63 100%)';
-              }
+            {goalCards.map((goal: GoalResult, _index: number) => {
+
+              // Get image for the goal
+              // We need goal_type_id. Let's try to get it from the result if available, or fallback.
+              // The API response for calculation might strictly not have goal_type_id at the top level of goal result?
+              // Let's assume goalResult has it or we infer it.
+              // Taking a safe bet: if goalType is a string name, we might not match IDs well.
+              // But getGoalImage can also take a Name.
+
+              const imageSrc = getGoalImage(goal.name, 0); // Passing 0 as ID if unknown, relies on Name match first.
 
               return (
                 <div
                   key={goal.id}
                   style={{
-                    background: bgGradient,
+                    // Use image as background with a dark gradient overlay for text readability
+                    backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.6) 100%), url(${imageSrc})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
                     borderRadius: '24px',
                     padding: '32px',
                     color: '#fff',
@@ -227,20 +236,10 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                     overflow: 'hidden'
                   }}
                 >
-                  {/* Decorative circle/image placeholder */}
-                  <div style={{
-                    position: 'absolute',
-                    right: '-20px',
-                    bottom: '-20px',
-                    width: '180px',
-                    height: '180px',
-                    background: 'radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%)',
-                    borderRadius: '50%',
-                    pointerEvents: 'none'
-                  }} />
+                  {/* Decorative circle/image placeholder - REMOVED as we have real image now */}
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px', position: 'relative', zIndex: 1 }}>
-                    <h3 style={{ fontSize: '24px', fontWeight: '700', margin: 0, lineHeight: '1.2' }}>{goal.name}</h3>
+                    <h3 style={{ fontSize: '24px', fontWeight: '700', margin: 0, lineHeight: '1.2', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>{goal.name}</h3>
                     <button
                       style={{
                         background: 'rgba(255, 255, 255, 0.2)',
@@ -253,7 +252,8 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                         justifyContent: 'center',
                         cursor: 'pointer',
                         color: '#fff',
-                        flexShrink: 0
+                        flexShrink: 0,
+                        backdropFilter: 'blur(4px)'
                       }}
                     >
                       <X size={16} />
@@ -262,24 +262,25 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', position: 'relative', zIndex: 1 }}>
                     <div>
-                      <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>Стоимость цели</div>
-                      <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(goal.targetAmount)}</div>
+                      <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Стоимость цели</div>
+                      <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{formatCurrency(goal.targetAmount)}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>Первоначальный капитал</div>
-                      <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(goal.initialCapital)}</div>
+                      <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Первоначальный капитал</div>
+                      <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{formatCurrency(goal.initialCapital)}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>Ежемесячное пополнение</div>
-                      <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(goal.monthlyPayment)}</div>
+                      <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Ежемесячное пополнение</div>
+                      <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{formatCurrency(goal.monthlyPayment)}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>Срок достижения</div>
-                      <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatMonths(goal.termMonths)}</div>
+                      <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Срок достижения</div>
+                      <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{formatMonths(goal.termMonths)}</div>
                     </div>
                   </div>
                 </div>
               );
+
             })}
 
             {/* Карточка Налоговое планирование */}
