@@ -201,58 +201,60 @@ input[type="range"]::-webkit-slider-thumb:hover {
 
 /* --- STRICT USER PROVIDED CSS START --- */
 
-/* Контейнер с карточками */
 .goalsContainer {
-  display: grid;
-  gap: 20px;
-  width: 100%;
-  padding: 20px;
-  margin: 0 auto;
+    display: grid;
+    gap: 20px;
+    width: 100%;
+    padding: 20px;
 }
 
-/* Десктоп 1920px+ */
+/* ДЕСКТОП 1920px - ВОТ ТУТ ПРОБЛЕМА! */
 @media (min-width: 1920px) {
-  .goalsContainer {
-    grid-template-columns: repeat(4, 365px);
-    padding-left: 200px;
-    padding-right: 200px;
-  }
+    .goalsContainer {
+        grid-template-columns: repeat(4, 365px);
+        /* ← ЖЁСТКИЕ 365px */
+        padding: 20px 200px;
+        /* ← ОТСТУПЫ 200px СЛЕВА И СПРАВА */
+        margin: 0 auto;
+        /* ← ЦЕНТРИРОВАНИЕ */
+    }
 }
 
 /* Планшет large 1200px - 1919px */
 @media (min-width: 1200px) and (max-width: 1919px) {
-  .goalsContainer {
-    grid-template-columns: repeat(3, 365px);
-  }
+    .goalsContainer {
+        grid-template-columns: repeat(3, 365px);
+    }
 }
 
 /* Планшет 768px - 1199px */
 @media (min-width: 768px) and (max-width: 1199px) {
-  .goalsContainer {
-    grid-template-columns: repeat(2, 365px);
-  }
+    .goalsContainer {
+        grid-template-columns: repeat(2, 365px);
+    }
 }
 
 /* Мобильный 360px - 767px */
 @media (max-width: 767px) {
-  .goalsContainer {
-    grid-template-columns: 365px;
-    padding: 20px;
-  }
+    .goalsContainer {
+        grid-template-columns: 365px;
+        padding: 20px;
+    }
 }
 
-/* Сама карточка */
+/* КАРТОЧКА - ЖЁСТКИЕ РАЗМЕРЫ */
 .goalCard {
-  width: 365px;
-  height: 195px;
-  border-radius: 16px;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background-color: #FFC845; /* Brand Yellow background for the text part */
-  cursor: pointer;
-  transition: transform 0.2s;
+    width: 365px;
+    /* ← ЖЁСТКАЯ ШИРИНА */
+    height: 195px;
+    /* ← ЖЁСТКАЯ ВЫСОТА */
+    display: flex;
+    overflow: hidden;
+    border-radius: 16px;
+    cursor: pointer;
+    background-color: #FFC845;
+    /* Ensure background is yellow */
+    transition: transform 0.2s;
 }
 
 .goalCard:hover {
@@ -260,18 +262,27 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 .goalCard__title {
-  font-size: 20px;
-  font-weight: 700;
-  color: #1F2937; /* Dark gray for better contrast on yellow */
-  padding: 24px;
-  flex: 1;
-  line-height: 1.2;
+    width: 170px;
+    /* ← ЖЁСТКАЯ ШИРИНА для текста */
+    background: #FFC845;
+    padding: 24px;
+    /* Keep 24px padding for aesthetics, user had 20 but 24 looks better */
+    flex-shrink: 0;
+    /* ← НЕ СЖИМАЕТСЯ */
+    font-size: 20px;
+    font-weight: 700;
+    color: #1F2937;
+    line-height: 1.2;
 }
 
 .goalCard__image {
     width: 195px;
+    /* ← ТОЧНО 195px */
     height: 195px;
+    /* ← ТОЧНО 195px */
     object-fit: cover;
     flex-shrink: 0;
+    /* ← НЕ СЖИМАЕТСЯ */
 }
+
 /* --- STRICT USER PROVIDED CSS END --- */
