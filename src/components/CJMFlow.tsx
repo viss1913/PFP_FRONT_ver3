@@ -81,7 +81,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
 
             // Construct Goals Payload - фильтруем НСЖ (id=5), не отправляем на расчет
             let goalsToProcess = (data.goals || []).filter(g => g.goal_type_id !== 5);
-            
+
             // Автоматически добавляем FIN_RESERVE (id=7), если указаны initialCapital или monthlyReplenishment в StepFinReserve
             // и еще нет цели FIN_RESERVE в списке
             const hasFinReserveGoal = goalsToProcess.some(g => g.goal_type_id === 7);
@@ -95,7 +95,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     risk_profile: 'CONSERVATIVE'
                 });
             }
-            
+
             const goalsPayload = goalsToProcess.map(g => {
                 // Определяем типы целей сначала
                 const isRent = g.goal_type_id === 8;
@@ -103,26 +103,26 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                 const isInvestment = g.goal_type_id === 3;
                 const isPension = g.goal_type_id === 1; // PENSION
                 const isPassiveIncome = g.goal_type_id === 2; // PASSIVE_INCOME
-                
+
                 // Only for FIN_RESERVE (id=7) and RENT (id=8), use initial_capital from goal itself
                 // For other goals, бэк сам распределит из активов - не передаем initial_capital
                 const initialCapital = (isFinReserve || isRent)
-                    ? (g.initial_capital || 0) 
+                    ? (g.initial_capital || 0)
                     : undefined; // Не передаем для остальных целей - бэк сам распределит
-                
+
                 // monthly_replenishment передаем только для Investment (id=3) и FIN_RESERVE (id=7)
                 // Для остальных целей (PASSIVE_INCOME, PENSION, RENT и др.) не передаем
                 const monthlyReplenishment = (isFinReserve || isInvestment)
                     ? (g.monthly_replenishment !== undefined ? g.monthly_replenishment : (data.monthlyReplenishment || undefined))
                     : undefined;
-                
+
                 const payload: any = {
                     goal_type_id: g.goal_type_id,
                     name: g.name,
                     risk_profile: (g.risk_profile || data.riskProfile || 'BALANCED') as "CONSERVATIVE" | "BALANCED" | "AGGRESSIVE",
                     inflation_rate: g.inflation_rate || 10
                 };
-                
+
                 // Для PENSION и PASSIVE_INCOME: target_amount = desired_monthly_income, term_months не нужен
                 if (isPension || isPassiveIncome) {
                     payload.target_amount = g.desired_monthly_income || 0;
@@ -135,17 +135,17 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     payload.target_amount = isRent ? (g.initial_capital || 0) : (isFinReserve ? (g.initial_capital || 0) : (g.insurance_limit || g.target_amount || 0));
                     payload.term_months = isRent ? 12 : (isFinReserve ? 12 : (g.term_months || 120));
                 }
-                
+
                 // Только для FIN_RESERVE и RENT передаем initial_capital
                 if (initialCapital !== undefined) {
                     payload.initial_capital = initialCapital;
                 }
-                
+
                 // Только для FIN_RESERVE (id=7) и Investment (id=3) передаем monthly_replenishment
                 if (monthlyReplenishment !== undefined) {
                     payload.monthly_replenishment = monthlyReplenishment;
                 }
-                
+
                 return payload;
             });
 
@@ -258,15 +258,27 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
         }
     }, [clientId]);
 
+    // Dynamic styles based on step
+    const isWideStep = step === 2; // Goal Selection needs full width
+    const containerStyle: React.CSSProperties = isWideStep ? {
+        maxWidth: '100%',
+        margin: '0 auto',
+        padding: '40px 200px' // Requested padding for wide view
+    } : {
+        maxWidth: '800px',
+        margin: '0 auto',
+        padding: '40px 20px'
+    };
+
     return (
-        <div style={{ maxWidth: '800px', margin: '0 auto', padding: '40px 20px' }}>
+        <div style={containerStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '40px' }}>
                 {onBack && (
                     <div
                         onClick={onBack}
                         style={{
                             position: 'absolute',
-                            left: '20px',
+                            left: isWideStep ? '40px' : '20px', // Adjust back button for wide layout
                             top: '40px',
                             cursor: 'pointer',
                             color: 'var(--text-muted)'

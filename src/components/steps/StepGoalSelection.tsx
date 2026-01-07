@@ -186,11 +186,11 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                 </div>
             )}
 
-            {/* Main Grid: 4 items per row, smaller cards */}
+            {/* Main Grid: 4 items per row, 365px each */}
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', // Decreased width to fit 4 cols in main area (~900px available)
-                gap: '20px'
+                gridTemplateColumns: 'repeat(auto-fill, minmax(365px, 1fr))', // Requested fixed width (responsive downwards)
+                gap: '20px' // Requested gap
             }}>
                 {GOAL_GALLERY_ITEMS.map(item => (
                     <div
@@ -201,7 +201,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                             overflow: 'hidden',
                             position: 'relative',
                             cursor: 'pointer',
-                            height: '140px',
+                            height: '195px', // Requested height
                             backgroundColor: '#fff',
                             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                             transition: 'all 0.2s ease',
@@ -231,17 +231,17 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                         <div style={{
                             position: 'absolute',
                             top: 0, bottom: 0, left: 0,
-                            width: '55%', // Reduced width (moved slant to left)
+                            width: '55%',
                             background: '#FFC845',
                             clipPath: 'polygon(0 0, 100% 0, 85% 100%, 0% 100%)', // Slant
                             zIndex: 1,
                             display: 'flex',
                             alignItems: 'center',
-                            padding: '16px',
+                            padding: '24px', // Increased padding for bigger card
                         }}>
                             <div style={{
                                 fontWeight: '700',
-                                fontSize: '14px', // Slightly smaller text for 4-col
+                                fontSize: '18px', // Increased font for bigger card
                                 color: '#1F2937',
                                 lineHeight: '1.2',
                                 width: '90%'
