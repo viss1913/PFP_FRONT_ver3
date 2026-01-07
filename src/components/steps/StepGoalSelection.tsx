@@ -186,11 +186,12 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                 </div>
             )}
 
-            {/* Main Grid: 4 items per row, 365px each */}
+            {/* Main Grid: Fixed 365px cards, 20px gap, Centered */}
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(365px, 1fr))', // Requested fixed width (responsive downwards)
-                gap: '20px' // Requested gap
+                gridTemplateColumns: 'repeat(auto-fill, 365px)', // STRICT 365px width
+                gap: '20px',
+                justifyContent: 'center' // Center in the container (if > row width)
             }}>
                 {GOAL_GALLERY_ITEMS.map(item => (
                     <div

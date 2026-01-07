@@ -263,7 +263,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
     const containerStyle: React.CSSProperties = isWideStep ? {
         maxWidth: '100%',
         margin: '0 auto',
-        padding: '40px 200px' // Requested padding for wide view
+        padding: '40px 200px' // Approved: 200px from screen edge
     } : {
         maxWidth: '800px',
         margin: '0 auto',
