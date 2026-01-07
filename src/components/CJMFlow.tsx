@@ -262,9 +262,8 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
     const isWideStep = step === 2; // Goal Selection needs full width
     const containerStyle: React.CSSProperties = isWideStep ? {
         width: '100%',
-        maxWidth: '100%',
         margin: '0',
-        padding: '40px 0' // Remove strict padding, let children handle it via CSS
+        padding: '0' // Strictly ZERO padding here, handled by .goalsContainer
     } : {
         maxWidth: '800px',
         margin: '0 auto',
