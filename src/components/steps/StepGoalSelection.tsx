@@ -189,7 +189,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
             {/* Main Grid: 4 items per row, smaller cards */}
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', // Standard width for desktop to fit 4
+                gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', // Decreased width to fit 4 cols in main area (~900px available)
                 gap: '20px'
             }}>
                 {GOAL_GALLERY_ITEMS.map(item => (
@@ -201,10 +201,10 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                             overflow: 'hidden',
                             position: 'relative',
                             cursor: 'pointer',
-                            height: '140px', // Compact height
+                            height: '140px',
+                            backgroundColor: '#fff',
                             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                             transition: 'all 0.2s ease',
-                            backgroundColor: '#fff' // Base background
                         }}
                         onMouseEnter={(e) => {
                             e.currentTarget.style.transform = 'translateY(-4px)';
@@ -230,31 +230,25 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                         {/* Yellow Overlay with Diagonal Cut */}
                         <div style={{
                             position: 'absolute',
-                            top: 0, bottom: 0, left: 0, right: '35%', // Covers left side up to 65%
+                            top: 0, bottom: 0, left: 0,
+                            width: '55%', // Reduced width (moved slant to left)
                             background: '#FFC845',
-                            clipPath: 'polygon(0 0, 100% 0, 85% 100%, 0% 100%)', // Slanted edge on the right
+                            clipPath: 'polygon(0 0, 100% 0, 85% 100%, 0% 100%)', // Slant
                             zIndex: 1,
                             display: 'flex',
-                            alignItems: 'center', // Vertically center text
+                            alignItems: 'center',
                             padding: '16px',
-                            // Ensure text container extends enough
-                            width: '75%'
                         }}>
                             <div style={{
                                 fontWeight: '700',
-                                fontSize: '15px',
+                                fontSize: '14px', // Slightly smaller text for 4-col
                                 color: '#1F2937',
                                 lineHeight: '1.2',
-                                width: '80%' // Restrict text width to stay away from the slant
+                                width: '90%'
                             }}>
                                 {item.title}
                             </div>
                         </div>
-
-                        {/* Alternative approach if the user wants the yellow block to be a solid block on the left and image on the right without gap:
-                            The above clipPath handles the slant. The image is underneath.
-                            So effectively: Yellow shape ON TOP of Image.
-                         */}
                     </div>
                 ))}
             </div>
