@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { User, Phone, Fingerprint } from 'lucide-react';
-import { CJMData } from '../CJMFlow';
+import type { CJMData } from '../CJMFlow';
 
 interface StepClientDataProps {
     data: CJMData;

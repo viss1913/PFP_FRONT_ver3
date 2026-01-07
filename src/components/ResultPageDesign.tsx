@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { X, User, ChevronDown, Plus } from 'lucide-react';
+import { X, Plus } from 'lucide-react';
 import { getGoalImage } from '../utils/GoalImages';
 
 interface ResultPageDesignProps {

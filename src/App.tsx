@@ -26,8 +26,8 @@ function App() {
         setCurrentPage('result')
     }
 
-    const handleNewClient = (data: { fio: string, phone: string, uuid: string }) => {
-        setNewClientData(data);
+    const handleNewClient = () => {
+        setNewClientData(null); // No data from list anymore, starts fresh in CJM
         setSelectedClient(null); // Clear selected client if any
         setCurrentPage('cjm');
     }

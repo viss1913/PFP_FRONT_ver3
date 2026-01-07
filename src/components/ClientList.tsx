@@ -6,7 +6,7 @@ import type { Client } from '../types/client';
 
 interface ClientListProps {
     onSelectClient: (client: Client) => void;
-    onNewClient: (data: { fio: string, phone: string, uuid: string }) => void;
+    onNewClient: () => void;
     embedded?: boolean;
     style?: React.CSSProperties;
 }
@@ -18,7 +18,6 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
     const [page, setPage] = useState(1);
     const [total, setTotal] = useState(0);
     const [limit] = useState(10);
-    const [isModalOpen, setIsModalOpen] = useState(false);
 
     // Debounce search
     useEffect(() => {
@@ -83,7 +82,7 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
                 <button
                     className="btn-primary"
                     style={{ width: 'auto', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px' }}
-                    onClick={() => setIsModalOpen(true)}
+                    onClick={onNewClient}
                 >
                     <Plus size={20} />
                     Новый клиент
