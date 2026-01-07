@@ -19,34 +19,28 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
     const goals = data.goals || [];
 
     // State for the "Add Goal" Modal
+    // Default constants
+    const DEFAULT_TARGET_AMOUNT = 3000000;
+    const DEFAULT_TERM_YEARS = 5;
+
+    // State for modal
     const [selectedGalleryItem, setSelectedGalleryItem] = useState<typeof GOAL_GALLERY_ITEMS[0] | null>(null);
-    const [targetAmount, setTargetAmount] = useState<number>(0);
-    const [termMonths, setTermMonths] = useState<number>(120); // Default 10 years
+    const [targetAmount, setTargetAmount] = useState<number>(DEFAULT_TARGET_AMOUNT);
+    const [termMonths, setTermMonths] = useState<number>(DEFAULT_TERM_YEARS * 12);
 
     // Handle clicking a card in the gallery
     const handleCardClick = (item: typeof GOAL_GALLERY_ITEMS[0]) => {
         setSelectedGalleryItem(item);
-        // Reset defaults based on type
-        if (item.typeId === 1 || item.typeId === 2 || item.typeId === 8) {
-            // Pension / Passive Income / Rent
-            // These might need different logic (monthly income vs target amount)
-            // For MVP simplifiction, let's stick to Target Amount logic for all, 
-            // OR adapt the modal if it's passive income.
-            // As per instructions, "Passive Income" usually needs "Desired Monthly Income".
-            // But let's start with a generic "Target Amount" slider for visually consistent UI first.
-            setTargetAmount(10000000);
-            setTermMonths(120);
-        } else {
-            setTargetAmount(5000000);
-            setTermMonths(60);
-        }
+        // Reset defaults when opening new goal
+        setTargetAmount(DEFAULT_TARGET_AMOUNT);
+        setTermMonths(DEFAULT_TERM_YEARS * 12);
     };
 
     const handleAddGoal = () => {
         if (!selectedGalleryItem) return;
 
         const newGoal: ClientGoal = {
-            goal_type_id: selectedGalleryItem.typeId,
+            goal_type_id: selectedGalleryItem.typeId, // Use selectedGalleryItem.typeId directly
             name: selectedGalleryItem.title,
             target_amount: targetAmount,
             term_months: termMonths,
@@ -192,25 +186,27 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                 </div>
             )}
 
-            {/* Main Grid */}
+            {/* Main Grid: 4 items per row, smaller cards */}
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                gap: '24px'
+                gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', // Allows ~4 in a typical desktop view (1000px+)
+                gap: '20px'
             }}>
                 {GOAL_GALLERY_ITEMS.map(item => (
                     <div
                         key={item.id}
                         onClick={() => handleCardClick(item)}
                         style={{
-                            borderRadius: '24px',
+                            borderRadius: '16px',
                             overflow: 'hidden',
                             position: 'relative',
                             cursor: 'pointer',
-                            height: '180px',
+                            height: '140px', // Smaller height
+                            background: '#FFC845', // Yellow background from screenshot
                             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                             transition: 'all 0.2s ease',
-                            border: '1px solid rgba(0,0,0,0.05)'
+                            display: 'flex',
+                            alignItems: 'stretch'
                         }}
                         onMouseEnter={(e) => {
                             e.currentTarget.style.transform = 'translateY(-4px)';
@@ -220,12 +216,42 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                             e.currentTarget.style.transform = 'translateY(0)';
                             e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)';
                         }}>
-                        <img
-                            src={item.image}
-                            alt={item.title}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                        {/* No overlay, image is the card */}
+
+                        {/* Left: Text Title */}
+                        <div style={{
+                            flex: '0 0 45%', // Takes up left side
+                            padding: '16px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'flex-start',
+                            fontWeight: '700',
+                            fontSize: '14px',
+                            color: '#1F2937',
+                            lineHeight: '1.2',
+                            zIndex: 1
+                        }}>
+                            {item.title}
+                        </div>
+
+                        {/* Right: Image with Diagonal Clip */}
+                        <div style={{
+                            flex: 1,
+                            position: 'relative',
+                            marginLeft: '-10px' // Slight overlap to ensure no gaps if needed
+                        }}>
+                            <div style={{
+                                position: 'absolute',
+                                top: 0, bottom: 0, right: 0, left: 0,
+                                clipPath: 'polygon(25% 0, 100% 0, 100% 100%, 0% 100%)', // Diagonal cut
+                                background: '#fff' // Fallback
+                            }}>
+                                <img
+                                    src={item.image}
+                                    alt={item.title}
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                />
+                            </div>
+                        </div>
                     </div>
                 ))}
             </div>
@@ -247,7 +273,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                         background: '#fff',
                         borderRadius: '32px',
                         width: '100%',
-                        maxWidth: '540px',
+                        maxWidth: '500px',
                         padding: '40px',
                         position: 'relative',
                         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
@@ -281,7 +307,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                             </div>
                             <div>
                                 <div style={{ fontSize: '14px', color: '#6B7280', fontWeight: '600', textTransform: 'uppercase', marginBottom: '4px' }}>Новая цель</div>
-                                <h2 style={{ fontSize: '32px', fontWeight: '800', margin: 0, lineHeight: 1.1 }}>{selectedGalleryItem.title}</h2>
+                                <h2 style={{ fontSize: '28px', fontWeight: '800', margin: 0, lineHeight: 1.1 }}>{selectedGalleryItem.title}</h2>
                             </div>
                         </div>
 
@@ -293,7 +319,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                             </div>
                             <input
                                 type="range"
-                                min="100000" max="100000000" step="100000"
+                                min="100000" max="50000000" step="100000"
                                 value={targetAmount}
                                 onChange={(e) => setTargetAmount(Number(e.target.value))}
                                 style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
