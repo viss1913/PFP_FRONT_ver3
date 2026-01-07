@@ -7,9 +7,11 @@ import NewClientModal from './NewClientModal';
 interface ClientListProps {
     onSelectClient: (client: Client) => void;
     onNewClient: (data: { fio: string, phone: string, uuid: string }) => void;
+    embedded?: boolean;
+    style?: React.CSSProperties;
 }
 
-const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient }) => {
+const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, embedded, style }) => {
     const [clients, setClients] = useState<Client[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -66,7 +68,12 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient }) 
     };
 
     return (
-        <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px' }}>
+        <div style={{
+            maxWidth: embedded ? '100%' : '1000px',
+            margin: embedded ? '0' : '0 auto',
+            padding: embedded ? '0' : '20px',
+            ...style
+        }}>
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
                 <div>

@@ -4,7 +4,7 @@ import LoginPage from './components/LoginPage'
 import CJMFlow from './components/CJMFlow'
 import ResultPage from './components/ResultPage'
 import ResultPageTest from './components/ResultPageTest'
-import ClientList from './components/ClientList'
+import AiCrmPage from './components/AiCrmPage'
 import type { Client } from './types/client'
 
 type Page = 'login' | 'list' | 'cjm' | 'edit' | 'result' | 'test'
@@ -42,7 +42,7 @@ function App() {
             {currentPage === 'login' && <LoginPage onLoginSuccess={handleLoginSuccess} />}
 
             {currentPage === 'list' && (
-                <ClientList
+                <AiCrmPage
                     onSelectClient={handleSelectClient}
                     onNewClient={handleNewClient}
                 />
