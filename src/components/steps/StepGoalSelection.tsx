@@ -72,20 +72,19 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
     const formatCurrency = (val: number) => new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(val);
 
     return (
-        <div style={{ display: 'flex', gap: '40px', minHeight: '600px' }}>
-            {/* Sidebar with Avatar */}
-            <aside style={{
-                width: '300px',
-                background: '#fff',
-                borderRadius: '24px',
-                padding: '32px',
+        <div style={{ paddingBottom: '40px' }}>
+            {/* Header Section: Avatar + Title */}
+            <div style={{
                 display: 'flex',
-                flexDirection: 'column',
+                flexDirection: 'row',
+                alignItems: 'flex-start',
                 justifyContent: 'space-between',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.05)'
+                marginBottom: '40px',
+                gap: '40px'
             }}>
-                <div>
-                    <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
+                {/* Left: Avatar & Intro */}
+                <div style={{ flex: '0 0 300px' }}>
+                    <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
                         <div style={{
                             width: '48px', height: '48px',
                             borderRadius: '50%', background: '#F3F4F6',
@@ -98,183 +97,230 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                             <p style={{ margin: 0, fontSize: '14px', color: '#6B7280' }}>Финансовый советник</p>
                         </div>
                     </div>
-
                     <div style={{
-                        background: '#F9FAFB',
-                        padding: '16px',
-                        borderRadius: '16px',
-                        fontSize: '14px',
-                        lineHeight: '1.5',
-                        color: '#374151'
+                        background: '#fff',
+                        borderRadius: '16px', // Rounded bubble
+                        borderTopLeftRadius: '4px',
+                        padding: '24px',
+                        fontSize: '15px',
+                        lineHeight: '1.6',
+                        color: '#374151',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                        position: 'relative'
                     }}>
-                        Привет! 👋 <br /><br />
-                        Давай определим твои финансовые цели. Выбери из списка то, что для тебя важно.<br /><br />
-                        Я помогу рассчитать, сколько нужно откладывать, чтобы достичь их.
+                        Привет! 👋 <br />
+                        Давай определим твои финансовые цели. Выбери из списка то, что для тебя важно.
                     </div>
                 </div>
 
-                {/* Selected Goals Summary (Mini Basket) */}
-                <div>
-                    <h4 style={{ fontSize: '14px', fontWeight: '600', color: '#9CA3AF', textTransform: 'uppercase', marginBottom: '16px' }}>
-                        Выбранные цели ({goals.length})
-                    </h4>
+                {/* Right: Title & Context */}
+                <div style={{ flex: 1, paddingTop: '10px' }}>
+                    <h2 style={{ fontSize: '48px', fontWeight: '800', margin: '0 0 24px 0', lineHeight: 1.1 }}>
+                        Чего вы <br />хотите достичь?
+                    </h2>
+                </div>
+            </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
-                        {goals.length === 0 && <div style={{ fontSize: '13px', color: '#D1D5DB' }}>Пока ничего не выбрано</div>}
+            {/* Selected Goals (Moved to TOP as requested) */}
+            {goals.length > 0 && (
+                <div style={{
+                    marginBottom: '32px',
+                    padding: '24px',
+                    background: '#fff',
+                    borderRadius: '24px',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.05)'
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                        <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '700' }}>Выбранные цели ({goals.length})</h4>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                                className="btn-secondary"
+                                onClick={onPrev}
+                                style={{ width: '40px', height: '40px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px' }}
+                            >
+                                <ChevronLeft size={20} />
+                            </button>
+                            <button
+                                className="btn-primary"
+                                onClick={onNext}
+                                style={{ padding: '0 24px', height: '40px', borderRadius: '12px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                            >
+                                Далее <ArrowRight size={16} />
+                            </button>
+                        </div>
+                    </div>
 
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                         {goals.map((g, idx) => (
                             <div key={idx} style={{
-                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                padding: '8px 12px', background: '#F3F4F6', borderRadius: '12px', fontSize: '13px'
+                                display: 'flex', alignItems: 'center', gap: '12px',
+                                padding: '12px 16px',
+                                background: '#F3F4F6',
+                                borderRadius: '12px',
+                                fontSize: '14px',
+                                fontWeight: '500'
                             }}>
-                                <div style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '180px' }}>
-                                    {g.name}
-                                </div>
-                                <button onClick={() => removeGoal(idx)} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '4px' }}>
-                                    <X size={14} color="#9CA3AF" />
+                                <span>{g.name}</span>
+                                <span style={{ color: '#6B7280', fontWeight: '400' }}>| {formatCurrency(g.target_amount || 0)}</span>
+                                <button
+                                    onClick={() => removeGoal(idx)}
+                                    style={{
+                                        border: 'none', background: 'rgba(0,0,0,0.05)',
+                                        borderRadius: '50%', width: '20px', height: '20px',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        cursor: 'pointer', marginLeft: '4px'
+                                    }}
+                                >
+                                    <X size={12} color="#6B7280" />
                                 </button>
                             </div>
                         ))}
                     </div>
-
-
-                    <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
-                        <button
-                            className="btn-secondary"
-                            onClick={onPrev}
-                            style={{
-                                width: '48px', height: '48px',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                padding: 0
-                            }}
-                        >
-                            <ChevronLeft size={20} />
-                        </button>
-                        <button
-                            className="btn-primary"
-                            onClick={onNext}
-                            disabled={goals.length === 0}
-                            style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
-                        >
-                            Далее <ArrowRight size={16} />
-                        </button>
-                    </div>
                 </div>
-            </aside>
+            )}
+
+            {/* If no goals selected, show Back button here (since it's not in the top bar) */}
+            {goals.length === 0 && (
+                <div style={{ marginBottom: '24px' }}>
+                    <button
+                        className="btn-text"
+                        onClick={onPrev}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6B7280' }}
+                    >
+                        <ChevronLeft size={16} /> Назад
+                    </button>
+                </div>
+            )}
 
             {/* Main Grid */}
-            <main style={{ flex: 1 }}>
-                <h2 className="step-title" style={{ marginBottom: '32px' }}>Чего вы хотите достичь?</h2>
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                gap: '24px'
+            }}>
+                {GOAL_GALLERY_ITEMS.map(item => (
+                    <div
+                        key={item.id}
+                        onClick={() => handleCardClick(item)}
+                        style={{
+                            borderRadius: '24px',
+                            overflow: 'hidden',
+                            position: 'relative',
+                            cursor: 'pointer',
+                            height: '180px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                            transition: 'all 0.2s ease',
+                            border: '1px solid rgba(0,0,0,0.05)'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-4px)';
+                            e.currentTarget.style.boxShadow = '0 12px 20px -5px rgba(0, 0, 0, 0.15)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)';
+                        }}>
+                        <img
+                            src={item.image}
+                            alt={item.title}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                        {/* No overlay, image is the card */}
+                    </div>
+                ))}
+            </div>
 
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-                    gap: '24px',
-                    paddingBottom: '40px'
-                }}>
-                    {GOAL_GALLERY_ITEMS.map(item => (
-                        <div
-                            key={item.id}
-                            onClick={() => handleCardClick(item)}
-                            style={{
-                                borderRadius: '20px',
-                                overflow: 'hidden',
-                                position: 'relative',
-                                cursor: 'pointer',
-                                height: '160px',
-                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                                transition: 'transform 0.2s, box-shadow 0.2s'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.transform = 'translateY(-4px)';
-                                e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.transform = 'translateY(0)';
-                                e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)';
-                            }}
-                        >
-                            <img
-                                src={item.image}
-                                alt={item.title}
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            />
-                            {/* Overlay is baked into image design mostly, but let's assume we need no text overlay if image has text. 
-                                The Figma images HAVE text. So we don't overlay HTML text. */}
-                        </div>
-                    ))}
-                </div>
-            </main>
-
-            {/* Modal / Overlay for Adding Goal */}
+            {/* Modal / Overlay for Adding Goal - FIXED POSITIONING */}
             {selectedGalleryItem && (
                 <div style={{
-                    position: 'fixed', inset: 0, zIndex: 100,
-                    backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    position: 'fixed',
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    zIndex: 9999, // Ensure it's on top
+                    backgroundColor: 'rgba(0,0,0,0.6)',
+                    backdropFilter: 'blur(8px)',
+                    display: 'flex',
+                    alignItems: 'center', // Vertically center
+                    justifyContent: 'center', // Horizontally center
+                    padding: '24px'
                 }}>
                     <div style={{
                         background: '#fff',
-                        borderRadius: '24px',
-                        width: '500px',
-                        maxWidth: '90%',
-                        padding: '32px',
+                        borderRadius: '32px',
+                        width: '100%',
+                        maxWidth: '540px',
+                        padding: '40px',
                         position: 'relative',
-                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                        animation: 'scaleIn 0.2s ease-out'
                     }}>
+                        <style>{`
+                            @keyframes scaleIn {
+                                from { opacity: 0; transform: scale(0.95); }
+                                to { opacity: 1; transform: scale(1); }
+                            }
+                        `}</style>
+
                         <button
                             onClick={() => setSelectedGalleryItem(null)}
-                            style={{ position: 'absolute', top: '24px', right: '24px', border: 'none', background: 'none', cursor: 'pointer' }}
+                            style={{
+                                position: 'absolute', top: '24px', right: '24px',
+                                border: 'none', background: '#F3F4F6',
+                                borderRadius: '50%', width: '40px', height: '40px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                cursor: 'pointer', transition: 'background 0.2s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#E5E7EB'}
+                            onMouseLeave={e => e.currentTarget.style.background = '#F3F4F6'}
                         >
-                            <X size={24} color="#9CA3AF" />
+                            <X size={20} color="#374151" />
                         </button>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
-                            <div style={{ width: '64px', height: '64px', borderRadius: '12px', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '40px' }}>
+                            <div style={{ width: '80px', height: '80px', borderRadius: '20px', overflow: 'hidden', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
                                 <img src={selectedGalleryItem.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             </div>
                             <div>
-                                <div style={{ fontSize: '13px', color: '#9CA3AF', fontWeight: '600', textTransform: 'uppercase' }}>Новая цель</div>
-                                <h2 style={{ fontSize: '24px', fontWeight: '700', margin: 0 }}>{selectedGalleryItem.title}</h2>
+                                <div style={{ fontSize: '14px', color: '#6B7280', fontWeight: '600', textTransform: 'uppercase', marginBottom: '4px' }}>Новая цель</div>
+                                <h2 style={{ fontSize: '32px', fontWeight: '800', margin: 0, lineHeight: 1.1 }}>{selectedGalleryItem.title}</h2>
                             </div>
                         </div>
 
                         {/* Sliders */}
-                        <div style={{ marginBottom: '24px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                <label style={{ fontWeight: '500' }}>Стоимость цели</label>
-                                <span style={{ fontWeight: '700', color: '#E91E63' }}>{formatCurrency(targetAmount)}</span>
+                        <div style={{ marginBottom: '32px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'baseline' }}>
+                                <label style={{ fontWeight: '600', fontSize: '16px', color: '#374151' }}>Стоимость цели</label>
+                                <span style={{ fontWeight: '800', fontSize: '20px', color: '#E91E63' }}>{formatCurrency(targetAmount)}</span>
                             </div>
                             <input
                                 type="range"
                                 min="100000" max="100000000" step="100000"
                                 value={targetAmount}
                                 onChange={(e) => setTargetAmount(Number(e.target.value))}
-                                style={{ width: '100%', accentColor: '#E91E63' }}
+                                style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
                             />
                         </div>
 
-                        <div style={{ marginBottom: '32px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                <label style={{ fontWeight: '500' }}>Срок (лет)</label>
-                                <span style={{ fontWeight: '700', color: '#E91E63' }}>{Math.floor(termMonths / 12)} лет</span>
+                        <div style={{ marginBottom: '40px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'baseline' }}>
+                                <label style={{ fontWeight: '600', fontSize: '16px', color: '#374151' }}>Срок (лет)</label>
+                                <span style={{ fontWeight: '800', fontSize: '20px', color: '#E91E63' }}>{Math.floor(termMonths / 12)} лет</span>
                             </div>
                             <input
                                 type="range"
                                 min="1" max="50" step="1"
                                 value={termMonths / 12}
                                 onChange={(e) => setTermMonths(Number(e.target.value) * 12)}
-                                style={{ width: '100%', accentColor: '#E91E63' }}
+                                style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
                             />
-                            <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '4px' }}>
+                            <div style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '8px', textAlign: 'right' }}>
                                 {termMonths} месяцев
                             </div>
                         </div>
 
                         <button
-                            className="btn-primary" // Assuming global CSS for this class exists from previous components
+                            className="btn-primary"
                             onClick={handleAddGoal}
-                            style={{ width: '100%', padding: '16px', borderRadius: '12px', fontSize: '16px', fontWeight: '600' }}
+                            style={{ width: '100%', padding: '20px', borderRadius: '20px', fontSize: '18px', fontWeight: '700', boxShadow: '0 10px 20px -5px rgba(233, 30, 99, 0.4)' }}
                         >
                             Добавить цель
                         </button>
@@ -286,3 +332,4 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
 };
 
 export default StepGoalSelection;
+
