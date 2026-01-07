@@ -196,7 +196,6 @@ input[type="range"]::-webkit-slider-thumb {
 
 input[type="range"]::-webkit-slider-thumb:hover {
     transform: scale(1.1);
-    box-shadow: 0 6px 16px rgba(255, 199, 80, 0.6);
 }
 
 /* --- STRICT USER PROVIDED CSS START --- */
@@ -206,6 +205,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
     gap: 20px;
     width: 100%;
     padding: 20px;
+    margin: 0 auto;
+    justify-content: center;
 }
 
 /* ДЕСКТОП 1920px - ВОТ ТУТ ПРОБЛЕМА! */
