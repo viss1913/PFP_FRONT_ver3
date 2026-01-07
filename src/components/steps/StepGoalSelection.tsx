@@ -270,15 +270,43 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                         </div>
 
                         {/* Sliders */}
+                        {/* Sliders */}
                         <div style={{ marginBottom: '32px' }}>
-                            {/* Sliders */}
-                            <div style={{ marginBottom: '32px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
-                                    <label style={{ fontWeight: '600', fontSize: '16px', color: '#374151' }}>Стоимость цели</label>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
+                                <label style={{ fontWeight: '600', fontSize: '16px', color: '#374151' }}>Стоимость цели</label>
+                                <input
+                                    type="number"
+                                    value={targetAmount}
+                                    onChange={(e) => setTargetAmount(Number(e.target.value))}
+                                    style={{
+                                        fontWeight: '800',
+                                        fontSize: '20px',
+                                        color: '#E91E63',
+                                        border: '1px solid #E5E7EB',
+                                        borderRadius: '8px',
+                                        padding: '4px 8px',
+                                        width: '180px',
+                                        textAlign: 'right'
+                                    }}
+                                />
+                            </div>
+                            <input
+                                type="range"
+                                min="100000" max="50000000" step="100000"
+                                value={targetAmount}
+                                onChange={(e) => setTargetAmount(Number(e.target.value))}
+                                style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
+                            />
+                        </div>
+
+                        <div style={{ marginBottom: '40px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
+                                <label style={{ fontWeight: '600', fontSize: '16px', color: '#374151' }}>Срок (лет)</label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <input
                                         type="number"
-                                        value={targetAmount}
-                                        onChange={(e) => setTargetAmount(Number(e.target.value))}
+                                        value={Math.floor(termMonths / 12)}
+                                        onChange={(e) => setTermMonths(Number(e.target.value) * 12)}
                                         style={{
                                             fontWeight: '800',
                                             fontSize: '20px',
@@ -286,67 +314,38 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                             border: '1px solid #E5E7EB',
                                             borderRadius: '8px',
                                             padding: '4px 8px',
-                                            width: '180px',
+                                            width: '80px',
                                             textAlign: 'right'
                                         }}
                                     />
-                                </div>
-                                <input
-                                    type="range"
-                                    min="100000" max="50000000" step="100000"
-                                    value={targetAmount}
-                                    onChange={(e) => setTargetAmount(Number(e.target.value))}
-                                    style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
-                                />
-                            </div>
-
-                            <div style={{ marginBottom: '40px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
-                                    <label style={{ fontWeight: '600', fontSize: '16px', color: '#374151' }}>Срок (лет)</label>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <input
-                                            type="number"
-                                            value={Math.floor(termMonths / 12)}
-                                            onChange={(e) => setTermMonths(Number(e.target.value) * 12)}
-                                            style={{
-                                                fontWeight: '800',
-                                                fontSize: '20px',
-                                                color: '#E91E63',
-                                                border: '1px solid #E5E7EB',
-                                                borderRadius: '8px',
-                                                padding: '4px 8px',
-                                                width: '80px',
-                                                textAlign: 'right'
-                                            }}
-                                        />
-                                        <span style={{ fontWeight: '800', fontSize: '20px', color: '#E91E63' }}>лет</span>
-                                    </div>
-                                </div>
-                                <input
-                                    type="range"
-                                    min="1" max="50" step="1"
-                                    value={termMonths / 12}
-                                    onChange={(e) => setTermMonths(Number(e.target.value) * 12)}
-                                    style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
-                                />
-                                <div style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '8px', textAlign: 'right' }}>
-                                    {termMonths} месяцев
+                                    <span style={{ fontWeight: '800', fontSize: '20px', color: '#E91E63' }}>лет</span>
                                 </div>
                             </div>
-
-                            <button
-                                className="btn-primary"
-                                onClick={handleAddGoal}
-                                style={{ width: '100%', padding: '20px', borderRadius: '20px', fontSize: '18px', fontWeight: '700', boxShadow: '0 10px 20px -5px rgba(233, 30, 99, 0.4)' }}
-                            >
-                                Добавить цель
-                            </button>
+                            <input
+                                type="range"
+                                min="1" max="50" step="1"
+                                value={termMonths / 12}
+                                onChange={(e) => setTermMonths(Number(e.target.value) * 12)}
+                                style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
+                            />
+                            <div style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '8px', textAlign: 'right' }}>
+                                {termMonths} месяцев
+                            </div>
                         </div>
+
+                        <button
+                            className="btn-primary"
+                            onClick={handleAddGoal}
+                            style={{ width: '100%', padding: '20px', borderRadius: '20px', fontSize: '18px', fontWeight: '700', boxShadow: '0 10px 20px -5px rgba(233, 30, 99, 0.4)' }}
+                        >
+                            Добавить цель
+                        </button>
                     </div>
-            )}
                 </div>
-            );
+            )}
+        </div>
+    );
 };
 
-            export default StepGoalSelection;
+export default StepGoalSelection;
 
