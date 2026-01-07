@@ -12,7 +12,7 @@ interface AiCrmPageProps {
 const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient }) => {
     return (
         <div style={{ minHeight: '100vh', background: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
-            <Header />
+            <Header activePage="crm" />
 
             <main style={{
                 flex: 1,

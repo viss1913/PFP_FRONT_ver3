@@ -1,7 +1,22 @@
 import React from 'react';
 import { User, ChevronDown } from 'lucide-react';
 
-const Header: React.FC = () => {
+interface HeaderProps {
+    activePage?: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products';
+}
+
+const Header: React.FC<HeaderProps> = ({ activePage = 'crm' }) => {
+    const getLinkStyle = (page: string) => ({
+        display: 'flex',
+        alignItems: 'center',
+        height: '100%',
+        color: activePage === page ? '#D946EF' : '#666',
+        fontWeight: activePage === page ? 600 : 400,
+        borderBottom: activePage === page ? '2px solid #D946EF' : 'none',
+        textDecoration: 'none',
+        fontSize: '14px'
+    });
+
     return (
         <header style={{
             height: '64px',
@@ -29,56 +44,19 @@ const Header: React.FC = () => {
 
             {/* Navigation */}
             <nav style={{ display: 'flex', gap: '40px', height: '100%' }}>
-                <a href="#" style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    height: '100%',
-                    color: '#D946EF',
-                    fontWeight: 600,
-                    borderBottom: '2px solid #D946EF',
-                    textDecoration: 'none',
-                    fontSize: '14px'
-                }}>
+                <a href="#" style={getLinkStyle('crm')}>
                     AI CRM
                 </a>
-                <a href="#" style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    height: '100%',
-                    color: '#666',
-                    textDecoration: 'none',
-                    fontSize: '14px'
-                }}>
+                <a href="#" style={getLinkStyle('pfp')}>
                     ПФП
                 </a>
-                <a href="#" style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    height: '100%',
-                    color: '#666',
-                    textDecoration: 'none',
-                    fontSize: '14px'
-                }}>
+                <a href="#" style={getLinkStyle('ai-assistant')}>
                     AI Помощник
                 </a>
-                <a href="#" style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    height: '100%',
-                    color: '#666',
-                    textDecoration: 'none',
-                    fontSize: '14px'
-                }}>
+                <a href="#" style={getLinkStyle('ai-agent')}>
                     AI-агент
                 </a>
-                <a href="#" style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    height: '100%',
-                    color: '#666',
-                    textDecoration: 'none',
-                    fontSize: '14px'
-                }}>
+                <a href="#" style={getLinkStyle('products')}>
                     Продукты
                 </a>
             </nav>

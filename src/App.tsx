@@ -5,6 +5,7 @@ import CJMFlow from './components/CJMFlow'
 import ResultPage from './components/ResultPage'
 import ResultPageTest from './components/ResultPageTest'
 import AiCrmPage from './components/AiCrmPage'
+import Header from './components/Header'
 import type { Client } from './types/client'
 
 type Page = 'login' | 'list' | 'cjm' | 'edit' | 'result' | 'test'
@@ -49,26 +50,35 @@ function App() {
             )}
 
             {currentPage === 'cjm' && (
-                <CJMFlow
-                    onComplete={handleCalculationComplete}
-                    initialData={newClientData || undefined}
-                    onBack={() => setCurrentPage('list')}
-                />
+                <div style={{ minHeight: '100vh', background: '#f8f9fa' }}>
+                    <Header activePage="pfp" />
+                    <CJMFlow
+                        onComplete={handleCalculationComplete}
+                        initialData={newClientData || undefined}
+                        onBack={() => setCurrentPage('list')}
+                    />
+                </div>
             )}
 
             {currentPage === 'edit' && selectedClient && (
-                <CJMFlow
-                    onComplete={handleCalculationComplete}
-                    clientId={selectedClient.id}
-                    onBack={() => setCurrentPage('list')}
-                />
+                <div style={{ minHeight: '100vh', background: '#f8f9fa' }}>
+                    <Header activePage="pfp" />
+                    <CJMFlow
+                        onComplete={handleCalculationComplete}
+                        clientId={selectedClient.id}
+                        onBack={() => setCurrentPage('list')}
+                    />
+                </div>
             )}
 
             {currentPage === 'result' && (
-                <ResultPage
-                    data={calculationResult}
-                    onRestart={() => setCurrentPage('list')}
-                />
+                <div style={{ minHeight: '100vh', background: '#f8f9fa' }}>
+                    <Header activePage="pfp" />
+                    <ResultPage
+                        data={calculationResult}
+                        onRestart={() => setCurrentPage('list')}
+                    />
+                </div>
             )}
 
             {currentPage === 'test' && <ResultPageTest />}
