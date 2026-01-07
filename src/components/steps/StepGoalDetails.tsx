@@ -23,20 +23,35 @@ const StepGoalDetails: React.FC<StepGoalDetailsProps> = ({ goal, onSave, onCance
     };
 
     const handleChange = (field: keyof ClientGoal, value: any) => {
-        setLocalGoal(prev => ({ ...prev, [field]: value }));
+        setLocalGoal(prev => {
+            const updated = { ...prev, [field]: value };
+
+            // Auto-calculate Inflation if term changes
+            if (field === 'term_months') {
+                const years = value / 12;
+                let newInflation = 4.8;
+                if (years < 3) newInflation = 7;
+                else if (years < 5) newInflation = 6;
+                else if (years < 10) newInflation = 5.6;
+                // else >= 10 -> 4.8
+
+                updated.inflation_rate = newInflation;
+            }
+            return updated;
+        });
     };
 
     return (
-        <div style={{ 
-            background: 'var(--card-bg)', 
+        <div style={{
+            background: 'var(--card-bg)',
             backdropFilter: 'blur(20px)',
-            padding: '32px', 
+            padding: '32px',
             borderRadius: '20px',
             border: '1px solid var(--border-color)',
             boxShadow: 'var(--shadow-soft)'
         }}>
-            <h3 style={{ 
-                marginBottom: '24px', 
+            <h3 style={{
+                marginBottom: '24px',
                 color: 'var(--text-main)',
                 fontSize: '28px',
                 fontWeight: '700'
@@ -89,6 +104,17 @@ const StepGoalDetails: React.FC<StepGoalDetailsProps> = ({ goal, onSave, onCance
                             placeholder="Например: 5 000 000"
                         />
                         <span className="hint">Сумма капитала, с которого будет получаться рента</span>
+                    </div>
+
+                    <div className="input-group">
+                        <label className="label">Ежемесячное пополнение</label>
+                        <input
+                            type="number"
+                            value={localGoal.monthly_replenishment || ''}
+                            onChange={(e) => handleChange('monthly_replenishment', Number(e.target.value))}
+                            placeholder="0"
+                        />
+                        <span className="hint">Сумма, которую вы планируете добавлять ежемесячно</span>
                     </div>
                 </>
             )}

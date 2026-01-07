@@ -28,6 +28,7 @@ export const GOAL_TYPE_REAL_ESTATE = 4; // "Real Estate" / "Other" logic
 export const GOAL_TYPE_EDUCATION = 6;
 export const GOAL_TYPE_FIN_RESERVE = 7;
 export const GOAL_TYPE_RENT = 8;
+export const GOAL_TYPE_OTHER = 9;
 
 // Config for Grid Display
 // Each item represents a card in the gallery
@@ -38,22 +39,21 @@ export const GOAL_GALLERY_ITEMS = [
     { id: 'edu', typeId: GOAL_TYPE_EDUCATION, title: 'Образование ребёнка', image: education, description: 'Детям' },
 
     // Logic for "Other" mappings
-    // User said: "Все остальное - OTHER (id=4)"
-    // But conceptually: Car -> 4? House -> 4?
-    { id: 'apartment', typeId: GOAL_TYPE_REAL_ESTATE, title: 'Квартира', image: kvartira, description: 'Покупка жилья' },
-    { id: 'house', typeId: GOAL_TYPE_REAL_ESTATE, title: 'Загородная недвижимость', image: zagorod, description: 'Дом' },
-    { id: 'mortgage', typeId: GOAL_TYPE_REAL_ESTATE, title: 'Первый взнос на ипотеку', image: ipoteka, description: 'Ипотека' },
-    { id: 'move', typeId: GOAL_TYPE_REAL_ESTATE, title: 'Переезд', image: pereezd, description: 'Смена жилья' },
+    // User said: "Все остальное - OTHER (id=9)"
+    { id: 'apartment', typeId: GOAL_TYPE_OTHER, title: 'Квартира', image: kvartira, description: 'Покупка жилья' },
+    { id: 'house', typeId: GOAL_TYPE_OTHER, title: 'Загородная недвижимость', image: zagorod, description: 'Дом' },
+    { id: 'mortgage', typeId: GOAL_TYPE_OTHER, title: 'Первый взнос на ипотеку', image: ipoteka, description: 'Ипотека' },
+    { id: 'move', typeId: GOAL_TYPE_OTHER, title: 'Переезд', image: pereezd, description: 'Смена жилья' },
 
     // User mentioned: "Сохранить и приумножить - это INVESTMENT (id=3)"
     { id: 'invest_save', typeId: GOAL_TYPE_INVESTMENT, title: 'Сохранить и преумножить', image: invest, description: 'Инвестиции' },
     { id: 'capital', typeId: GOAL_TYPE_INVESTMENT, title: 'Преумножение капитала', image: capital, description: 'Рост капитала' },
 
-    // "Все остальное - OTHER (id=4)" -> Including Car and Travel?
-    { id: 'auto', typeId: GOAL_TYPE_REAL_ESTATE, title: 'Автомобиль', image: avtomobil, description: 'Покупка авто' },
-    { id: 'travel', typeId: GOAL_TYPE_REAL_ESTATE, title: 'Путешествие', image: puteshestvie, description: 'Отдых' },
-    { id: 'business', typeId: GOAL_TYPE_REAL_ESTATE, title: 'Свой бизнес', image: business, description: 'Дело' },
-    { id: 'other', typeId: GOAL_TYPE_REAL_ESTATE, title: 'Другое', image: other, description: 'Своя цель' },
+    // "Все остальное - OTHER (id=9)"
+    { id: 'auto', typeId: GOAL_TYPE_OTHER, title: 'Автомобиль', image: avtomobil, description: 'Покупка авто' },
+    { id: 'travel', typeId: GOAL_TYPE_OTHER, title: 'Путешествие', image: puteshestvie, description: 'Отдых' },
+    { id: 'business', typeId: GOAL_TYPE_OTHER, title: 'Свой бизнес', image: business, description: 'Дело' },
+    { id: 'other', typeId: GOAL_TYPE_OTHER, title: 'Другое', image: other, description: 'Своя цель' },
 ];
 
 export const getGoalImage = (goalName: string, typeId: number): string => {

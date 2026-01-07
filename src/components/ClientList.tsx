@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Plus, User, Calendar, DollarSign, ChevronLeft, ChevronRight, Edit2 } from 'lucide-react';
 import { clientApi } from '../api/clientApi';
 import type { Client } from '../types/client';
-import NewClientModal from './NewClientModal';
+
 
 interface ClientListProps {
     onSelectClient: (client: Client) => void;
@@ -237,15 +237,6 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
                     </button>
                 </div>
             )}
-
-            <NewClientModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                onSubmit={(data) => {
-                    setIsModalOpen(false);
-                    onNewClient(data);
-                }}
-            />
         </div>
     );
 };

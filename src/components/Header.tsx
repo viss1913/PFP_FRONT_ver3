@@ -3,9 +3,17 @@ import { User, ChevronDown } from 'lucide-react';
 
 interface HeaderProps {
     activePage?: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products';
+    onNavigate?: (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products') => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ activePage = 'crm' }) => {
+const Header: React.FC<HeaderProps> = ({ activePage = 'crm', onNavigate }) => {
+    const handleNavClick = (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products', e: React.MouseEvent) => {
+        e.preventDefault();
+        if (onNavigate) {
+            onNavigate(page);
+        }
+    };
+
     const getLinkStyle = (page: string) => ({
         display: 'flex',
         alignItems: 'center',
@@ -44,19 +52,19 @@ const Header: React.FC<HeaderProps> = ({ activePage = 'crm' }) => {
 
             {/* Navigation */}
             <nav style={{ display: 'flex', gap: '40px', height: '100%' }}>
-                <a href="#" style={getLinkStyle('crm')}>
+                <a href="#" onClick={(e) => handleNavClick('crm', e)} style={getLinkStyle('crm')}>
                     AI CRM
                 </a>
-                <a href="#" style={getLinkStyle('pfp')}>
+                <a href="#" onClick={(e) => handleNavClick('pfp', e)} style={getLinkStyle('pfp')}>
                     ПФП
                 </a>
-                <a href="#" style={getLinkStyle('ai-assistant')}>
+                <a href="#" onClick={(e) => handleNavClick('ai-assistant', e)} style={getLinkStyle('ai-assistant')}>
                     AI Помощник
                 </a>
-                <a href="#" style={getLinkStyle('ai-agent')}>
+                <a href="#" onClick={(e) => handleNavClick('ai-agent', e)} style={getLinkStyle('ai-agent')}>
                     AI-агент
                 </a>
-                <a href="#" style={getLinkStyle('products')}>
+                <a href="#" onClick={(e) => handleNavClick('products', e)} style={getLinkStyle('products')}>
                     Продукты
                 </a>
             </nav>

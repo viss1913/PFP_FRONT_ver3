@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Target, ShieldCheck, Briefcase, PiggyBank, DollarSign } from 'lucide-react';
-import StepGenderAge from './steps/StepGenderAge';
+import StepClientData from './steps/StepClientData';
 import StepGoalSelection from './steps/StepGoalSelection';
 import StepAssets from './steps/StepAssets';
 import StepFinReserve from './steps/StepFinReserve';
@@ -327,7 +327,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     transition={{ duration: 0.3 }}
                     className="premium-card"
                 >
-                    {step === 1 && <StepGenderAge data={data} setData={setData} onNext={nextStep} />}
+                    {step === 1 && <StepClientData data={data} setData={setData} onNext={nextStep} />}
                     {step === 2 && <StepGoalSelection data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
                     {step === 3 && <StepAssets data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
                     {step === 4 && <StepFinReserve data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}

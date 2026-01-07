@@ -6,13 +6,14 @@ import { Send } from 'lucide-react';
 
 interface AiCrmPageProps {
     onSelectClient: (client: Client) => void;
-    onNewClient: (data: { fio: string, phone: string, uuid: string }) => void;
+    onNewClient: () => void;
+    onNavigate: (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products') => void;
 }
 
-const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient }) => {
+const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNavigate }) => {
     return (
         <div style={{ minHeight: '100vh', background: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
-            <Header activePage="crm" />
+            <Header activePage="crm" onNavigate={onNavigate} />
 
             <main style={{
                 flex: 1,

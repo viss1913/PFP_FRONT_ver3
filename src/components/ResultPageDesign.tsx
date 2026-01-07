@@ -72,52 +72,8 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#F9FAFB', fontFamily: "'Inter', sans-serif" }}>
       {/* Верхняя навигация */}
-      <nav style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 40px',
-        height: '80px',
-        backgroundColor: '#fff',
-        boxShadow: '0px 1px 0px rgba(0, 0, 0, 0.05)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '60px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ color: '#E91E63', fontSize: '24px', fontWeight: '700', letterSpacing: '-0.5px' }}>Logo</div>
-          </div>
+      {/* Верхняя навигация - REMOVED (using global Header in App.tsx) */}
 
-          <div style={{ display: 'flex', gap: '32px' }}>
-            {['Обучение', 'AI CRM', 'ПФП', 'AI Помощник', 'AI-агент', 'Продукты'].map((item, i) => (
-              <a key={i} href="#" style={{
-                color: item === 'ПФП' ? '#E91E63' : '#111827',
-                textDecoration: 'none',
-                fontSize: '14px',
-                fontWeight: '500',
-                position: 'relative',
-                padding: '28px 0',
-                borderBottom: item === 'ПФП' ? '2px solid #E91E63' : 'none'
-              }}>
-                {item}
-              </a>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '50%',
-            border: '1px solid #E5E7EB',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <User size={16} color="#374151" />
-          </div>
-          <ChevronDown size={16} color="#6B7280" />
-        </div>
-      </nav>
 
       {/* Основной контент */}
       <div style={{ display: 'flex', maxWidth: '1440px', margin: '0 auto', padding: '40px', gap: '40px' }}>

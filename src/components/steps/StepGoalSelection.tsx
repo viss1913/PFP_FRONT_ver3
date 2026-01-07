@@ -47,6 +47,10 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
             risk_profile: data.riskProfile || 'BALANCED',
             initial_capital: 0,
             monthly_replenishment: 0,
+            // Default 100k for Pension/Passive
+            desired_monthly_income: (selectedGalleryItem.typeId === 1 || selectedGalleryItem.typeId === 2) ? 100000 : 0,
+            // Initial inflation based on default term (5 years -> 60 months)
+            inflation_rate: 5.6
         };
 
         // Add to list
@@ -225,11 +229,13 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                         background: '#fff',
                         borderRadius: '32px',
                         width: '100%',
-                        maxWidth: '500px',
+                        maxWidth: '600px',
                         padding: '40px',
                         position: 'relative',
                         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                        animation: 'scaleIn 0.2s ease-out'
+                        animation: 'scaleIn 0.2s ease-out',
+                        maxHeight: '90vh',
+                        overflowY: 'auto'
                     }}>
                         <style>{`
                             @keyframes scaleIn {
@@ -265,49 +271,82 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
 
                         {/* Sliders */}
                         <div style={{ marginBottom: '32px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'baseline' }}>
-                                <label style={{ fontWeight: '600', fontSize: '16px', color: '#374151' }}>Стоимость цели</label>
-                                <span style={{ fontWeight: '800', fontSize: '20px', color: '#E91E63' }}>{formatCurrency(targetAmount)}</span>
+                            {/* Sliders */}
+                            <div style={{ marginBottom: '32px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
+                                    <label style={{ fontWeight: '600', fontSize: '16px', color: '#374151' }}>Стоимость цели</label>
+                                    <input
+                                        type="number"
+                                        value={targetAmount}
+                                        onChange={(e) => setTargetAmount(Number(e.target.value))}
+                                        style={{
+                                            fontWeight: '800',
+                                            fontSize: '20px',
+                                            color: '#E91E63',
+                                            border: '1px solid #E5E7EB',
+                                            borderRadius: '8px',
+                                            padding: '4px 8px',
+                                            width: '180px',
+                                            textAlign: 'right'
+                                        }}
+                                    />
+                                </div>
+                                <input
+                                    type="range"
+                                    min="100000" max="50000000" step="100000"
+                                    value={targetAmount}
+                                    onChange={(e) => setTargetAmount(Number(e.target.value))}
+                                    style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
+                                />
                             </div>
-                            <input
-                                type="range"
-                                min="100000" max="50000000" step="100000"
-                                value={targetAmount}
-                                onChange={(e) => setTargetAmount(Number(e.target.value))}
-                                style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
-                            />
-                        </div>
 
-                        <div style={{ marginBottom: '40px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'baseline' }}>
-                                <label style={{ fontWeight: '600', fontSize: '16px', color: '#374151' }}>Срок (лет)</label>
-                                <span style={{ fontWeight: '800', fontSize: '20px', color: '#E91E63' }}>{Math.floor(termMonths / 12)} лет</span>
+                            <div style={{ marginBottom: '40px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
+                                    <label style={{ fontWeight: '600', fontSize: '16px', color: '#374151' }}>Срок (лет)</label>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <input
+                                            type="number"
+                                            value={Math.floor(termMonths / 12)}
+                                            onChange={(e) => setTermMonths(Number(e.target.value) * 12)}
+                                            style={{
+                                                fontWeight: '800',
+                                                fontSize: '20px',
+                                                color: '#E91E63',
+                                                border: '1px solid #E5E7EB',
+                                                borderRadius: '8px',
+                                                padding: '4px 8px',
+                                                width: '80px',
+                                                textAlign: 'right'
+                                            }}
+                                        />
+                                        <span style={{ fontWeight: '800', fontSize: '20px', color: '#E91E63' }}>лет</span>
+                                    </div>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="1" max="50" step="1"
+                                    value={termMonths / 12}
+                                    onChange={(e) => setTermMonths(Number(e.target.value) * 12)}
+                                    style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
+                                />
+                                <div style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '8px', textAlign: 'right' }}>
+                                    {termMonths} месяцев
+                                </div>
                             </div>
-                            <input
-                                type="range"
-                                min="1" max="50" step="1"
-                                value={termMonths / 12}
-                                onChange={(e) => setTermMonths(Number(e.target.value) * 12)}
-                                style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
-                            />
-                            <div style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '8px', textAlign: 'right' }}>
-                                {termMonths} месяцев
-                            </div>
-                        </div>
 
-                        <button
-                            className="btn-primary"
-                            onClick={handleAddGoal}
-                            style={{ width: '100%', padding: '20px', borderRadius: '20px', fontSize: '18px', fontWeight: '700', boxShadow: '0 10px 20px -5px rgba(233, 30, 99, 0.4)' }}
-                        >
-                            Добавить цель
-                        </button>
+                            <button
+                                className="btn-primary"
+                                onClick={handleAddGoal}
+                                style={{ width: '100%', padding: '20px', borderRadius: '20px', fontSize: '18px', fontWeight: '700', boxShadow: '0 10px 20px -5px rgba(233, 30, 99, 0.4)' }}
+                            >
+                                Добавить цель
+                            </button>
+                        </div>
                     </div>
-                </div>
             )}
-        </div>
-    );
+                </div>
+            );
 };
 
-export default StepGoalSelection;
+            export default StepGoalSelection;
 
