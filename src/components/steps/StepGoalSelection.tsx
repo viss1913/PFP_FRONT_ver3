@@ -68,131 +68,128 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
     return (
         <div style={{ paddingBottom: '40px' }}>
             {/* Header Section: Avatar + Title */}
-            <div style={{
-                display: 'flex',
-                flexDirection: 'row',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                marginBottom: '40px',
-                gap: '40px'
-            }}>
-                {/* Left: Avatar & Intro */}
-                <div style={{ flex: '0 0 300px' }}>
-                    <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
-                        <div style={{
-                            width: '48px', height: '48px',
-                            borderRadius: '50%', background: '#F3F4F6',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}>
-                            <User size={24} color="#374151" />
-                        </div>
-                        <div>
-                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>Ваш AI Ассистент</h3>
-                            <p style={{ margin: 0, fontSize: '14px', color: '#6B7280' }}>Финансовый советник</p>
-                        </div>
-                    </div>
-                    <div style={{
-                        background: '#fff',
-                        borderRadius: '16px', // Rounded bubble
-                        borderTopLeftRadius: '4px',
-                        padding: '24px',
-                        fontSize: '15px',
-                        lineHeight: '1.6',
-                        color: '#374151',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
-                        position: 'relative'
-                    }}>
-                        Привет! 👋 <br />
-                        Давай определим твои финансовые цели. Выбери из списка то, что для тебя важно.
-                    </div>
-                </div>
-
-                {/* Right: Title & Context */}
-                <div style={{ flex: 1, paddingTop: '10px' }}>
-                    <h2 style={{ fontSize: '48px', fontWeight: '800', margin: '0 0 24px 0', lineHeight: 1.1 }}>
-                        Чего вы <br />хотите достичь?
-                    </h2>
-                </div>
-            </div>
-
-            {/* Selected Goals (Moved to TOP as requested) */}
-            {goals.length > 0 && (
+            <div className="goal-step-wrapper">
                 <div style={{
-                    marginBottom: '32px',
-                    padding: '24px',
-                    background: '#fff',
-                    borderRadius: '24px',
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.05)'
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    marginBottom: '40px',
+                    gap: '40px'
                 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                        <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '700' }}>Выбранные цели ({goals.length})</h4>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <button
-                                className="btn-secondary"
-                                onClick={onPrev}
-                                style={{ width: '40px', height: '40px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px' }}
-                            >
-                                <ChevronLeft size={20} />
-                            </button>
-                            <button
-                                className="btn-primary"
-                                onClick={onNext}
-                                style={{ padding: '0 24px', height: '40px', borderRadius: '12px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}
-                            >
-                                Далее <ArrowRight size={16} />
-                            </button>
+                    {/* Left: Avatar & Intro */}
+                    <div style={{ flex: '0 0 300px' }}>
+                        <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+                            <div style={{
+                                width: '48px', height: '48px',
+                                borderRadius: '50%', background: '#F3F4F6',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}>
+                                <User size={24} color="#374151" />
+                            </div>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>Ваш AI Ассистент</h3>
+                                <p style={{ margin: 0, fontSize: '14px', color: '#6B7280' }}>Финансовый советник</p>
+                            </div>
+                        </div>
+                        <div style={{
+                            background: '#fff',
+                            borderRadius: '16px', // Rounded bubble
+                            borderTopLeftRadius: '4px',
+                            padding: '24px',
+                            fontSize: '15px',
+                            lineHeight: '1.6',
+                            color: '#374151',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                            position: 'relative'
+                        }}>
+                            Привет! 👋 <br />
+                            Давай определим твои финансовые цели. Выбери из списка то, что для тебя важно.
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                        {goals.map((g, idx) => (
-                            <div key={idx} style={{
-                                display: 'flex', alignItems: 'center', gap: '12px',
-                                padding: '12px 16px',
-                                background: '#F3F4F6',
-                                borderRadius: '12px',
-                                fontSize: '14px',
-                                fontWeight: '500'
-                            }}>
-                                <span>{g.name}</span>
-                                <span style={{ color: '#6B7280', fontWeight: '400' }}>| {formatCurrency(g.target_amount || 0)}</span>
+                    {/* Right: Title & Context */}
+                    <div style={{ flex: 1, paddingTop: '10px' }}>
+                        <h2 style={{ fontSize: '48px', fontWeight: '800', margin: '0 0 24px 0', lineHeight: 1.1 }}>
+                            Чего вы <br />хотите достичь?
+                        </h2>
+                    </div>
+                </div>
+
+                {/* Selected Goals (Moved to TOP as requested) */}
+                {goals.length > 0 && (
+                    <div style={{
+                        marginBottom: '32px',
+                        padding: '24px',
+                        background: '#fff',
+                        borderRadius: '24px',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.05)'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                            <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '700' }}>Выбранные цели ({goals.length})</h4>
+                            <div style={{ display: 'flex', gap: '8px' }}>
                                 <button
-                                    onClick={() => removeGoal(idx)}
-                                    style={{
-                                        border: 'none', background: 'rgba(0,0,0,0.05)',
-                                        borderRadius: '50%', width: '20px', height: '20px',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        cursor: 'pointer', marginLeft: '4px'
-                                    }}
+                                    className="btn-secondary"
+                                    onClick={onPrev}
+                                    style={{ width: '40px', height: '40px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px' }}
                                 >
-                                    <X size={12} color="#6B7280" />
+                                    <ChevronLeft size={20} />
+                                </button>
+                                <button
+                                    className="btn-primary"
+                                    onClick={onNext}
+                                    style={{ padding: '0 24px', height: '40px', borderRadius: '12px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                >
+                                    Далее <ArrowRight size={16} />
                                 </button>
                             </div>
-                        ))}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                            {goals.map((g, idx) => (
+                                <div key={idx} style={{
+                                    display: 'flex', alignItems: 'center', gap: '12px',
+                                    padding: '12px 16px',
+                                    background: '#F3F4F6',
+                                    borderRadius: '12px',
+                                    fontSize: '14px',
+                                    fontWeight: '500'
+                                }}>
+                                    <span>{g.name}</span>
+                                    <span style={{ color: '#6B7280', fontWeight: '400' }}>| {formatCurrency(g.target_amount || 0)}</span>
+                                    <button
+                                        onClick={() => removeGoal(idx)}
+                                        style={{
+                                            border: 'none', background: 'rgba(0,0,0,0.05)',
+                                            borderRadius: '50%', width: '20px', height: '20px',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            cursor: 'pointer', marginLeft: '4px'
+                                        }}
+                                    >
+                                        <X size={12} color="#6B7280" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* If no goals selected, show Back button here (since it's not in the top bar) */}
-            {goals.length === 0 && (
-                <div style={{ marginBottom: '24px' }}>
-                    <button
-                        className="btn-text"
-                        onClick={onPrev}
-                        style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6B7280' }}
-                    >
-                        <ChevronLeft size={16} /> Назад
-                    </button>
-                </div>
-            )}
+                {/* If no goals selected, show Back button here (since it's not in the top bar) */}
+                {goals.length === 0 && (
+                    <div style={{ marginBottom: '24px' }}>
+                        <button
+                            className="btn-text"
+                            onClick={onPrev}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6B7280' }}
+                        >
+                            <ChevronLeft size={16} /> Назад
+                        </button>
+                    </div>
+                )}
+            </div>
 
-            {/* Main Grid: Fixed 365px cards, 20px gap, Centered */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, 365px)', // STRICT 365px width
-                gap: '20px',
-                justifyContent: 'center' // Center in the container (if > row width)
-            }}>
+            {/* Main Grid: Responsive CSS Grid */}
+            <div className="cards-container">
                 {GOAL_GALLERY_ITEMS.map(item => (
                     <div
                         key={item.id}
@@ -202,7 +199,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                             overflow: 'hidden',
                             position: 'relative',
                             cursor: 'pointer',
-                            height: '195px', // Requested height
+                            height: '195px', // Fixed height
                             backgroundColor: '#fff',
                             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                             transition: 'all 0.2s ease',
