@@ -46,6 +46,10 @@ function App() {
                 <AiCrmPage
                     onSelectClient={handleSelectClient}
                     onNewClient={handleNewClient}
+                    onNavigate={(page) => {
+                        console.log('Navigate to:', page);
+                        // Handle navigation if needed, or just log
+                    }}
                 />
             )}
 
