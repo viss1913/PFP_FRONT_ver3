@@ -1,5 +1,5 @@
 import React from 'react';
-import { AiAssistant } from '../../types/ai';
+import type { AiAssistant } from '../../types/ai';
 
 interface AssistantListProps {
     assistants: AiAssistant[];

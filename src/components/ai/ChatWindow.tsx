@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { AiMessage } from '../../types/ai';
+import type { AiMessage } from '../../types/ai';
 import { MessageInput } from './MessageInput';
 
 interface ChatWindowProps {
