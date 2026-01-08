@@ -59,14 +59,35 @@ export const aiService = {
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
+            let buffer = '';
 
             while (true) {
                 const { done, value } = await reader.read();
-                if (done) {
-                    break;
-                }
+                if (done) break;
+
                 const chunk = decoder.decode(value, { stream: true });
-                onChunk(chunk);
+                buffer += chunk;
+
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || ''; // Keep the incomplete line in buffer
+
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (!trimmedLine || trimmedLine === 'data: [DONE]') continue;
+
+                    if (trimmedLine.startsWith('data: ')) {
+                        try {
+                            const jsonStr = trimmedLine.slice(6);
+                            const data = JSON.parse(jsonStr);
+                            const content = data.choices?.[0]?.delta?.content;
+                            if (content) {
+                                onChunk(content);
+                            }
+                        } catch (e) {
+                            console.warn('Failed to parse SSE line:', line, e);
+                        }
+                    }
+                }
             }
 
             if (onComplete) {
