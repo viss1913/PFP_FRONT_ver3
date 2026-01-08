@@ -4,7 +4,7 @@ import ClientList from './ClientList';
 import type { Client } from '../types/client';
 import { ChatWidget } from './ai/ChatWidget';
 import { aiService } from '../services/aiService';
-import type { AiMessage } from '../types/ai';
+import type { AiMessage, AiAssistant } from '../types/ai';
 import { useState } from 'react';
 
 interface AiCrmPageProps {
@@ -17,11 +17,32 @@ const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNa
     const [messages, setMessages] = useState<AiMessage[]>([]);
     const [isTyping, setIsTyping] = useState(false);
 
-    // Hardcoded logic for demo: Select implicit "AI CRM" assistant or just use generic chat
-    // For now, we'll just handle local state for the widget. 
-    // Ideally we'd fetch the specific 'crm' assistant.
+    const [activeAssistant, setActiveAssistant] = useState<AiAssistant | null>(null);
+
+    // Fetch assistants on mount
+    React.useEffect(() => {
+        const loadAssistant = async () => {
+            try {
+                const assistants = await aiService.getAssistants();
+                if (assistants.length > 0) {
+                    // Try to find specific 'crm' assistant, or fallback to first
+                    const crm = assistants.find(a => a.slug === 'ai-crm' || a.name.toLowerCase().includes('crm')) || assistants[0];
+                    setActiveAssistant(crm);
+                }
+            } catch (error) {
+                console.error('Failed to load assistants:', error);
+                // Fallback message in UI
+            }
+        };
+        loadAssistant();
+    }, []);
 
     const handleSendMessage = async (text: string) => {
+        if (!activeAssistant) {
+            alert('Ассистент еще не загружен или недоступен.');
+            return;
+        }
+
         const userMsg: AiMessage = {
             id: Date.now(),
             role: 'user',
@@ -30,9 +51,6 @@ const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNa
         };
         setMessages(prev => [...prev, userMsg]);
         setIsTyping(true);
-
-        // Placeholder ID for "AI CRM" - in real app, fetch by slug 'crm'
-        const crmAssistantId = 1;
 
         const botMsgId = Date.now() + 1;
         const botMsg: AiMessage = {
@@ -46,7 +64,7 @@ const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNa
         let accumulatedContent = '';
         await aiService.sendMessageStream(
             {
-                assistant_id: crmAssistantId,
+                assistant_id: activeAssistant.id,
                 message: text,
                 // context: { type: 'crm_summary', payload: '...' } // Optional context
             },
@@ -59,7 +77,7 @@ const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNa
             (error) => {
                 console.error('Stream error:', error);
                 setMessages(prev => prev.map(m =>
-                    m.id === botMsgId ? { ...m, content: accumulatedContent + '\n[Ошибка]' } : m
+                    m.id === botMsgId ? { ...m, content: accumulatedContent + '\n\n[Ошибка связи с сервером]' } : m
                 ));
                 setIsTyping(false);
             },
