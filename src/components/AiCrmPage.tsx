@@ -2,7 +2,10 @@ import React from 'react';
 import Header from './Header';
 import ClientList from './ClientList';
 import type { Client } from '../types/client';
-import { Send } from 'lucide-react';
+import { ChatWidget } from './ai/ChatWidget';
+import { aiService } from '../services/aiService';
+import type { AiMessage } from '../types/ai';
+import { useState } from 'react';
 
 interface AiCrmPageProps {
     onSelectClient: (client: Client) => void;
@@ -11,6 +14,59 @@ interface AiCrmPageProps {
 }
 
 const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNavigate }) => {
+    const [messages, setMessages] = useState<AiMessage[]>([]);
+    const [isTyping, setIsTyping] = useState(false);
+
+    // Hardcoded logic for demo: Select implicit "AI CRM" assistant or just use generic chat
+    // For now, we'll just handle local state for the widget. 
+    // Ideally we'd fetch the specific 'crm' assistant.
+
+    const handleSendMessage = async (text: string) => {
+        const userMsg: AiMessage = {
+            id: Date.now(),
+            role: 'user',
+            content: text,
+            created_at: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, userMsg]);
+        setIsTyping(true);
+
+        // Placeholder ID for "AI CRM" - in real app, fetch by slug 'crm'
+        const crmAssistantId = 1;
+
+        const botMsgId = Date.now() + 1;
+        const botMsg: AiMessage = {
+            id: botMsgId,
+            role: 'assistant',
+            content: '',
+            created_at: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, botMsg]);
+
+        let accumulatedContent = '';
+        await aiService.sendMessageStream(
+            {
+                assistant_id: crmAssistantId,
+                message: text,
+                // context: { type: 'crm_summary', payload: '...' } // Optional context
+            },
+            (chunk) => {
+                accumulatedContent += chunk;
+                setMessages(prev => prev.map(m =>
+                    m.id === botMsgId ? { ...m, content: accumulatedContent } : m
+                ));
+            },
+            (error) => {
+                console.error('Stream error:', error);
+                setMessages(prev => prev.map(m =>
+                    m.id === botMsgId ? { ...m, content: accumulatedContent + '\n[Ошибка]' } : m
+                ));
+                setIsTyping(false);
+            },
+            () => setIsTyping(false)
+        );
+    };
+
     return (
         <div style={{ minHeight: '100vh', background: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
             <Header activePage="crm" onNavigate={onNavigate} />
@@ -30,46 +86,30 @@ const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNa
                 <div style={{
                     background: '#fff',
                     borderRadius: '24px',
-                    padding: '24px',
+                    // padding: '24px', // ChatWidget has its own padding/layout
                     display: 'flex',
                     flexDirection: 'column',
                     boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
-                    height: 'calc(100vh - 112px)', // Header + padding
+                    height: 'calc(100vh - 112px)',
                     position: 'sticky',
-                    top: '88px'
+                    top: '88px',
+                    overflow: 'hidden' // Ensure rounded corners clip content
                 }}>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
-                            <div style={{
-                                width: '40px',
-                                height: '40px',
-                                borderRadius: '50%',
-                                overflow: 'hidden',
-                                background: '#eee'
-                            }}>
-                                {/* AI Avatar Placeholder */}
-                                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="AI" style={{ width: '100%', height: '100%' }} />
-                            </div>
-                            <div>
-                                <div style={{ fontSize: '14px', color: '#666' }}>
-                                    Привет! Как дела? Будем работать?
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Chat Input Placeholder */}
                     <div style={{
-                        marginTop: 'auto',
-                        background: '#f0f0f0',
-                        borderRadius: '12px',
-                        padding: '12px 16px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between'
+                        padding: '16px 24px',
+                        borderBottom: '1px solid #eee',
+                        fontWeight: 'bold',
+                        fontSize: '18px'
                     }}>
-                        <div style={{ width: '24px' }}></div> {/* Spacer */}
-                        <Send size={20} color="#666" />
+                        AI CRM Ассистент
+                    </div>
+                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                        <ChatWidget
+                            messages={messages}
+                            onSendMessage={handleSendMessage}
+                            isTyping={isTyping}
+                            embedded={true}
+                        />
                     </div>
                 </div>
 

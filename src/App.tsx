@@ -6,9 +6,10 @@ import ResultPage from './components/ResultPage'
 import ResultPageTest from './components/ResultPageTest'
 import AiCrmPage from './components/AiCrmPage'
 import Header from './components/Header'
+import AiAssistantPage from './pages/AiAssistantPage'
 import type { Client } from './types/client'
 
-type Page = 'login' | 'list' | 'cjm' | 'edit' | 'result' | 'test'
+type Page = 'login' | 'list' | 'cjm' | 'edit' | 'result' | 'test' | 'ai-assistant'
 
 function App() {
     // Для тестирования: устанавливаем 'test' чтобы сразу видеть страницу результатов
@@ -42,12 +43,25 @@ function App() {
         <div className="app-container">
             {currentPage === 'login' && <LoginPage onLoginSuccess={handleLoginSuccess} />}
 
+            {currentPage === 'ai-assistant' && (
+                <AiAssistantPage
+                    onNavigate={(page) => {
+                        if (page === 'crm') setCurrentPage('list');
+                        else if (page === 'pfp') setCurrentPage('list'); // Default to list for now
+                        else if (page === 'ai-assistant') setCurrentPage('ai-assistant');
+                        // Add other navigations as needed
+                    }}
+                />
+            )}
+
             {currentPage === 'list' && (
                 <AiCrmPage
                     onSelectClient={handleSelectClient}
                     onNewClient={handleNewClient}
                     onNavigate={(page) => {
                         console.log('Navigate to:', page);
+                        if (page === 'ai-assistant') setCurrentPage('ai-assistant');
+                        else if (page === 'crm') setCurrentPage('list');
                         // Handle navigation if needed, or just log
                     }}
                 />
