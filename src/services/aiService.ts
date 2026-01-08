@@ -47,7 +47,8 @@ export const aiService = {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'text/event-stream'
                 },
                 body: JSON.stringify(request)
             });
