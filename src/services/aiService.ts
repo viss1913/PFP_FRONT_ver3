@@ -12,12 +12,8 @@ export const aiService = {
     // 1. Get List of Assistants
     getAssistants: async (): Promise<AiAssistant[]> => {
         const token = getToken();
-        // Adjust endpoint if needed based on pfp-api.yaml
-        // YAML says: /ai/assistants (under paths)
-        // Note: The YAML in the previous turn showed paths like /ai/assistants
-        // But usually there is a prefix like /api/pfp based on the task description.
-        // Task description says: GET /api/pfp/ai/assistants
-        const response = await axios.get<AiAssistant[]>(`${API_URL}/pfp/ai/assistants`, {
+        // Correct endpoint per pfp-api.yaml: /ai/assistants
+        const response = await axios.get<AiAssistant[]>(`${API_URL}/ai/assistants`, {
             headers: { Authorization: `Bearer ${token}` }
         });
         return response.data;
@@ -26,8 +22,8 @@ export const aiService = {
     // 2. Get Chat History
     getHistory: async (assistantId: number): Promise<AiMessage[]> => {
         const token = getToken();
-        // Task description: GET /api/pfp/ai/history/{assistant_id}
-        const response = await axios.get<AiMessage[]>(`${API_URL}/pfp/ai/history/${assistantId}`, {
+        // Correct endpoint per pfp-api.yaml: /ai/history/{assistant_id}
+        const response = await axios.get<AiMessage[]>(`${API_URL}/ai/history/${assistantId}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
         return response.data;
@@ -43,7 +39,7 @@ export const aiService = {
     ) => {
         const token = getToken();
         try {
-            const response = await fetch(`${API_URL}/chat/stream`, {
+            const response = await fetch(`${API_URL}/ai/chat/stream`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
