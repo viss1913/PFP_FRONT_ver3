@@ -43,7 +43,7 @@ export const aiService = {
     ) => {
         const token = getToken();
         try {
-            const response = await fetch(`${API_URL}/pfp/ai/chat/stream`, {
+            const response = await fetch(`${API_URL}/chat/stream`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
