@@ -16,7 +16,6 @@ interface GoalResult {
   initialCapital: number;
   monthlyPayment: number;
   termMonths: number;
-  termMonths: number;
   goalType?: string;
   // Specific fields for specialized cards
   annualPremium?: number;
