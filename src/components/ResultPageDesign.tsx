@@ -79,7 +79,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
       termMonths: details?.term_months || summary?.term_months || 0,
       goalType: goalResult?.goal_type,
       // Life Goal Specifics
-      annualPremium: details?.annual_premium,
+      annualPremium: details?.annual_premium || details?.annualPremium || summary?.annual_premium || summary?.annualPremium || 0,
       risks: details?.risks || [], // Assuming risks might be in details
     };
   });
@@ -290,8 +290,8 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
 
             })}
 
-            {/* Карточка Налоговое планирование */}
-            {(taxBenefitsSummary || taxPlanningLegacy) && (
+            {/* Карточка Налоговое планирование. Show if data exists OR if there are goals (placeholder mode) */}
+            {(taxBenefitsSummary || taxPlanningLegacy || calculatedGoals.length > 0) && (
               <div
                 style={{
                   background: 'linear-gradient(108.52deg, #C2185B 0%, #E91E63 100%)',
