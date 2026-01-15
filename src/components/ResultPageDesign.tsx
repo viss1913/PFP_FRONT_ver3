@@ -40,21 +40,11 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   // Fallback to legacy structure if needed, but prioritize new summary
   const taxPlanningLegacy = calculationData?.tax_planning || calcRoot.tax_planning;
 
-  // Helper to get total deduction
-  const taxTotalDeduction = taxBenefitsSummary?.totals?.total_deductions || taxPlanningLegacy?.total_deductions || 0;
-  const taxMonthlyPayment = taxPlanningLegacy?.monthly_payments || 0; // Legacy or calculated elsewhere?
-  // User request: "Вычеты в 2027", "Софинансирование в 2027", "Всего вычета", "Всего софинансирование".
-  // Let's use 2026 as per Example JSON, or dynamic next year.
-  // "totals": { "deduction_2026": ... }
-  // "pds_benefits": { "total_cofinancing": ... }
+  // "totals": { "deduction_2026": ..., "cofinancing_2026": ..., "total_deductions": ..., "total_cofinancing": ... }
   const taxDeduction2026 = taxBenefitsSummary?.totals?.deduction_2026 || 0;
-  const totalCofinancing = taxBenefitsSummary?.pds_benefits?.total_cofinancing || 0;
-  // Note: "Софинансирование в 2027" - API returns total cofinancing. Let's show Total or Annual?
-  // JSON: "deduction_2026": 0, "total_deductions": 0, "total_cofinancing": 0 for PDS
-  // User Prompt: 
-  // "Вычеты в 2027 - сумма" -> deduction_2026 (assuming +1 year)
-  // "Софинаиснрование в 2027 - сумма" -> Maybe cofinancing_2026? But API only shows total_cofinancing in summary PDS. 
-  // Let's use total for now or whatever is available.
+  const taxCofinancing2026 = taxBenefitsSummary?.totals?.cofinancing_2026 || 0;
+  const taxTotalDeduction = taxBenefitsSummary?.totals?.total_deductions || taxPlanningLegacy?.total_deductions || 0;
+  const taxTotalCofinancing = taxBenefitsSummary?.totals?.total_cofinancing || 0;
 
 
   // Мапим результаты расчетов на карточки
@@ -334,14 +324,23 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                         <div style={{ fontSize: '14px', opacity: 0.9 }}>Вычеты в 2026:</div>
                         <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(taxDeduction2026)}</div>
                       </div>
+                      {taxCofinancing2026 > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ fontSize: '14px', opacity: 0.9 }}>Софинансирование в 2026:</div>
+                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(taxCofinancing2026)}</div>
+                        </div>
+                      )}
+
+                      <div style={{ height: '1px', background: 'rgba(255,255,255,0.2)', margin: '8px 0' }}></div>
+
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ fontSize: '14px', opacity: 0.9 }}>Итого вычетов:</div>
                         <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(taxTotalDeduction)}</div>
                       </div>
-                      {totalCofinancing > 0 && (
+                      {taxTotalCofinancing > 0 && (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div style={{ fontSize: '14px', opacity: 0.9 }}>Всего софинансирования:</div>
-                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(totalCofinancing)}</div>
+                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(taxTotalCofinancing)}</div>
                         </div>
                       )}
                     </>
