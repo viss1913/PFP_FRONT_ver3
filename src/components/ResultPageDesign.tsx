@@ -16,7 +16,11 @@ interface GoalResult {
   initialCapital: number;
   monthlyPayment: number;
   termMonths: number;
+  termMonths: number;
   goalType?: string;
+  // Specific fields for specialized cards
+  annualPremium?: number;
+  risks?: string[];
 }
 
 /**
@@ -31,7 +35,28 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   // Access data from the nested 'calculation' object if it exists, otherwise fallback to top-level or empty
   const calcRoot = calculationData?.calculation || calculationData || {};
   const calculatedGoals = calcRoot.goals || [];
-  const taxPlanning = calculationData?.tax_planning || calcRoot.tax_planning;
+
+  // Tax Benefits Summary (New logic)
+  const taxBenefitsSummary = calculationData?.summary?.tax_benefits_summary || calcRoot?.summary?.tax_benefits_summary;
+  // Fallback to legacy structure if needed, but prioritize new summary
+  const taxPlanningLegacy = calculationData?.tax_planning || calcRoot.tax_planning;
+
+  // Helper to get total deduction
+  const taxTotalDeduction = taxBenefitsSummary?.totals?.total_deductions || taxPlanningLegacy?.total_deductions || 0;
+  const taxMonthlyPayment = taxPlanningLegacy?.monthly_payments || 0; // Legacy or calculated elsewhere?
+  // User request: "Вычеты в 2027", "Софинансирование в 2027", "Всего вычета", "Всего софинансирование".
+  // Let's use 2026 as per Example JSON, or dynamic next year.
+  // "totals": { "deduction_2026": ... }
+  // "pds_benefits": { "total_cofinancing": ... }
+  const taxDeduction2026 = taxBenefitsSummary?.totals?.deduction_2026 || 0;
+  const totalCofinancing = taxBenefitsSummary?.pds_benefits?.total_cofinancing || 0;
+  // Note: "Софинансирование в 2027" - API returns total cofinancing. Let's show Total or Annual?
+  // JSON: "deduction_2026": 0, "total_deductions": 0, "total_cofinancing": 0 for PDS
+  // User Prompt: 
+  // "Вычеты в 2027 - сумма" -> deduction_2026 (assuming +1 year)
+  // "Софинаиснрование в 2027 - сумма" -> Maybe cofinancing_2026? But API only shows total_cofinancing in summary PDS. 
+  // Let's use total for now or whatever is available.
+
 
   // Мапим результаты расчетов на карточки
   const goalCards: GoalResult[] = calculatedGoals.map((goalResult: any) => {
@@ -54,6 +79,9 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
       monthlyPayment: summary?.monthly_replenishment !== undefined ? summary.monthly_replenishment : (summary.monthly_payment || 0),
       termMonths: details?.term_months || summary?.term_months || 0,
       goalType: goalResult?.goal_type,
+      // Life Goal Specifics
+      annualPremium: details?.annual_premium,
+      risks: details?.risks || [], // Assuming risks might be in details
     };
   });
 
@@ -217,22 +245,46 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', position: 'relative', zIndex: 1 }}>
-                    <div>
-                      <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Стоимость цели</div>
-                      <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{formatCurrency(goal.targetAmount)}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Первоначальный капитал</div>
-                      <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{formatCurrency(goal.initialCapital)}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Ежемесячное пополнение</div>
-                      <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{formatCurrency(goal.monthlyPayment)}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Срок достижения</div>
-                      <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{formatMonths(goal.termMonths)}</div>
-                    </div>
+                    {goal.id === 5 ? (
+                      // Custom layout for Life Insurance (ID 5)
+                      <>
+                        <div>
+                          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Лимит (Сумма по риску)</div>
+                          <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{formatCurrency(goal.targetAmount)}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Годовая премия</div>
+                          <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+                            {goal.annualPremium ? formatCurrency(goal.annualPremium) : '-'}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Срок</div>
+                          <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{Math.round(goal.termMonths / 12)} лет</div>
+                        </div>
+                        {/* Risks? */}
+                      </>
+                    ) : (
+                      // Standard Layout
+                      <>
+                        <div>
+                          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Стоимость цели</div>
+                          <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{formatCurrency(goal.targetAmount)}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Первоначальный капитал</div>
+                          <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{formatCurrency(goal.initialCapital)}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Ежемесячное пополнение</div>
+                          <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{formatCurrency(goal.monthlyPayment)}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Срок достижения</div>
+                          <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{formatMonths(goal.termMonths)}</div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               );
@@ -240,7 +292,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
             })}
 
             {/* Карточка Налоговое планирование */}
-            {taxPlanning && (
+            {(taxBenefitsSummary || taxPlanningLegacy) && (
               <div
                 style={{
                   background: 'linear-gradient(108.52deg, #C2185B 0%, #E91E63 100%)',
@@ -276,15 +328,38 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontSize: '14px', opacity: 0.9 }}>Всего вычетов:</div>
-                    <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(taxPlanning.total_deductions || 0)}</div>
-                  </div>
-                  <div style={{ height: '1px', background: 'rgba(255,255,255,0.2)' }}></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div style={{ fontSize: '14px', opacity: 0.9, maxWidth: '150px' }}>Всего выплат в месяц за детей</div>
-                    <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(taxPlanning.monthly_payments || 0)}</div>
-                  </div>
+                  {(taxBenefitsSummary) ? (
+                    // New Tax Summary Layout
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ fontSize: '14px', opacity: 0.9 }}>Вычеты в 2026:</div>
+                        <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(taxDeduction2026)}</div>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ fontSize: '14px', opacity: 0.9 }}>Итого вычетов:</div>
+                        <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(taxTotalDeduction)}</div>
+                      </div>
+                      {totalCofinancing > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ fontSize: '14px', opacity: 0.9 }}>Всего софинансирования:</div>
+                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(totalCofinancing)}</div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    // Legacy Layout
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ fontSize: '14px', opacity: 0.9 }}>Всего вычетов:</div>
+                        <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(taxTotalDeduction)}</div>
+                      </div>
+                      <div style={{ height: '1px', background: 'rgba(255,255,255,0.2)' }}></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div style={{ fontSize: '14px', opacity: 0.9, maxWidth: '150px' }}>Всего выплат в месяц за детей</div>
+                        <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(taxMonthlyPayment)}</div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}

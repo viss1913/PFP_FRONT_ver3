@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Target, ShieldCheck, Briefcase, PiggyBank, DollarSign } from 'lucide-react';
+import { User, Target, ShieldCheck, Briefcase, PiggyBank, DollarSign, Heart } from 'lucide-react';
 import StepClientData from './steps/StepClientData';
 import StepGoalSelection from './steps/StepGoalSelection';
 import StepAssets from './steps/StepAssets';
 import StepFinReserve from './steps/StepFinReserve';
+import StepLifeInsurance from './steps/StepLifeInsurance';
 import StepIncome from './steps/StepIncome';
 import StepRiskProfile from './steps/StepRiskProfile';
 import { clientApi } from '../api/clientApi';
@@ -45,6 +46,9 @@ export interface CJMData {
     fio?: string;
     phone?: string;
     uuid?: string;
+
+    // Life Insurance
+    lifeInsuranceLimit?: number;
 }
 
 const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, onBack }) => {
@@ -61,6 +65,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
         monthlyReplenishment: 50000,
         avgMonthlyIncome: 150000,
         riskProfile: 'BALANCED',
+        lifeInsuranceLimit: 0,
         ...initialData
     });
 
@@ -93,6 +98,19 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     monthly_replenishment: data.monthlyReplenishment || 0,
                     term_months: 12, // FIN_RESERVE всегда 12 месяцев
                     risk_profile: 'CONSERVATIVE'
+                });
+            }
+
+            // Life Insurance (ID 5)
+            if (data.lifeInsuranceLimit && data.lifeInsuranceLimit > 0) {
+                goalsToProcess.push({
+                    goal_type_id: 5,
+                    name: 'Защита Жизни',
+                    target_amount: data.lifeInsuranceLimit,
+                    // Default values for Life Insurance request
+                    term_months: 180, // 15 years default
+                    risk_profile: 'CONSERVATIVE',
+                    inflation_rate: 0 // Usually 0 for insurance sum? Or 10? API default is likely handled.
                 });
             }
 
@@ -225,6 +243,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
         { title: 'Цели', icon: <Target size={20} /> },
         { title: 'Активы', icon: <Briefcase size={20} /> },
         { title: 'Финрезерв', icon: <PiggyBank size={20} /> },
+        { title: 'Защита Жизни', icon: <Heart size={20} /> },
         { title: 'Доход', icon: <DollarSign size={20} /> },
         { title: 'Риск-профиль', icon: <ShieldCheck size={20} /> }
     ];
@@ -331,8 +350,9 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     {step === 2 && <StepGoalSelection data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
                     {step === 3 && <StepAssets data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
                     {step === 4 && <StepFinReserve data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
-                    {step === 5 && <StepIncome data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
-                    {step === 6 && <StepRiskProfile data={data} setData={setData} onComplete={handleCalculate} onPrev={prevStep} loading={loading} />}
+                    {step === 5 && <StepLifeInsurance data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
+                    {step === 6 && <StepIncome data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
+                    {step === 7 && <StepRiskProfile data={data} setData={setData} onComplete={handleCalculate} onPrev={prevStep} loading={loading} />}
                 </motion.div>
             </AnimatePresence>
         </div>
