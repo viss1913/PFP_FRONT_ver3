@@ -45,6 +45,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   const taxCofinancing2026 = taxBenefitsSummary?.totals?.cofinancing_2026 || 0;
   const taxTotalDeduction = taxBenefitsSummary?.totals?.total_deductions || taxPlanningLegacy?.total_deductions || 0;
   const taxTotalCofinancing = taxBenefitsSummary?.totals?.total_cofinancing || 0;
+  const taxMonthlyPayment = taxPlanningLegacy?.monthly_payments || 0;
 
 
   // Мапим результаты расчетов на карточки
