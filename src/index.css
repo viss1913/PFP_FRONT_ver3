@@ -260,7 +260,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 .goalCard__title {
-    width: 65%;
+    width: 60%;
     height: 100%;
     background: #FFC845;
     padding: 12px 15px 12px 20px;
@@ -272,18 +272,20 @@ input[type="range"]::-webkit-slider-thumb:hover {
     font-weight: 800;
     color: #1F2937;
     line-height: 1.1;
-    /* ФИКСИРОВАННЫЙ ДИАГОНАЛЬНЫЙ СКОС ДАН ПИКСЕЛЯМИ ДЛЯ ОДИНАКОВОГО УГЛА */
-    clip-path: polygon(0 0, 100% 0, calc(100% - 40px) 100%, 0 100%);
+    /* ДИАГОНАЛЬНЫЙ СКОС: 100% сверху, 85% снизу для изящного угла */
+    clip-path: polygon(0 0, 100% 0, 85% 100%, 0 100%);
 }
 
 .goalCard__image {
-    width: 45%;
+    width: 100%;
+    /* Изображение на всю ширину, чтобы не было дыр */
     height: 100%;
     object-fit: cover;
     position: absolute;
     right: 0;
     top: 0;
     z-index: 1;
+    /* Слой под текстом */
 }
 
 /* --- STRICT USER PROVIDED CSS END --- */
