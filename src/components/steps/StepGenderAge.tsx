@@ -21,14 +21,14 @@ const StepGenderAge: React.FC<StepProps> = ({ data, setData, onNext }) => {
                             flex: 1,
                             padding: '20px',
                             borderRadius: '16px',
-                            border: `2px solid ${data.gender === 'male' ? 'var(--primary)' : '#D1D5DB'}`,
-                            background: data.gender === 'male' ? 'rgba(255,199,80,0.15)' : '#F3F4F6',
-                            color: data.gender === 'male' ? 'var(--text-main)' : '#1F2937',
+                            border: `2px solid ${data.gender === 'male' ? 'var(--primary)' : '#9CA3AF'}`,
+                            background: data.gender === 'male' ? 'rgba(255,199,80,0.15)' : '#E5E7EB',
+                            color: '#000000',
                             cursor: 'pointer',
-                            fontWeight: '600',
+                            fontWeight: '700',
                             fontSize: '16px',
                             transition: 'all 0.2s ease',
-                            boxShadow: data.gender === 'male' ? '0 4px 12px rgba(255,199,80,0.2)' : 'none'
+                            boxShadow: data.gender === 'male' ? '0 4px 12px rgba(255,199,80,0.2)' : 'inset 0 1px 2px rgba(0,0,0,0.05)'
                         }}
                         onClick={() => setData({ ...data, gender: 'male' })}
                     >
@@ -40,14 +40,14 @@ const StepGenderAge: React.FC<StepProps> = ({ data, setData, onNext }) => {
                             flex: 1,
                             padding: '20px',
                             borderRadius: '16px',
-                            border: `2px solid ${data.gender === 'female' ? 'var(--primary)' : '#D1D5DB'}`,
-                            background: data.gender === 'female' ? 'rgba(255,199,80,0.15)' : '#F3F4F6',
-                            color: data.gender === 'female' ? 'var(--text-main)' : '#1F2937',
+                            border: `2px solid ${data.gender === 'female' ? 'var(--primary)' : '#9CA3AF'}`,
+                            background: data.gender === 'female' ? 'rgba(255,199,80,0.15)' : '#E5E7EB',
+                            color: '#000000',
                             cursor: 'pointer',
-                            fontWeight: '600',
+                            fontWeight: '700',
                             fontSize: '16px',
                             transition: 'all 0.2s ease',
-                            boxShadow: data.gender === 'female' ? '0 4px 12px rgba(255,199,80,0.2)' : 'none'
+                            boxShadow: data.gender === 'female' ? '0 4px 12px rgba(255,199,80,0.2)' : 'inset 0 1px 2px rgba(0,0,0,0.05)'
                         }}
                         onClick={() => setData({ ...data, gender: 'female' })}
                     >
