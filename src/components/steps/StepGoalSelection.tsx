@@ -40,8 +40,14 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
         // Reset defaults when opening new goal
         setTargetAmount(DEFAULT_TARGET_AMOUNT);
         setTermMonths(DEFAULT_TERM_YEARS * 12);
-        setDesiredIncome(DEFAULT_DESIRED_INCOME);
-        setInitialCapital(DEFAULT_INITIAL_CAPITAL);
+
+        if (item.typeId === 7) { // Ликвидный резерв (RESERVE)
+            setDesiredIncome(10000); // По умолчанию 10к пополнение
+            setInitialCapital(0);
+        } else {
+            setDesiredIncome(DEFAULT_DESIRED_INCOME);
+            setInitialCapital(DEFAULT_INITIAL_CAPITAL);
+        }
     };
 
     const handleAddGoal = () => {
@@ -68,12 +74,13 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
             newGoal.desired_monthly_income = desiredIncome;
             newGoal.term_months = termMonths;
             newGoal.inflation_rate = 4.8;
-        } else if (typeId === 8 || typeId === 3) { // 3. Рента (RENT) или Сохранить и приумножить (INVESTMENT)
+        } else if (typeId === 8 || typeId === 3 || typeId === 7) { // 3. Рента (RENT), Сохранить и приумножить (INVESTMENT) или Ликвидный резерв (RESERVE)
             newGoal.initial_capital = initialCapital;
-            newGoal.monthly_replenishment = (typeId === 3) ? desiredIncome : 0; // Для ID 3 используем поле desiredIncome как поле ввода пополнения в модалке (временно)
+            newGoal.monthly_replenishment = (typeId === 3 || typeId === 7) ? desiredIncome : 0; // Для ID 3 и 7 используем поле desiredIncome как поле пополнения
             newGoal.name = selectedGalleryItem.title;
             newGoal.inflation_rate = (typeId === 3) ? 5.6 : 0;
             newGoal.term_months = (typeId === 3) ? termMonths : 0;
+            if (typeId === 7) newGoal.term_months = 0; // Резерв обычно бессрочный
         } else {
             // 4. Standard
             newGoal.target_amount = targetAmount;
@@ -114,7 +121,10 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
     const isPassive = selectedGalleryItem?.typeId === 2;
     const isRent = selectedGalleryItem?.typeId === 8;
     const isInvest = selectedGalleryItem?.typeId === 3;
-    const isStandard = !isPension && !isPassive && !isRent && !isInvest;
+    const isReserve = selectedGalleryItem?.typeId === 7;
+    const isStandard = !isPension && !isPassive && !isRent && !isInvest && !isReserve;
+
+    const totalAssetsSum = (data.assets || []).reduce((sum, a) => sum + (a.current_value || 0), 0);
 
     return (
         <div style={{ paddingBottom: '40px' }}>
@@ -511,6 +521,57 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                         min="1" max="50" step="1"
                                         value={termMonths / 12}
                                         onChange={(e) => setTermMonths(Number(e.target.value) * 12)}
+                                        style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
+                                    />
+                                </div>
+                            </>
+                        )}
+
+                        {/* 5. Liquid Reserve (Freserve) */}
+                        {isReserve && (
+                            <>
+                                <div style={{ marginBottom: '24px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
+                                        <label style={{ fontWeight: '600', fontSize: '16px', color: '#374151' }}>Первоначальный капитал</label>
+                                        <input
+                                            type="text"
+                                            value={formatNumber(initialCapital)}
+                                            onChange={(e) => handleNumberInput(e.target.value, setInitialCapital)}
+                                            style={{
+                                                fontWeight: '800', fontSize: '20px', color: '#E91E63',
+                                                border: '1px solid #E5E7EB', borderRadius: '8px',
+                                                padding: '4px 8px', width: '180px', textAlign: 'right'
+                                            }}
+                                        />
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="0" max={totalAssetsSum || 10000000} step={Math.max(1000, Math.floor((totalAssetsSum || 10000000) / 100))}
+                                        value={initialCapital}
+                                        onChange={(e) => setInitialCapital(Number(e.target.value))}
+                                        style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
+                                    />
+                                    <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '8px' }}>Доступно из активов: {formatCurrency(totalAssetsSum)}</div>
+                                </div>
+                                <div style={{ marginBottom: '40px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
+                                        <label style={{ fontWeight: '600', fontSize: '16px', color: '#374151' }}>Ежемесячное пополнение</label>
+                                        <input
+                                            type="text"
+                                            value={formatNumber(desiredIncome)}
+                                            onChange={(e) => handleNumberInput(e.target.value, setDesiredIncome)}
+                                            style={{
+                                                fontWeight: '800', fontSize: '20px', color: '#E91E63',
+                                                border: '1px solid #E5E7EB', borderRadius: '8px',
+                                                padding: '4px 8px', width: '180px', textAlign: 'right'
+                                            }}
+                                        />
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="0" max="200000" step="5000"
+                                        value={desiredIncome}
+                                        onChange={(e) => setDesiredIncome(Number(e.target.value))}
                                         style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
                                     />
                                 </div>
