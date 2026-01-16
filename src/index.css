@@ -263,12 +263,12 @@ input[type="range"]::-webkit-slider-thumb:hover {
     width: 55%;
     height: 100%;
     background: #FFC845;
-    padding: 20px;
+    padding: 12px 15px 12px 20px;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     position: relative;
     z-index: 2;
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 800;
     color: #1F2937;
     line-height: 1.1;

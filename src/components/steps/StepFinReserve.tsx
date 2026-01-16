@@ -143,9 +143,10 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
                         onChange={(e) => handleNumberInput(e.target.value, setMonthlyReplenishment)}
                         style={{
                             fontWeight: '800', fontSize: '20px', color: 'var(--primary)',
-                            border: '1px solid var(--border-color)', borderRadius: '8px',
-                            padding: '4px 8px', width: '180px', textAlign: 'right',
-                            background: 'transparent'
+                            border: '1px solid var(--border-color)', borderRadius: '12px',
+                            padding: '8px 16px', width: '200px', textAlign: 'right',
+                            background: 'rgba(255, 200, 69, 0.05)',
+                            boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)'
                         }}
                     />
                 </div>
@@ -158,24 +159,24 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
                     onChange={(e) => setMonthlyReplenishment(Number(e.target.value))}
                     style={{
                         width: '100%',
-                        height: '6px',
+                        height: '10px',
                         background: '#E5E7EB',
-                        borderRadius: '3px',
+                        borderRadius: '5px',
                         accentColor: 'var(--primary)',
                         cursor: 'pointer'
                     }}
                 />
-                <span className="hint" style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '12px', display: 'block' }}>
+                <span className="hint" style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '16px', display: 'block' }}>
                     Сумма, которую вы планируете добавлять ежемесячно к финрезерву (опционально)
                 </span>
             </div>
 
-            <div style={{ display: 'flex', gap: '16px' }}>
-                <button className="btn-secondary" onClick={onPrev} style={{ flex: 1 }}>Назад</button>
+            <div style={{ display: 'flex', gap: '16px', marginTop: '20px' }}>
+                <button className="btn-secondary" onClick={onPrev} style={{ flex: 1, padding: '16px' }}>Назад</button>
                 <button
                     className="btn-primary"
                     onClick={onNext}
-                    style={{ flex: 1 }}
+                    style={{ flex: 1, padding: '16px' }}
                 >
                     Далее
                 </button>
