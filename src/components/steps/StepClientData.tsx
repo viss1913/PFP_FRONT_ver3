@@ -82,28 +82,41 @@ const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }
 
             <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '32px 0' }}></div>
 
-            {/* Demographics Section */}
             <div style={{ marginBottom: '32px' }}>
                 <label className="label" style={{ marginBottom: '12px', display: 'block' }}>Ваш пол</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                     <button
-                        className={`btn-secondary ${data.gender === 'male' ? 'active' : ''}`}
+                        className="btn-gender"
                         onClick={() => handleChange('gender', 'male')}
                         style={{
-                            borderColor: data.gender === 'male' ? 'var(--primary)' : 'transparent',
-                            color: data.gender === 'male' ? '#000' : '#fff',
-                            background: data.gender === 'male' ? 'var(--primary)' : 'rgba(255,255,255,0.05)'
+                            padding: '16px',
+                            borderRadius: '16px',
+                            border: `2px solid ${data.gender === 'male' ? 'var(--primary)' : '#9CA3AF'}`,
+                            background: data.gender === 'male' ? 'rgba(255,199,80,0.15)' : '#E5E7EB',
+                            color: '#000',
+                            cursor: 'pointer',
+                            fontWeight: '700',
+                            fontSize: '16px',
+                            transition: 'all 0.2s ease',
+                            boxShadow: data.gender === 'male' ? '0 4px 12px rgba(255,199,80,0.2)' : 'none'
                         }}
                     >
                         Мужской
                     </button>
                     <button
-                        className={`btn-secondary ${data.gender === 'female' ? 'active' : ''}`}
+                        className="btn-gender"
                         onClick={() => handleChange('gender', 'female')}
                         style={{
-                            borderColor: data.gender === 'female' ? 'var(--primary)' : 'transparent',
-                            color: data.gender === 'female' ? '#000' : '#fff',
-                            background: data.gender === 'female' ? 'var(--primary)' : 'rgba(255,255,255,0.05)'
+                            padding: '16px',
+                            borderRadius: '16px',
+                            border: `2px solid ${data.gender === 'female' ? 'var(--primary)' : '#9CA3AF'}`,
+                            background: data.gender === 'female' ? 'rgba(255,199,80,0.15)' : '#E5E7EB',
+                            color: '#000',
+                            cursor: 'pointer',
+                            fontWeight: '700',
+                            fontSize: '16px',
+                            transition: 'all 0.2s ease',
+                            boxShadow: data.gender === 'female' ? '0 4px 12px rgba(255,199,80,0.2)' : 'none'
                         }}
                     >
                         Женский
