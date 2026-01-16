@@ -12,7 +12,7 @@ interface StepFinReserveProps {
 const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, onPrev }) => {
     // Calculate total liquid capital from assets
     const totalLiquidCapital = (data.assets || []).reduce((sum, a) => sum + (a.current_value || 0), 0);
-    
+
     // Initialize with default values if not set
     const [initialCapital, setInitialCapital] = useState<number>(data.initialCapital || 0);
     const [monthlyReplenishment, setMonthlyReplenishment] = useState<number>(data.monthlyReplenishment || 0);
@@ -27,17 +27,23 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
     }, [initialCapital, monthlyReplenishment, setData]);
 
     const formatCurrency = (val: number) => new Intl.NumberFormat('ru-RU').format(Math.round(val)) + ' ₽';
+    const formatNumber = (val: number) => new Intl.NumberFormat('ru-RU').format(Math.round(val));
+
+    const handleNumberInput = (val: string, setter: (n: number) => void) => {
+        const num = parseInt(val.replace(/\s/g, '')) || 0;
+        setter(num);
+    };
 
     return (
         <div>
             <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-                <div style={{ 
-                    width: '64px', 
-                    height: '64px', 
-                    borderRadius: '50%', 
-                    background: 'var(--primary)', 
-                    display: 'flex', 
-                    alignItems: 'center', 
+                <div style={{
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '50%',
+                    background: 'var(--primary)',
+                    display: 'flex',
+                    alignItems: 'center',
                     justifyContent: 'center',
                     margin: '0 auto 16px'
                 }}>
@@ -50,12 +56,12 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
             </div>
 
             {/* Total Capital Info */}
-            <div style={{ 
-                marginBottom: '30px', 
-                padding: '20px', 
-                background: 'var(--card-bg)', 
+            <div style={{
+                marginBottom: '30px',
+                padding: '20px',
+                background: 'var(--card-bg)',
                 backdropFilter: 'blur(20px)',
-                borderRadius: '16px', 
+                borderRadius: '16px',
                 border: '1px solid var(--border-color)',
                 boxShadow: 'var(--shadow-soft)'
             }}>
@@ -69,19 +75,39 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
 
             {/* Initial Capital Input */}
             <div className="input-group" style={{ marginBottom: '24px' }}>
-                <label className="label" style={{ fontSize: '16px', fontWeight: '600', color: 'var(--text-main)' }}>
-                    Первоначальный капитал в цели Финансовый резерв
-                </label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
+                    <label className="label" style={{ fontSize: '16px', fontWeight: '600', color: 'var(--text-main)', marginBottom: 0 }}>
+                        Первоначальный капитал в цели Финансовый резерв
+                    </label>
+                    <input
+                        type="text"
+                        value={formatNumber(initialCapital)}
+                        onChange={(e) => handleNumberInput(e.target.value, setInitialCapital)}
+                        style={{
+                            fontWeight: '800', fontSize: '20px', color: 'var(--primary)',
+                            border: '1px solid var(--border-color)', borderRadius: '8px',
+                            padding: '4px 8px', width: '180px', textAlign: 'right',
+                            background: 'transparent'
+                        }}
+                    />
+                </div>
                 <input
-                    type="number"
+                    type="range"
                     min="0"
-                    max={totalLiquidCapital}
-                    step="10000"
-                    value={initialCapital || ''}
+                    max={totalLiquidCapital || 1000000}
+                    step={Math.max(1000, Math.floor((totalLiquidCapital || 1000000) / 100))}
+                    value={initialCapital}
                     onChange={(e) => setInitialCapital(Number(e.target.value))}
-                    placeholder="0"
+                    style={{
+                        width: '100%',
+                        height: '6px',
+                        background: '#E5E7EB',
+                        borderRadius: '3px',
+                        accentColor: 'var(--primary)',
+                        cursor: 'pointer'
+                    }}
                 />
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', alignItems: 'center' }}>
                     <span className="hint" style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Начальная сумма для финрезерва</span>
                     {totalLiquidCapital > 0 && (
                         <button
@@ -91,18 +117,12 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
                                 background: 'transparent',
                                 border: '1px solid var(--primary)',
                                 color: 'var(--primary)',
-                                padding: '8px 16px',
+                                padding: '6px 12px',
                                 borderRadius: '8px',
                                 cursor: 'pointer',
-                                fontSize: '14px',
+                                fontSize: '13px',
                                 fontWeight: '500',
                                 transition: 'all 0.2s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.background = 'rgba(255, 199, 80, 0.1)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.background = 'transparent';
                             }}
                         >
                             Все средства
@@ -113,18 +133,39 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
 
             {/* Monthly Replenishment Input */}
             <div className="input-group" style={{ marginBottom: '40px' }}>
-                <label className="label" style={{ fontSize: '16px', fontWeight: '600', color: 'var(--text-main)' }}>
-                    Ежемесячное пополнение Финансового резерва
-                </label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
+                    <label className="label" style={{ fontSize: '16px', fontWeight: '600', color: 'var(--text-main)', marginBottom: 0 }}>
+                        Ежемесячное пополнение Финансового резерва
+                    </label>
+                    <input
+                        type="text"
+                        value={formatNumber(monthlyReplenishment)}
+                        onChange={(e) => handleNumberInput(e.target.value, setMonthlyReplenishment)}
+                        style={{
+                            fontWeight: '800', fontSize: '20px', color: 'var(--primary)',
+                            border: '1px solid var(--border-color)', borderRadius: '8px',
+                            padding: '4px 8px', width: '180px', textAlign: 'right',
+                            background: 'transparent'
+                        }}
+                    />
+                </div>
                 <input
-                    type="number"
+                    type="range"
                     min="0"
-                    step="1000"
-                    value={monthlyReplenishment || ''}
+                    max="200000"
+                    step="5000"
+                    value={monthlyReplenishment}
                     onChange={(e) => setMonthlyReplenishment(Number(e.target.value))}
-                    placeholder="0"
+                    style={{
+                        width: '100%',
+                        height: '6px',
+                        background: '#E5E7EB',
+                        borderRadius: '3px',
+                        accentColor: 'var(--primary)',
+                        cursor: 'pointer'
+                    }}
                 />
-                <span className="hint" style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '8px', display: 'block' }}>
+                <span className="hint" style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '12px', display: 'block' }}>
                     Сумма, которую вы планируете добавлять ежемесячно к финрезерву (опционально)
                 </span>
             </div>
