@@ -70,7 +70,9 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
       termMonths: details?.term_months || summary?.term_months || 0,
       goalType: goalResult?.goal_type,
       // Life Goal Specifics
-      annualPremium: details?.total_premium || details?.annual_premium || details?.annualPremium || summary?.total_premium || summary?.annual_premium || summary?.annualPremium || 0,
+      annualPremium: goalResult?.goal_type === 'LIFE'
+        ? (summary?.initial_capital || 0)
+        : (details?.total_premium || details?.annual_premium || details?.annualPremium || summary?.total_premium || summary?.annual_premium || summary?.annualPremium || 0),
       risks: details?.risks || [], // Assuming risks might be in details
     };
   });

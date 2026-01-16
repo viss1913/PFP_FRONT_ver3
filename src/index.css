@@ -209,81 +209,81 @@ input[type="range"]::-webkit-slider-thumb:hover {
     justify-content: center;
 }
 
-/* ДЕСКТОП 1920px - ВОТ ТУТ ПРОБЛЕМА! */
-@media (min-width: 1920px) {
+/* ДЕСКТОП 1440px+ - 4 в ряд */
+@media (min-width: 1400px) {
     .goalsContainer {
-        grid-template-columns: repeat(4, 365px);
-        /* ← ЖЁСТКИЕ 365px */
-        padding: 20px 200px;
-        /* ← ОТСТУПЫ 200px СЛЕВА И СПРАВА */
+        grid-template-columns: repeat(4, 280px);
+        padding: 20px 40px;
         margin: 0 auto;
-        /* ← ЦЕНТРИРОВАНИЕ */
     }
 }
 
-/* Планшет large 1200px - 1919px */
-@media (min-width: 1200px) and (max-width: 1919px) {
+/* Планшет-Ноутбук 1100px - 1399px - 3 в ряд */
+@media (min-width: 1100px) and (max-width: 1399px) {
     .goalsContainer {
-        grid-template-columns: repeat(3, 365px);
+        grid-template-columns: repeat(3, 280px);
     }
 }
 
-/* Планшет 768px - 1199px */
-@media (min-width: 768px) and (max-width: 1199px) {
+/* Планшет 768px - 1099px - 2 в ряд */
+@media (min-width: 768px) and (max-width: 1099px) {
     .goalsContainer {
-        grid-template-columns: repeat(2, 365px);
+        grid-template-columns: repeat(2, 280px);
     }
 }
 
-/* Мобильный 360px - 767px */
+/* Мобильный */
 @media (max-width: 767px) {
     .goalsContainer {
-        grid-template-columns: 365px;
+        grid-template-columns: 280px;
         padding: 20px;
     }
 }
 
-/* КАРТОЧКА - ЖЁСТКИЕ РАЗМЕРЫ */
+/* КАРТОЧКА - НОВЫЕ РАЗМЕРЫ И СКОС */
 .goalCard {
-    width: 365px;
-    /* ← ЖЁСТКАЯ ШИРИНА */
-    height: 195px;
-    /* ← ЖЁСТКАЯ ВЫСОТА */
+    width: 280px;
+    height: 160px;
     display: flex;
     overflow: hidden;
-    border-radius: 16px;
+    border-radius: 20px;
     cursor: pointer;
     background-color: #FFC845;
-    /* Ensure background is yellow */
-    transition: transform 0.2s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .goalCard:hover {
-    transform: translateY(-4px);
+    transform: translateY(-6px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
 }
 
 .goalCard__title {
-    width: 170px;
-    /* ← ЖЁСТКАЯ ШИРИНА для текста */
+    width: 55%;
+    height: 100%;
     background: #FFC845;
-    padding: 24px;
-    /* Keep 24px padding for aesthetics, user had 20 but 24 looks better */
-    flex-shrink: 0;
-    /* ← НЕ СЖИМАЕТСЯ */
-    font-size: 20px;
-    font-weight: 700;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+    font-size: 18px;
+    font-weight: 800;
     color: #1F2937;
-    line-height: 1.2;
+    line-height: 1.1;
+    /* ДИАГОНАЛЬНЫЙ СКОС */
+    clip-path: polygon(0 0, 100% 0, 85% 100%, 0 100%);
 }
 
 .goalCard__image {
-    width: 195px;
-    /* ← ТОЧНО 195px */
-    height: 195px;
-    /* ← ТОЧНО 195px */
+    width: 60%;
+    height: 100%;
     object-fit: cover;
-    flex-shrink: 0;
-    /* ← НЕ СЖИМАЕТСЯ */
+    position: absolute;
+    right: 0;
+    top: 0;
+    z-index: 1;
 }
 
 /* --- STRICT USER PROVIDED CSS END --- */
