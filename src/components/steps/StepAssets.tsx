@@ -34,15 +34,37 @@ const StepAssets: React.FC<StepAssetsProps> = ({ data, setData, onNext, onPrev }
     const assets = data.assets || [];
     const totalAssets = assets.reduce((sum, a) => sum + (a.current_value || 0), 0);
 
+    const formatNumber = (val: number) => new Intl.NumberFormat('ru-RU').format(val);
+
+    // Sync logic: Only run once or conditionally
+    React.useEffect(() => {
+        const investGoal = data.goals?.find(g => g.goal_type_id === 3);
+        if (investGoal && investGoal.initial_capital && investGoal.initial_capital > 0) {
+            // Check if we already have 'Cash' from this goal or similar
+            const hasCash = assets.some(a => a.type === 'CASH');
+            if (!hasCash) {
+                const cashAsset: Asset = {
+                    type: 'CASH',
+                    name: 'Наличные (из цели)',
+                    current_value: investGoal.initial_capital,
+                    currency: 'RUB'
+                };
+                setData(prev => ({
+                    ...prev,
+                    assets: [...(prev.assets || []), cashAsset]
+                }));
+            }
+        }
+    }, []); // Run on mount
+
     const handleAdd = () => {
         if (!newAsset.current_value || !newAsset.type) return;
 
-        // Используем название типа актива как имя
         const assetTypeLabel = ASSET_TYPES.find(t => t.type === newAsset.type)?.label || newAsset.type;
 
         const assetToAdd: Asset = {
             type: newAsset.type as AssetType,
-            name: assetTypeLabel || 'Актив', // Используем тип как название, fallback на 'Актив'
+            name: assetTypeLabel || 'Актив',
             current_value: Number(newAsset.current_value),
             currency: 'RUB'
         };
@@ -60,6 +82,11 @@ const StepAssets: React.FC<StepAssetsProps> = ({ data, setData, onNext, onPrev }
             ...prev,
             assets: prev.assets?.filter((_, i) => i !== index)
         }));
+    };
+
+    const handleNumberInput = (val: string) => {
+        const numeric = val.replace(/\D/g, '');
+        setNewAsset({ ...newAsset, current_value: Number(numeric) });
     };
 
     return (
@@ -124,11 +151,11 @@ const StepAssets: React.FC<StepAssetsProps> = ({ data, setData, onNext, onPrev }
             </div>
 
             {isAdding ? (
-                <div style={{ 
-                    padding: '24px', 
-                    background: 'var(--card-bg)', 
+                <div style={{
+                    padding: '24px',
+                    background: 'var(--card-bg)',
                     backdropFilter: 'blur(20px)',
-                    borderRadius: '20px', 
+                    borderRadius: '20px',
                     marginBottom: '24px',
                     border: '1px solid var(--border-color)',
                     boxShadow: 'var(--shadow-soft)'
@@ -140,12 +167,12 @@ const StepAssets: React.FC<StepAssetsProps> = ({ data, setData, onNext, onPrev }
                         <select
                             value={newAsset.type}
                             onChange={(e) => setNewAsset({ ...newAsset, type: e.target.value as AssetType })}
-                            style={{ 
-                                width: '100%', 
-                                padding: '16px 20px', 
-                                background: 'rgba(255, 255, 255, 0.8)', 
-                                border: '1px solid var(--border-color)', 
-                                borderRadius: '16px', 
+                            style={{
+                                width: '100%',
+                                padding: '16px 20px',
+                                background: 'rgba(255, 255, 255, 0.8)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '16px',
                                 color: 'var(--text-main)',
                                 fontSize: '16px',
                                 outline: 'none',
@@ -162,9 +189,9 @@ const StepAssets: React.FC<StepAssetsProps> = ({ data, setData, onNext, onPrev }
                     <div className="input-group">
                         <label className="label">Сумма (₽)</label>
                         <input
-                            type="number"
-                            value={newAsset.current_value || ''}
-                            onChange={(e) => setNewAsset({ ...newAsset, current_value: Number(e.target.value) })}
+                            type="text"
+                            value={formatNumber(newAsset.current_value || 0)}
+                            onChange={(e) => handleNumberInput(e.target.value)}
                             placeholder="0"
                         />
                     </div>
