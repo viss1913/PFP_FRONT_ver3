@@ -37,15 +37,58 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   const cashFlowAllocation = calculationData?.cash_flow_allocation || calcRoot?.cash_flow_allocation || [];
 
   // Tax Benefits Summary (New logic)
-  // ... (existing code for tax benefits)
+  const taxBenefitsSummary = calculationData?.summary?.tax_benefits_summary || calcRoot?.summary?.tax_benefits_summary;
+  // Fallback to legacy structure if needed, but prioritize new summary
+  const taxPlanningLegacy = calculationData?.tax_planning || calcRoot.tax_planning;
 
-  // ... (existing code for taxDeduction2026 etc.)
+  // "totals": { "deduction_2026": ..., "cofinancing_2026": ..., "total_deductions": ..., "total_cofinancing": ... }
+  const taxDeduction2026 = taxBenefitsSummary?.totals?.deduction_2026 || 0;
+  const taxCofinancing2026 = taxBenefitsSummary?.totals?.cofinancing_2026 || 0;
+  const taxTotalDeduction = taxBenefitsSummary?.totals?.total_deductions || taxPlanningLegacy?.total_deductions || 0;
+  const taxTotalCofinancing = taxBenefitsSummary?.totals?.total_cofinancing || 0;
+  const taxMonthlyPayment = taxPlanningLegacy?.monthly_payments || 0;
 
 
   // Мапим результаты расчетов на карточки
-  // ... (existing code for goalCards)
+  const goalCards: GoalResult[] = calculatedGoals.map((goalResult: any) => {
+    const summary = goalResult?.summary || {};
+    const details = goalResult?.details || {};
 
-  // ... (existing code for format methods)
+    // Determine Cost (Target Amount) logic
+    // For Passive Income, cost is usually the capital required.
+    // For others, it's the target amount.
+    // Logic: If 'target_capital_required' exists (Passive Income), use it. Else use 'target_amount'.
+    const cost = details.target_capital_required !== undefined
+      ? details.target_capital_required
+      : (details.target_amount || summary.target_amount || 0);
+
+    return {
+      id: goalResult?.goal_id || 0,
+      name: goalResult?.goal_name || 'Цель',
+      targetAmount: cost,
+      initialCapital: summary?.initial_capital || 0,
+      monthlyPayment: summary?.monthly_replenishment !== undefined ? summary.monthly_replenishment : (summary.monthly_payment || 0),
+      termMonths: details?.term_months || summary?.term_months || 0,
+      goalType: goalResult?.goal_type,
+      // Life Goal Specifics
+      annualPremium: goalResult?.goal_type === 'LIFE'
+        ? (summary?.initial_capital || 0)
+        : (details?.total_premium || details?.annual_premium || details?.annualPremium || summary?.total_premium || summary?.annual_premium || summary?.annualPremium || 0),
+      risks: details?.risks || [], // Assuming risks might be in details
+    };
+  });
+
+  // Форматирование чисел
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('ru-RU', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value) + '₽';
+  };
+
+  const formatMonths = (months: number) => {
+    return `${months} мес.`;
+  };
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#F9FAFB', fontFamily: "'Inter', sans-serif" }}>
