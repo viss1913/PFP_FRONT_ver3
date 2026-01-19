@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Plus, ArrowLeft } from 'lucide-react';
-import { getGoalImage } from '../utils/GoalImages';
+import { getGoalImage, GOAL_GALLERY_ITEMS } from '../utils/GoalImages';
 import { PortfolioDistribution } from './PortfolioDistribution';
 import { formatMonthsToDate } from '../utils/dateUtils';
 
@@ -352,9 +352,13 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
       ? details.target_capital_required
       : (details.target_amount || summary.target_amount || summary.target_amount_initial || 0);
 
+    // Determine name: use goal_name from API, or fallback to default title from Gallery items based on typeId
+    const defaultTitle = GOAL_GALLERY_ITEMS.find(i => i.typeId === typeId)?.title;
+    const displayName = goalResult.goal_name || defaultTitle || 'Цель';
+
     return {
       id: goalResult?.goal_id || 0,
-      name: goalResult?.goal_name || 'Цель',
+      name: displayName,
       targetAmount: cost,
       initialCapital: summary?.initial_capital || 0,
       monthlyPayment: summary?.monthly_replenishment !== undefined ? summary.monthly_replenishment : (summary.monthly_payment || 0),
