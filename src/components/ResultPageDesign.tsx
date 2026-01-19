@@ -271,6 +271,14 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   const taxMonthlyPayment = taxPlanningLegacy?.monthly_payments || 0;
 
 
+  // Форматирование чисел
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('ru-RU', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value) + '₽';
+  };
+
   // Мапим результаты расчетов на карточки
   const goalCards: GoalResult[] = (calculatedGoals as any[]).map((goalResult: any) => {
     const summary = goalResult?.summary || {};
@@ -362,13 +370,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     };
   });
 
-  // Форматирование чисел
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('ru-RU', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value) + '₽';
-  };
+
 
 
 
