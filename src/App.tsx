@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 import LoginPage from './components/LoginPage'
 import CJMFlow from './components/CJMFlow'
@@ -7,10 +7,11 @@ import ResultPageTest from './components/ResultPageTest'
 import AiCrmPage from './components/AiCrmPage'
 import Header from './components/Header'
 import AiAssistantPage from './pages/AiAssistantPage'
+import ReportPreviewPage from './components/ReportPreviewPage'
 import type { Client } from './types/client'
 import { clientApi } from './api/clientApi'
 
-type Page = 'login' | 'list' | 'cjm' | 'edit' | 'result' | 'test' | 'ai-assistant'
+type Page = 'login' | 'list' | 'cjm' | 'edit' | 'result' | 'test' | 'ai-assistant' | 'report-preview'
 
 function App() {
     // Для тестирования: устанавливаем 'test' чтобы сразу видеть страницу результатов
@@ -19,6 +20,13 @@ function App() {
     const [newClientData, setNewClientData] = useState<{ fio: string, phone: string, uuid: string } | null>(null);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
     const [loadingPlan, setLoadingPlan] = useState(false);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('page') === 'preview') {
+            setCurrentPage('report-preview');
+        }
+    }, []);
 
     const handleLoginSuccess = () => {
         setCurrentPage('list')
@@ -73,6 +81,10 @@ function App() {
         } finally {
             setLoadingPlan(false);
         }
+    }
+
+    if (currentPage === 'report-preview') {
+        return <ReportPreviewPage />;
     }
 
     return (

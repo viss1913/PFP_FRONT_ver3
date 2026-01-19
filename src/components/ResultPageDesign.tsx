@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Plus, ArrowLeft } from 'lucide-react';
 import { getGoalImage } from '../utils/GoalImages';
 import { PortfolioDistribution } from './PortfolioDistribution';
+import { formatMonthsToDate } from '../utils/dateUtils';
 
 interface ResultPageDesignProps {
   calculationData: any;
@@ -24,21 +25,32 @@ interface GoalTypeConfig {
   fields: GoalField[];
 }
 
+export interface GoalCardSlot {
+  label: string;
+  value: string;
+}
+
 interface GoalResult {
   id: number;
   name: string;
+  // Fields for editing (keep existing logic for simple access in edit form)
   targetAmount: number;
   initialCapital: number;
   monthlyPayment: number;
   termMonths: number;
+
   goalType?: string;
   goalTypeId?: number;
-  // Specific fields for specialized cards
-  annualPremium?: number;
+
+  // New: Standardized display slots
+  displaySlots: GoalCardSlot[];
+
+  // Specific fields for specialized cards (legacy or specific use)
+  totalPremium?: number; // unified premium
   risks?: any[];
   assets_allocation?: any[];
   originalData?: any; // Full goal result from backend
-  targetMonthlyIncome?: number; // Added for Pension/Passive Income
+  targetMonthlyIncome?: number;
 }
 
 const GOAL_TYPE_CONFIGS: Record<number, GoalTypeConfig> = {
@@ -260,45 +272,77 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
 
 
   // Мапим результаты расчетов на карточки
-  const goalCards: GoalResult[] = (calculatedGoals as any[]).map((goalResult: {
-    goal_id?: number;
-    goal_name?: string;
-    goal_type?: string;
-    goal_type_id?: number;
-    summary?: {
-      target_amount?: number;
-      initial_capital?: number;
-      monthly_replenishment?: number;
-      monthly_payment?: number;
-      term_months?: number;
-      total_premium?: number;
-      annual_premium?: number;
-      risk_profile?: string;
-      assets_allocation?: any[];
-    };
-    details?: {
-      target_capital_required?: number;
-      target_amount?: number;
-      term_months?: number;
-      total_premium?: number;
-      annual_premium?: number;
-      annualPremium?: number;
-      risks?: any[];
-      portfolio?: {
-        instruments?: any[];
-      };
-      ops_capital?: number;
-      ipk_current?: number;
-      risk_profile?: string;
-      inflation_rate?: number;
-    };
-  }) => {
+  const goalCards: GoalResult[] = (calculatedGoals as any[]).map((goalResult: any) => {
     const summary = goalResult?.summary || {};
     const details = goalResult?.details || {};
+    const typeId = goalResult?.goal_type_id || 0;
 
+    // Helper formatter
+    const fmt = (val: number | undefined) => val !== undefined ? formatCurrency(val) : '0₽';
+    const fmtDate = (months: number | undefined) => months ? formatMonthsToDate(months) : '-';
+
+    // Standardized Slots Mapping
+    let displaySlots: GoalCardSlot[] = [];
+
+    switch (typeId) {
+      case 1: // PENSION
+      case 2: // PASSIVE_INCOME
+        displaySlots = [
+          { label: 'Желаемый доход', value: fmt(summary.target_amount_initial) },
+          { label: 'Первонач. капитал', value: fmt(summary.initial_capital) },
+          { label: 'Ежем. пополнение', value: fmt(summary.monthly_replenishment) },
+          { label: 'Срок', value: fmtDate(summary.target_months) },
+        ];
+        break;
+      case 3: // INVESTMENT
+        displaySlots = [
+          { label: 'Итоговый капитал', value: fmt(summary.projected_capital_at_end) },
+          { label: 'Текущий капитал', value: fmt(summary.initial_capital) },
+          { label: 'Ежем. пополнение', value: fmt(summary.monthly_replenishment) },
+          { label: 'Срок', value: fmtDate(summary.target_months) },
+        ];
+        break;
+      case 4: // OTHER
+        displaySlots = [
+          { label: 'Стоимость сегодня', value: fmt(summary.target_amount_initial) },
+          { label: 'Первонач. капитал', value: fmt(summary.initial_capital) },
+          { label: 'Ежем. пополнение', value: fmt(summary.monthly_replenishment) },
+          { label: 'Срок', value: fmtDate(summary.target_months) },
+        ];
+        break;
+      case 5: // LIFE
+        displaySlots = [
+          { label: 'Страховая сумма', value: fmt(summary.target_coverage) },
+          { label: 'Взнос', value: fmt(summary.initial_capital) }, // Assuming premium is in initial_capital as per mapping, or fallback to summary.premium
+          { label: 'Срок', value: fmtDate(summary.target_months) },
+        ];
+        break;
+      case 7: // FIN_RESERVE
+        displaySlots = [
+          { label: 'Итоговый капитал', value: fmt(summary.projected_capital_at_end) },
+          { label: 'Накоплено (Сейчас)', value: fmt(summary.initial_capital) },
+          { label: 'Ежем. пополнение', value: fmt(summary.monthly_replenishment) },
+          { label: 'Размер резерва', value: (summary.target_months || 0) + ' мес' }, // Specific case: Size of reserve
+        ];
+        break;
+      case 8: // RENT
+        displaySlots = [
+          { label: 'Ежем. доход', value: fmt(summary.projected_monthly_income) },
+          { label: 'Капитал', value: fmt(summary.initial_capital) },
+        ];
+        break;
+      default:
+        // Fallback for unknown types
+        displaySlots = [
+          { label: 'Цель', value: fmt(summary.target_amount || summary.target_amount_initial) },
+          { label: 'Срок', value: fmtDate(summary.target_months) },
+        ];
+    }
+
+    // Legacy/Edit fields population (best effort)
     const cost = details.target_capital_required !== undefined
       ? details.target_capital_required
-      : (details.target_amount || summary.target_amount || 0);
+      : (details.target_amount || summary.target_amount || summary.target_amount_initial || 0);
 
     return {
       id: goalResult?.goal_id || 0,
@@ -308,15 +352,12 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
       monthlyPayment: summary?.monthly_replenishment !== undefined ? summary.monthly_replenishment : (summary.monthly_payment || 0),
       termMonths: details?.term_months || summary?.term_months || 0,
       goalType: goalResult?.goal_type,
-      goalTypeId: goalResult?.goal_type_id,
-      annualPremium: goalResult?.goal_type === 'LIFE'
-        ? (summary?.initial_capital || 0)
-        : (details?.total_premium || details?.annual_premium || details?.annualPremium || summary?.total_premium || summary?.annual_premium || 0),
+      goalTypeId: typeId,
+
+      displaySlots, // <--- THE KEY
+
       risks: details?.risks || [],
       assets_allocation: summary?.assets_allocation || details?.portfolio?.instruments || [],
-      targetMonthlyIncome: goalResult?.goal_type === 'PENSION' || goalResult?.goal_type === 'PASSIVE_INCOME'
-        ? (details?.target_amount || summary?.target_amount || 0)
-        : undefined,
       originalData: goalResult
     };
   });
@@ -494,63 +535,12 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', position: 'relative', zIndex: 1 }}>
-                    {goal.goalTypeId === 5 ? (
-                      // LIFE
-                      <>
-                        <div>
-                          <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>Лимит по риску</div>
-                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(goal.targetAmount)}</div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>Ежегодный взнос</div>
-                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(goal.annualPremium || 0)}</div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>Срок (мес)</div>
-                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{goal.termMonths}</div>
-                        </div>
-                      </>
-                    ) : goal.goalTypeId === 1 ? (
-                      // PENSION (Improved layout)
-                      <>
-                        <div>
-                          <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>Желаемая пенсия</div>
-                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(goal.targetMonthlyIncome || 0)}/мес</div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>Первонач. капитал</div>
-                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(goal.initialCapital)}</div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>Ежем. пополнение</div>
-                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(goal.monthlyPayment)}</div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>Срок (мес)</div>
-                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{goal.termMonths}</div>
-                        </div>
-                      </>
-                    ) : (
-                      // Standard Layout
-                      <>
-                        <div>
-                          <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>Стоимость цели</div>
-                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(goal.targetAmount)}</div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>Ежем. пополнение</div>
-                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(goal.monthlyPayment)}</div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>Первонач. капитал</div>
-                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(goal.initialCapital)}</div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>Срок (мес)</div>
-                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{goal.termMonths}</div>
-                        </div>
-                      </>
-                    )}
+                    {goal.displaySlots.map((slot, idx) => (
+                      <div key={idx}>
+                        <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>{slot.label}</div>
+                        <div style={{ fontSize: '18px', fontWeight: '700' }}>{slot.value}</div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               );

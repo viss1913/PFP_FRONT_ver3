@@ -75,7 +75,13 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, onRestart, onRecalculate 
                     onRestart();
                 }}
                 onGoToReport={() => {
-                    console.log('Перейти в отчет');
+                    try {
+                        localStorage.setItem('pfp_report_data', JSON.stringify(data));
+                        window.open('/?page=preview', '_blank');
+                    } catch (e) {
+                        console.error('Failed to open report', e);
+                        alert('Ошибка при открытии отчета');
+                    }
                 }}
                 onRecalculate={onRecalculate}
             />
