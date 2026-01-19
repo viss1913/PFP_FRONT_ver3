@@ -10,20 +10,11 @@ interface StepLifeInsuranceProps {
 }
 
 const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, onNext, onPrev }) => {
-    // Initialize with default 0 or existing value. Default requested is user choice, but UI suggests a slider range.
-    // If not set, maybe default to min (1M) or 0 (no insurance)? 
-    // Usually if this step is shown, user might want it. Let's default to min if 0, or keep 0 if optional.
-    // Spec says "After Financial Reserve, choice of limit".
-    // "Slider From 1 mln to 10 mln rub. Step 500 th."
-    // Let's set default to 1,000,000 if it's 0, to show the slider at start position.
-
-    // However, if we want it to be optional (skip), we might need a toggle?
-    // The prompt says "If there is Life (id=5) -> card details".
-    // So if user selects 0, maybe we don't send it? 
-    // But slider 1M-10M implies always >= 1M.
-    // Let's assume for now 1M is minimum if they proceed.
-
-    const [limit, setLimit] = useState<number>(data.lifeInsuranceLimit && data.lifeInsuranceLimit >= 1000000 ? data.lifeInsuranceLimit : 1000000);
+    // Initialize with existing value if defined, otherwise default to 0 (or a suggested starting value like 1M?)
+    // User requested ability to set 0. And minimum 500k.
+    // If we want to suggest insurance, maybe default to 0 and let them scroll? Or 1M?
+    // Let's rely on data if present. Default to 0 if not.
+    const [limit, setLimit] = useState<number>(data.lifeInsuranceLimit !== undefined ? data.lifeInsuranceLimit : 0);
 
     useEffect(() => {
         setData(prev => ({
@@ -34,7 +25,7 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
 
     const formatCurrency = (val: number) => new Intl.NumberFormat('ru-RU').format(Math.round(val)) + ' ₽';
 
-    const MIN_LIMIT = 1000000;
+    const MIN_LIMIT = 0;
     const MAX_LIMIT = 10000000;
     const STEP = 500000;
 
@@ -84,7 +75,7 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
                                 style={{ width: '100%', cursor: 'pointer', accentColor: 'var(--primary)' }}
                             />
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', color: 'var(--text-muted)', fontSize: '12px' }}>
-                                <span>1 млн ₽</span>
+                                <span>0 ₽</span>
                                 <span>5 млн ₽</span>
                                 <span>10 млн ₽</span>
                             </div>
@@ -108,8 +99,6 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
                                 value={limit}
                                 onChange={(e) => {
                                     const val = Number(e.target.value);
-                                    // Allow typing freely? Or clamp? Let's just set it. 
-                                    // Validation on blur or submit makes sense, but for now direct set.
                                     setLimit(val);
                                 }}
                                 style={{
@@ -123,7 +112,6 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
                                     outline: 'none'
                                 }}
                             />
-                            {/* <span style={{ marginLeft: '4px', fontSize: '16px', fontWeight: 'normal' }}>₽</span> // Symbol inside input bit tricky without logic */}
                         </div>
                     </div>
 
