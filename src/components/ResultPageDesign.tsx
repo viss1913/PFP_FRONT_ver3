@@ -537,7 +537,6 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                 >
                   <div style={{ position: 'relative', zIndex: 1, flex: 1 }}>
                     <h3 style={{ fontSize: '24px', fontWeight: '800', margin: 0, textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>{goal.name}</h3>
-                    <div style={{ fontSize: '14px', opacity: 0.9, marginTop: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>{goal.goalType}</div>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', position: 'relative', zIndex: 1 }}>
