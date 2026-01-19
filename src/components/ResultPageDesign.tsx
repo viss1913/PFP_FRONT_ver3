@@ -329,9 +329,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     }).format(value) + '₽';
   };
 
-  const formatMonths = (months: number) => {
-    return `${months} мес.`;
-  };
+
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#F9FAFB', fontFamily: "'Inter', sans-serif" }}>
@@ -464,7 +462,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
               // Taking a safe bet: if goalType is a string name, we might not match IDs well.
               // But getGoalImage can also take a Name.
 
-              const imageSrc = getGoalImage(goal.goalTypeId || 0);
+              const imageSrc = getGoalImage(goal.name, goal.goalTypeId || 0);
 
               return (
                 <div
