@@ -268,9 +268,9 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                           <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{formatCurrency(goal.targetAmount)}</div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Годовая премия</div>
+                          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Страховая премия (мес.)</div>
                           <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
-                            {goal.annualPremium ? formatCurrency(goal.annualPremium) : '-'}
+                            {formatCurrency(Math.round((goal.annualPremium || 0) / 12))}
                           </div>
                         </div>
                         <div>
@@ -278,7 +278,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                           <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{Math.round(goal.termMonths / 12)} лет</div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Ежемес. пополнение</div>
+                          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Рекомендованное пополнение в месяц</div>
                           <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
                             {formatCurrency(Math.round((goal.annualPremium || 0) / 12))}
                           </div>
