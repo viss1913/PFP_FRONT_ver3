@@ -10,6 +10,20 @@ interface ResultPageDesignProps {
   onRecalculate?: (payload: any) => void;
 }
 
+interface GoalField {
+  key: string;
+  label: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  type: 'currency' | 'percent' | 'number' | 'select';
+  options?: string[];
+}
+
+interface GoalTypeConfig {
+  fields: GoalField[];
+}
+
 interface GoalResult {
   id: number;
   name: string;
@@ -27,7 +41,7 @@ interface GoalResult {
   targetMonthlyIncome?: number; // Added for Pension/Passive Income
 }
 
-const GOAL_TYPE_CONFIGS: Record<number, any> = {
+const GOAL_TYPE_CONFIGS: Record<number, GoalTypeConfig> = {
   1: { // PENSION
     fields: [
       { key: 'target_amount', label: 'Желаемый доход (р/мес)', min: 20000, max: 1000000, step: 5000, type: 'currency' },
@@ -79,7 +93,7 @@ interface SliderFieldProps {
   format?: (val: number) => string;
 }
 
-const SliderField: React.FC<SliderFieldProps> = ({ label, value, min, max, step, onChange, format }) => {
+const SliderField: React.FC<SliderFieldProps> = ({ label, value, min, max, step, onChange, format }: SliderFieldProps) => {
   return (
     <div style={{ marginBottom: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
@@ -130,20 +144,37 @@ const SliderField: React.FC<SliderFieldProps> = ({ label, value, min, max, step,
   );
 };
 
+interface EditFormState {
+  name: string;
+  target_amount: number;
+  term_months: number;
+  initial_capital: number;
+  ops_capital?: number;
+  ipk_current?: number;
+  risk_profile?: string;
+  inflation_rate?: number;
+  [key: string]: any;
+}
+
 const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   calculationData,
   onAddGoal,
   onGoToReport,
   onRecalculate,
-}) => {
+}: ResultPageDesignProps) => {
   const [editingGoal, setEditingGoal] = React.useState<GoalResult | null>(null);
-  const [editForm, setEditForm] = React.useState<any>({});
+  const [editForm, setEditForm] = React.useState<EditFormState>({
+    name: '',
+    target_amount: 0,
+    term_months: 0,
+    initial_capital: 0
+  });
 
   const handleEditGoal = (goal: GoalResult) => {
     setEditingGoal(goal);
 
     // Initialize form with existing values
-    const initialForm: any = {
+    const initialForm: EditFormState = {
       name: goal.name,
       target_amount: goal.targetAmount,
       term_months: goal.termMonths,
@@ -194,7 +225,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
 
   // Normalization for Cash Flow: convert annual to monthly
   const rawCashFlow = consolidatedPortfolio?.cash_flow_allocation || calculationData?.cash_flow_allocation || calcRoot?.cash_flow_allocation || [];
-  const cashFlowAllocation = rawCashFlow.map((item: any) => {
+  const cashFlowAllocation = rawCashFlow.map((item: { payment_frequency?: string; amount: number; name: string }) => {
     if (item.payment_frequency === 'annual') {
       return {
         ...item,
@@ -206,9 +237,19 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   });
 
   // Tax Benefits Summary (New logic)
-  const taxBenefitsSummary = calculationData?.summary?.tax_benefits_summary || calcRoot?.summary?.tax_benefits_summary;
+  const taxBenefitsSummary = (calculationData?.summary?.tax_benefits_summary || calcRoot?.summary?.tax_benefits_summary) as {
+    totals?: {
+      deduction_2026?: number;
+      cofinancing_2026?: number;
+      total_deductions?: number;
+      total_cofinancing?: number;
+    }
+  } | undefined;
   // Fallback to legacy structure if needed, but prioritize new summary
-  const taxPlanningLegacy = calculationData?.tax_planning || calcRoot.tax_planning;
+  const taxPlanningLegacy = (calculationData?.tax_planning || calcRoot.tax_planning) as {
+    total_deductions?: number;
+    monthly_payments?: number;
+  } | undefined;
 
   // "totals": { "deduction_2026": ..., "cofinancing_2026": ..., "total_deductions": ..., "total_cofinancing": ... }
   const taxDeduction2026 = taxBenefitsSummary?.totals?.deduction_2026 || 0;
@@ -219,7 +260,39 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
 
 
   // Мапим результаты расчетов на карточки
-  const goalCards: GoalResult[] = calculatedGoals.map((goalResult: any) => {
+  const goalCards: GoalResult[] = (calculatedGoals as any[]).map((goalResult: {
+    goal_id?: number;
+    goal_name?: string;
+    goal_type?: string;
+    goal_type_id?: number;
+    summary?: {
+      target_amount?: number;
+      initial_capital?: number;
+      monthly_replenishment?: number;
+      monthly_payment?: number;
+      term_months?: number;
+      total_premium?: number;
+      annual_premium?: number;
+      risk_profile?: string;
+      assets_allocation?: any[];
+    };
+    details?: {
+      target_capital_required?: number;
+      target_amount?: number;
+      term_months?: number;
+      total_premium?: number;
+      annual_premium?: number;
+      annualPremium?: number;
+      risks?: any[];
+      portfolio?: {
+        instruments?: any[];
+      };
+      ops_capital?: number;
+      ipk_current?: number;
+      risk_profile?: string;
+      inflation_rate?: number;
+    };
+  }) => {
     const summary = goalResult?.summary || {};
     const details = goalResult?.details || {};
 
@@ -238,7 +311,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
       goalTypeId: goalResult?.goal_type_id,
       annualPremium: goalResult?.goal_type === 'LIFE'
         ? (summary?.initial_capital || 0)
-        : (details?.total_premium || details?.annual_premium || details?.annualPremium || summary?.total_premium || summary?.annual_premium || summary?.annualPremium || 0),
+        : (details?.total_premium || details?.annual_premium || details?.annualPremium || summary?.total_premium || summary?.annual_premium || 0),
       risks: details?.risks || [],
       assets_allocation: summary?.assets_allocation || details?.portfolio?.instruments || [],
       targetMonthlyIncome: goalResult?.goal_type === 'PENSION' || goalResult?.goal_type === 'PASSIVE_INCOME'
@@ -278,8 +351,8 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
             padding: '8px 0',
             transition: 'color 0.2s'
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = '#333')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = '#666')}
+          onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.color = '#333')}
+          onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.color = '#666')}
         >
           <ArrowLeft size={20} />
           Назад к списку клиентов
@@ -712,9 +785,10 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
 
                 {/* Dynamic Fields from Config */}
                 {(GOAL_TYPE_CONFIGS[editingGoal.goalTypeId || 0]?.fields || [
-                  { key: 'target_amount', label: 'Целевая сумма', min: 10000, max: 100000000, step: 10000, type: 'currency' },
-                  { key: 'term_months', label: 'Срок (мес)', min: 1, max: 600, step: 1, type: 'number' }
-                ]).map((field: any) => {
+                  { key: 'target_amount', label: 'Целевая сумма', min: 100000, max: 100000000, step: 100000, type: 'currency' },
+                  { key: 'term_months', label: 'Срок (мес)', min: 1, max: 600, step: 1, type: 'number' },
+                  { key: 'initial_capital', label: 'Стартовый капитал', min: 0, max: 50000000, step: 100000, type: 'currency' },
+                ]).map((field: GoalField) => {
                   if (field.type === 'select') {
                     return (
                       <div key={field.key} style={{ marginBottom: '24px' }}>
@@ -722,42 +796,41 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                           {field.label}
                         </label>
                         <div style={{ display: 'flex', gap: '8px' }}>
-                          {field.options.map((opt: string) => (
+                          {(field.options || []).map((opt: string) => (
                             <button
                               key={opt}
                               onClick={() => setEditForm({ ...editForm, [field.key]: opt })}
                               style={{
                                 flex: 1,
-                                padding: '10px',
-                                borderRadius: '10px',
+                                padding: '12px',
+                                borderRadius: '12px',
                                 border: '2px solid',
                                 borderColor: editForm[field.key] === opt ? 'var(--primary)' : '#eee',
-                                background: editForm[field.key] === opt ? 'var(--primary)' : '#fff',
-                                color: editForm[field.key] === opt ? '#fff' : '#666',
-                                fontSize: '12px',
-                                fontWeight: '700',
+                                background: editForm[field.key] === opt ? 'var(--primary-light)' : '#fff',
+                                color: editForm[field.key] === opt ? 'var(--primary)' : '#666',
+                                fontWeight: '600',
                                 cursor: 'pointer',
-                                transition: 'all 0.2s'
+                                transition: 'all 0.2s',
+                                fontSize: '13px'
                               }}
                             >
-                              {opt === 'CONSERVATIVE' ? 'Консерв.' : opt === 'BALANCED' ? 'Умерен.' : 'Агрессив.'}
+                              {opt}
                             </button>
                           ))}
                         </div>
                       </div>
                     );
                   }
-
                   return (
                     <SliderField
                       key={field.key}
                       label={field.label}
                       value={editForm[field.key] || 0}
-                      min={field.min}
-                      max={field.max}
-                      step={field.step}
-                      onChange={(val) => setEditForm({ ...editForm, [field.key]: val })}
-                      format={(val) => field.type === 'currency' ? formatCurrency(val) : field.type === 'percent' ? `${val}%` : `${val}`}
+                      min={field.min || 0}
+                      max={field.max || 10000000}
+                      step={field.step || 1}
+                      onChange={(val: number) => setEditForm({ ...editForm, [field.key]: val })}
+                      format={field.type === 'currency' ? formatCurrency : (field.type === 'percent' ? (val: number) => `${val}%` : undefined)}
                     />
                   );
                 })}
@@ -797,7 +870,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                     </h3>
                     <div style={{ background: '#F9FAFB', borderRadius: '24px', padding: '24px', border: '1px solid #F3F4F6' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {editingGoal.assets_allocation.map((item: any, idx: number) => (
+                        {(editingGoal.assets_allocation || []).map((item: { name: string; share: number }, idx: number) => (
                           <div key={idx}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', fontSize: '14px' }}>
                               <span style={{ fontWeight: '500', color: '#374151' }}>{item.name}</span>
