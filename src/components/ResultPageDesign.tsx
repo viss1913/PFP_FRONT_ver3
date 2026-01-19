@@ -24,14 +24,16 @@ interface GoalResult {
   risks?: any[];
   assets_allocation?: any[];
   originalData?: any; // Full goal result from backend
+  targetMonthlyIncome?: number; // Added for Pension/Passive Income
 }
 
 const GOAL_TYPE_CONFIGS: Record<number, any> = {
   1: { // PENSION
     fields: [
-      { key: 'target_amount', label: 'Желаемая пенсия', min: 20000, max: 1000000, step: 5000, type: 'currency' },
-      { key: 'initial_capital', label: 'Стартовый капитал', min: 0, max: 50000000, step: 100000, type: 'currency' },
-      { key: 'ops_capital', label: 'Накопительная пенсия (ОПС)', min: 0, max: 5000000, step: 10000, type: 'currency' },
+      { key: 'target_amount', label: 'Желаемый доход (р/мес)', min: 20000, max: 1000000, step: 5000, type: 'currency' },
+      { key: 'initial_capital', label: 'Первоначальный капитал', min: 0, max: 50000000, step: 100000, type: 'currency' },
+      { key: 'ops_capital', label: 'Капитал в ОПС (накопительная)', min: 0, max: 5000000, step: 10000, type: 'currency' },
+      { key: 'ipk_current', label: 'Текущие баллы ИПК (СФР)', min: 0, max: 300, step: 1, type: 'number' },
       { key: 'inflation_rate', label: 'Инфляция (%)', min: 0, max: 20, step: 0.5, type: 'percent' },
       { key: 'risk_profile', label: 'Риск-профиль', type: 'select', options: ['CONSERVATIVE', 'BALANCED', 'AGGRESSIVE'] },
     ]
@@ -153,6 +155,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     const summary = goal.originalData?.summary || {};
 
     initialForm.ops_capital = details.ops_capital || 0;
+    initialForm.ipk_current = details.ipk_current || 0;
     initialForm.risk_profile = details.risk_profile || summary.risk_profile || 'BALANCED';
     initialForm.inflation_rate = details.inflation_rate || 0;
 
@@ -237,7 +240,10 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
         ? (summary?.initial_capital || 0)
         : (details?.total_premium || details?.annual_premium || details?.annualPremium || summary?.total_premium || summary?.annual_premium || summary?.annualPremium || 0),
       risks: details?.risks || [],
-      assets_allocation: summary?.assets_allocation || [],
+      assets_allocation: summary?.assets_allocation || details?.portfolio?.instruments || [],
+      targetMonthlyIncome: goalResult?.goal_type === 'PENSION' || goalResult?.goal_type === 'PASSIVE_INCOME'
+        ? (details?.target_amount || summary?.target_amount || 0)
+        : undefined,
       originalData: goalResult
     };
   });
@@ -385,7 +391,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
               // Taking a safe bet: if goalType is a string name, we might not match IDs well.
               // But getGoalImage can also take a Name.
 
-              const imageSrc = getGoalImage(goal.name, 0); // Passing 0 as ID if unknown, relies on Name match first.
+              const imageSrc = getGoalImage(goal.goalTypeId || 0);
 
               return (
                 <div
@@ -411,73 +417,66 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                   onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-4px)')}
                   onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
                 >
-                  {/* Decorative circle/image placeholder - REMOVED as we have real image now */}
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px', position: 'relative', zIndex: 1 }}>
-                    <h3 style={{ fontSize: '24px', fontWeight: '700', margin: 0, lineHeight: '1.2', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>{goal.name}</h3>
-                    <button
-                      style={{
-                        background: 'rgba(255, 255, 255, 0.2)',
-                        border: 'none',
-                        borderRadius: '50%',
-                        width: '32px',
-                        height: '32px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        color: '#fff',
-                        flexShrink: 0,
-                        backdropFilter: 'blur(4px)'
-                      }}
-                    >
-                      <X size={16} />
-                    </button>
+                  <div style={{ position: 'relative', zIndex: 1, flex: 1 }}>
+                    <h3 style={{ fontSize: '24px', fontWeight: '800', margin: 0, textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>{goal.name}</h3>
+                    <div style={{ fontSize: '14px', opacity: 0.9, marginTop: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>{goal.goalType}</div>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', position: 'relative', zIndex: 1 }}>
-                    {goal.id === 5 ? (
-                      // Custom layout for Life Insurance (ID 5)
+                    {goal.goalTypeId === 5 ? (
+                      // LIFE
                       <>
                         <div>
-                          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Лимит (Сумма по риску)</div>
-                          <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{formatCurrency(goal.targetAmount)}</div>
+                          <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>Лимит по риску</div>
+                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(goal.targetAmount)}</div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Страховая премия (мес.)</div>
-                          <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
-                            {formatCurrency(Math.round((goal.annualPremium || 0) / 12))}
-                          </div>
+                          <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>Ежегодный взнос</div>
+                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(goal.annualPremium || 0)}</div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Срок</div>
-                          <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{Math.round(goal.termMonths / 12)} лет</div>
+                          <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>Срок (мес)</div>
+                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{goal.termMonths}</div>
+                        </div>
+                      </>
+                    ) : goal.goalTypeId === 1 ? (
+                      // PENSION (Improved layout)
+                      <>
+                        <div>
+                          <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>Желаемая пенсия</div>
+                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(goal.targetMonthlyIncome || 0)}/мес</div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Рекомендованное пополнение в месяц</div>
-                          <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
-                            {formatCurrency(Math.round((goal.annualPremium || 0) / 12))}
-                          </div>
+                          <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>Первонач. капитал</div>
+                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(goal.initialCapital)}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>Ежем. пополнение</div>
+                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(goal.monthlyPayment)}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>Срок (мес)</div>
+                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{goal.termMonths}</div>
                         </div>
                       </>
                     ) : (
                       // Standard Layout
                       <>
                         <div>
-                          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Стоимость цели</div>
-                          <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{formatCurrency(goal.targetAmount)}</div>
+                          <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>Стоимость цели</div>
+                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(goal.targetAmount)}</div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Первоначальный капитал</div>
-                          <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{formatCurrency(goal.initialCapital)}</div>
+                          <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>Ежем. пополнение</div>
+                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(goal.monthlyPayment)}</div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Ежемесячное пополнение</div>
-                          <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{formatCurrency(goal.monthlyPayment)}</div>
+                          <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>Первонач. капитал</div>
+                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{formatCurrency(goal.initialCapital)}</div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Срок достижения</div>
-                          <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{formatMonths(goal.termMonths)}</div>
+                          <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>Срок (мес)</div>
+                          <div style={{ fontSize: '18px', fontWeight: '700' }}>{goal.termMonths}</div>
                         </div>
                       </>
                     )}
@@ -650,44 +649,66 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
             color: '#1a1a1a',
             overflow: 'hidden'
           }}>
-            {/* Modal Header */}
-            <div style={{ padding: '32px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h2 style={{ fontSize: '28px', fontWeight: '800', margin: 0, color: 'var(--primary)', marginBottom: '4px' }}>
-                  {editingGoal.name}
-                </h2>
-                <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>Настройте параметры цели для пересчета плана</p>
-              </div>
+            {/* Modal Header with Background Image */}
+            <div style={{
+              position: 'relative',
+              height: '240px',
+              backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.8) 100%), url(${getGoalImage(editingGoal.name, editingGoal.goalTypeId || 0)})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'flex-end',
+              padding: '40px',
+              color: '#fff'
+            }}>
               <button
                 onClick={() => setEditingGoal(null)}
-                style={{ background: '#F3F4F6', border: 'none', cursor: 'pointer', padding: '12px', borderRadius: '50%', color: '#666' }}
+                style={{
+                  position: 'absolute',
+                  top: '24px',
+                  right: '24px',
+                  background: 'rgba(255,255,255,0.2)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '12px',
+                  borderRadius: '50%',
+                  color: '#fff',
+                  backdropFilter: 'blur(10px)',
+                  zIndex: 2
+                }}
               >
                 <X size={24} />
               </button>
+
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#fff',
+                    fontSize: '42px',
+                    fontWeight: '800',
+                    margin: 0,
+                    padding: 0,
+                    width: '100%',
+                    outline: 'none',
+                    textShadow: '0 2px 10px rgba(0,0,0,0.5)',
+                  }}
+                  autoFocus={false}
+                />
+                <p style={{ margin: '8px 0 0 0', opacity: 0.9, fontSize: '16px', fontWeight: '500' }}>
+                  Настройте параметры цели для пересчета плана
+                </p>
+              </div>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: '32px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '40px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '60px' }}>
               {/* Left Column: Form */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ marginBottom: '24px' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#666' }}>
-                    Название цели
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.name}
-                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '14px 18px',
-                      borderRadius: '12px',
-                      border: '2px solid #eee',
-                      fontSize: '16px',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
 
                 {/* Dynamic Fields from Config */}
                 {(GOAL_TYPE_CONFIGS[editingGoal.goalTypeId || 0]?.fields || [
@@ -744,64 +765,60 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
 
               {/* Right Column: Visualization & Risks */}
               <div>
+                {/* Result Summary Card (Added) */}
+                <div style={{
+                  background: 'linear-gradient(135deg, #111827 0%, #374151 100%)',
+                  borderRadius: '24px',
+                  padding: '24px',
+                  color: '#fff',
+                  marginBottom: '32px',
+                  boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)'
+                }}>
+                  <div style={{ fontSize: '12px', opacity: 0.7, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Текущий расчет
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <div style={{ fontSize: '32px', fontWeight: '800' }}>{formatCurrency(editingGoal.monthlyPayment)}</div>
+                    <div style={{ fontSize: '14px', opacity: 0.9 }}>/ мес</div>
+                  </div>
+                  <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '16px 0' }}></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                    <span style={{ opacity: 0.7 }}>Стартовый капитал</span>
+                    <span style={{ fontWeight: '600' }}>{formatCurrency(editingGoal.initialCapital)}</span>
+                  </div>
+                </div>
+
                 {/* Goal Portfolio Distribution */}
-                {(editingGoal.assets_allocation && editingGoal.assets_allocation.length > 0) && (
+                {(editingGoal.assets_allocation && editingGoal.assets_allocation.length > 0) ? (
                   <div style={{ marginBottom: '32px' }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px', color: '#111827' }}>
+                    <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '16px', color: '#111827', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '4px', height: '18px', background: 'var(--primary)', borderRadius: '2px' }}></div>
                       Портфель цели
                     </h3>
-                    <div style={{ background: '#F9FAFB', borderRadius: '20px', padding: '20px' }}>
-                      {editingGoal.assets_allocation.map((item: any, idx: number) => (
-                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', fontSize: '14px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)' }}></div>
-                            <span>{item.name}</span>
+                    <div style={{ background: '#F9FAFB', borderRadius: '24px', padding: '24px', border: '1px solid #F3F4F6' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {editingGoal.assets_allocation.map((item: any, idx: number) => (
+                          <div key={idx}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', fontSize: '14px' }}>
+                              <span style={{ fontWeight: '500', color: '#374151' }}>{item.name}</span>
+                              <span style={{ fontWeight: '700', color: '#111827' }}>{item.share}%</span>
+                            </div>
+                            <div style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', overflow: 'hidden' }}>
+                              <div style={{ width: `${item.share}%`, height: '100%', background: 'var(--primary)', borderRadius: '3px' }}></div>
+                            </div>
                           </div>
-                          <span style={{ fontWeight: '600' }}>{item.share}%</span>
-                        </div>
-                      ))}
-                      <div style={{ marginTop: '16px', fontSize: '12px', color: '#666', textAlign: 'center' }}>
-                        Капитал по цели: {formatCurrency(editingGoal.initialCapital)}
+                        ))}
+                      </div>
+                      <div style={{ marginTop: '20px', padding: '12px', background: '#fff', borderRadius: '12px', fontSize: '13px', color: '#6B7280', textAlign: 'center', border: '1px solid #F3F4F6' }}>
+                        Фактический капитал: <span style={{ color: '#111827', fontWeight: '600' }}>{formatCurrency(editingGoal.initialCapital)}</span>
                       </div>
                     </div>
                   </div>
-                )}
-
-                {/* Insurance Risks (for LIFE) */}
-                {editingGoal.goalTypeId === 5 && editingGoal.risks && editingGoal.risks.length > 0 && (
-                  <div>
-                    <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px', color: '#111827' }}>
-                      Страховое покрытие
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {editingGoal.risks.map((risk: any, idx: number) => (
-                        <div key={idx} style={{
-                          padding: '16px',
-                          background: 'linear-gradient(to right, #FFF5F7, #fff)',
-                          borderRadius: '16px',
-                          border: '1px solid #FFE4ED',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center'
-                        }}>
-                          <div>
-                            <div style={{ fontSize: '14px', fontWeight: '700', color: '#C2185B' }}>{risk.name || risk}</div>
-                            <div style={{ fontSize: '11px', color: '#999', textTransform: 'uppercase' }}>Лимит по риску</div>
-                          </div>
-                          <div style={{ fontSize: '16px', fontWeight: '800', color: '#1a1a1a' }}>
-                            {risk.limit ? formatCurrency(risk.limit) : formatCurrency(editingGoal.targetAmount)}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {!editingGoal.assets_allocation?.length && editingGoal.goalTypeId !== 5 && (
-                  <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '14px', textAlign: 'center', padding: '40px' }}>
+                ) : editingGoal.goalTypeId !== 5 && (
+                  <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '14px', textAlign: 'center', padding: '40px', background: '#F9FAFB', borderRadius: '32px' }}>
                     <div style={{ opacity: 0.5 }}>
-                      <Plus size={48} style={{ marginBottom: '16px' }} />
-                      <p>Дополнительная информация появится после пересчета</p>
+                      <Plus size={48} style={{ marginBottom: '16px', margin: '0 auto' }} />
+                      <p>Распределение портфеля будет<br />доступно после расчета</p>
                     </div>
                   </div>
                 )}
