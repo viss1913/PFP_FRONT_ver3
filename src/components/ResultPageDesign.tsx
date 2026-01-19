@@ -31,10 +31,24 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   const calcRoot = calculationData?.calculation || calculationData || {};
   const calculatedGoals = calcRoot.goals || [];
 
-  // Extract Allocations (assuming they are in the root or specifically passed)
-  // Try to find them in likely places: calculationData directly, or calculationData.calculation
-  const assetsAllocation = calculationData?.assets_allocation || calcRoot?.assets_allocation || [];
-  const cashFlowAllocation = calculationData?.cash_flow_allocation || calcRoot?.cash_flow_allocation || [];
+  // Extract Allocations
+  // New structure: calculationData.summary.consolidated_portfolio
+  const consolidatedPortfolio = calculationData?.summary?.consolidated_portfolio || calcRoot?.summary?.consolidated_portfolio;
+
+  const assetsAllocation = consolidatedPortfolio?.assets_allocation || calculationData?.assets_allocation || calcRoot?.assets_allocation || [];
+
+  // Normalization for Cash Flow: convert annual to monthly
+  const rawCashFlow = consolidatedPortfolio?.cash_flow_allocation || calculationData?.cash_flow_allocation || calcRoot?.cash_flow_allocation || [];
+  const cashFlowAllocation = rawCashFlow.map((item: any) => {
+    if (item.payment_frequency === 'annual') {
+      return {
+        ...item,
+        amount: Math.round(item.amount / 12),
+        name: `${item.name} (общ. ${new Intl.NumberFormat('ru-RU', { compactDisplay: 'short', notation: 'compact' }).format(item.amount)})`
+      };
+    }
+    return item;
+  });
 
   // Tax Benefits Summary (New logic)
   const taxBenefitsSummary = calculationData?.summary?.tax_benefits_summary || calcRoot?.summary?.tax_benefits_summary;
