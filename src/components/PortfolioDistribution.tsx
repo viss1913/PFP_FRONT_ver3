@@ -116,7 +116,15 @@ export const PortfolioDistribution: React.FC<PortfolioDistributionProps> = ({ as
     const hasAssets = assetsAllocation && assetsAllocation.length > 0;
     const hasCashFlow = cashFlowAllocation && cashFlowAllocation.length > 0;
 
-    if (!hasAssets && !hasCashFlow) return null;
+    // If no data, show a placeholder or nothing? 
+    // User complained about not seeing it, so let's render something to debug or inform.
+    if (!hasAssets && !hasCashFlow) {
+        return (
+            <div style={{ padding: '24px', textAlign: 'center', color: '#6B7280', background: '#FFFFFF', borderRadius: '24px', marginBottom: '40px' }}>
+                Нет данных для визуализации портфеля
+            </div>
+        );
+    }
 
     return (
         <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '40px' }}>
