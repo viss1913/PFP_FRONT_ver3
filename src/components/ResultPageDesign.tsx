@@ -7,6 +7,7 @@ interface ResultPageDesignProps {
   calculationData: any;
   onAddGoal?: () => void;
   onGoToReport?: () => void;
+  onRecalculate?: (payload: any) => void;
 }
 
 interface GoalResult {
@@ -26,7 +27,45 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   calculationData,
   onAddGoal,
   onGoToReport,
+  onRecalculate,
 }) => {
+  const [editingGoal, setEditingGoal] = React.useState<any>(null);
+  const [editForm, setEditForm] = React.useState({
+    target_amount: 0,
+    term_months: 0,
+    name: ''
+  });
+
+  const handleEditGoal = (goal: any) => {
+    setEditingGoal(goal);
+    setEditForm({
+      target_amount: goal.targetAmount || 0,
+      term_months: goal.termMonths || 0,
+      name: goal.name || ''
+    });
+  };
+
+  const onSubmitEdit = () => {
+    if (!onRecalculate) return;
+
+    // Construct the payload for recalculate
+    // Per FRONTEND_GOAL_CONFIG.md, we send the array of goals
+    const updatedGoals = calculatedGoals.map((g: any) => {
+      if (g.id === editingGoal.id) {
+        return {
+          ...g, // Preserve other fields like goal_type_id
+          name: editForm.name,
+          target_amount: editForm.target_amount,
+          term_months: editForm.term_months
+        };
+      }
+      return g;
+    });
+
+    onRecalculate({ goals: updatedGoals });
+    setEditingGoal(null);
+  };
+
   // Access data from the nested 'calculation' object if it exists, otherwise fallback to top-level or empty
   const calcRoot = calculationData?.calculation || calculationData || {};
   const calculatedGoals = calcRoot.goals || [];
@@ -219,6 +258,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
               return (
                 <div
                   key={goal.id}
+                  onClick={() => handleEditGoal(goal)}
                   style={{
                     // Use image as background with a dark gradient overlay for text readability
                     backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.6) 100%), url(${imageSrc})`,
@@ -232,8 +272,12 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                     display: 'flex',
                     flexDirection: 'column',
                     boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.1), 0px 4px 6px -2px rgba(0, 0, 0, 0.05)',
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    cursor: 'pointer',
+                    transition: 'transform 0.2s'
                   }}
+                  onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-4px)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
                 >
                   {/* Decorative circle/image placeholder - REMOVED as we have real image now */}
 
@@ -445,6 +489,133 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
           </div>
         </main>
       </div>
+
+      {/* Editing Modal */}
+      {editingGoal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.7)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '24px',
+            width: '100%',
+            maxWidth: '500px',
+            padding: '32px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+            color: '#1a1a1a'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '24px', fontWeight: '800', margin: 0, color: 'var(--primary)' }}>Редактировать цель</h2>
+              <button
+                onClick={() => setEditingGoal(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px' }}
+              >
+                <X size={24} color="#666" />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#666' }}>
+                  Название цели
+                </label>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '14px 18px',
+                    borderRadius: '12px',
+                    border: '2px solid #eee',
+                    fontSize: '16px',
+                    outline: 'none',
+                    transition: 'border-color 0.2s'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
+                  onBlur={(e) => e.target.style.borderColor = '#eee'}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#666' }}>
+                  Целевая сумма (₽)
+                </label>
+                <input
+                  type="number"
+                  value={editForm.target_amount}
+                  onChange={(e) => setEditForm({ ...editForm, target_amount: Number(e.target.value) })}
+                  style={{
+                    width: '100%',
+                    padding: '14px 18px',
+                    borderRadius: '12px',
+                    border: '2px solid #eee',
+                    fontSize: '16px',
+                    outline: 'none',
+                    transition: 'border-color 0.2s'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
+                  onBlur={(e) => e.target.style.borderColor = '#eee'}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#666' }}>
+                  Срок (месяцев)
+                </label>
+                <input
+                  type="number"
+                  value={editForm.term_months}
+                  onChange={(e) => setEditForm({ ...editForm, term_months: Number(e.target.value) })}
+                  style={{
+                    width: '100%',
+                    padding: '14px 18px',
+                    borderRadius: '12px',
+                    border: '2px solid #eee',
+                    fontSize: '16px',
+                    outline: 'none',
+                    transition: 'border-color 0.2s'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
+                  onBlur={(e) => e.target.style.borderColor = '#eee'}
+                />
+              </div>
+
+              <button
+                onClick={onSubmitEdit}
+                style={{
+                  marginTop: '12px',
+                  background: 'var(--primary)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '14px',
+                  padding: '16px',
+                  fontSize: '18px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  boxShadow: '0 8px 16px rgba(0,0,0,0.1)',
+                  transition: 'transform 0.2s, background 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                Пересчитать план
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

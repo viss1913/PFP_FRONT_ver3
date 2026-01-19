@@ -21,6 +21,7 @@ export interface Client {
     assets_total?: number;
     liabilities_total?: number;
     net_worth?: number;
+    goals_summary?: any; // Contains the full calculation result
     created_at?: string;
     updated_at?: string;
 }

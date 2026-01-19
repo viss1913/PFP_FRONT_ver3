@@ -58,5 +58,11 @@ export const clientApi = {
     firstRun: async (payload: any): Promise<any> => {
         const response = await api.post('/client/first-run', payload);
         return response.data;
+    },
+
+    // Recalculate plan with updated parameters
+    recalculate: async (id: number, payload: any): Promise<any> => {
+        const response = await api.post(`/client/${id}/recalculate`, payload);
+        return response.data;
     }
 };

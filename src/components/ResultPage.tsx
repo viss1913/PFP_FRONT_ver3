@@ -8,9 +8,10 @@ import { useState } from 'react';
 interface ResultPageProps {
     data: any;
     onRestart: () => void;
+    onRecalculate?: (payload: any) => void;
 }
 
-const ResultPage: React.FC<ResultPageProps> = ({ data, onRestart }) => {
+const ResultPage: React.FC<ResultPageProps> = ({ data, onRestart, onRecalculate }) => {
     const [messages, setMessages] = useState<AiMessage[]>([]);
     const [isTyping, setIsTyping] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
@@ -76,6 +77,7 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, onRestart }) => {
                 onGoToReport={() => {
                     console.log('Перейти в отчет');
                 }}
+                onRecalculate={onRecalculate}
             />
             <ChatWidget
                 messages={messages}
