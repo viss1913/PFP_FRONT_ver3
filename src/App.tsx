@@ -123,7 +123,13 @@ function App() {
 
             {currentPage === 'cjm' && (
                 <div style={{ minHeight: '100vh', background: '#f8f9fa' }}>
-                    <Header activePage="pfp" />
+                    <Header
+                        activePage="pfp"
+                        onNavigate={(page) => {
+                            if (page === 'crm') setCurrentPage('list');
+                            else if (page === 'ai-assistant') setCurrentPage('ai-assistant');
+                        }}
+                    />
                     <CJMFlow
                         onComplete={handleCalculationComplete}
                         initialData={newClientData || undefined}
@@ -134,7 +140,13 @@ function App() {
 
             {currentPage === 'edit' && selectedClient && (
                 <div style={{ minHeight: '100vh', background: '#f8f9fa' }}>
-                    <Header activePage="pfp" />
+                    <Header
+                        activePage="pfp"
+                        onNavigate={(page) => {
+                            if (page === 'crm') setCurrentPage('list');
+                            else if (page === 'ai-assistant') setCurrentPage('ai-assistant');
+                        }}
+                    />
                     <CJMFlow
                         onComplete={handleCalculationComplete}
                         clientId={selectedClient.id}
@@ -145,7 +157,13 @@ function App() {
 
             {currentPage === 'result' && (
                 <div style={{ minHeight: '100vh', background: '#f8f9fa' }}>
-                    <Header activePage="pfp" />
+                    <Header
+                        activePage="pfp"
+                        onNavigate={(page) => {
+                            if (page === 'crm') setCurrentPage('list');
+                            else if (page === 'ai-assistant') setCurrentPage('ai-assistant');
+                        }}
+                    />
                     {loadingPlan && (
                         <div style={{
                             position: 'fixed',

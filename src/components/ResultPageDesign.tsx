@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, ArrowLeft } from 'lucide-react';
 import { getGoalImage } from '../utils/GoalImages';
 import { PortfolioDistribution } from './PortfolioDistribution';
 
@@ -18,10 +18,115 @@ interface GoalResult {
   monthlyPayment: number;
   termMonths: number;
   goalType?: string;
+  goalTypeId?: number;
   // Specific fields for specialized cards
   annualPremium?: number;
-  risks?: string[];
+  risks?: any[];
+  assets_allocation?: any[];
+  originalData?: any; // Full goal result from backend
 }
+
+const GOAL_TYPE_CONFIGS: Record<number, any> = {
+  1: { // PENSION
+    fields: [
+      { key: 'target_amount', label: 'Желаемая пенсия', min: 20000, max: 1000000, step: 5000, type: 'currency' },
+      { key: 'initial_capital', label: 'Стартовый капитал', min: 0, max: 50000000, step: 100000, type: 'currency' },
+      { key: 'ops_capital', label: 'Накопительная пенсия (ОПС)', min: 0, max: 5000000, step: 10000, type: 'currency' },
+      { key: 'inflation_rate', label: 'Инфляция (%)', min: 0, max: 20, step: 0.5, type: 'percent' },
+      { key: 'risk_profile', label: 'Риск-профиль', type: 'select', options: ['CONSERVATIVE', 'BALANCED', 'AGGRESSIVE'] },
+    ]
+  },
+  2: { // PASSIVE_INCOME
+    fields: [
+      { key: 'target_amount', label: 'Желаемый доход', min: 10000, max: 2000000, step: 5000, type: 'currency' },
+      { key: 'term_months', label: 'Срок накопления (мес)', min: 12, max: 600, step: 12, type: 'number' },
+      { key: 'initial_capital', label: 'Стартовый капитал', min: 0, max: 100000000, step: 500000, type: 'currency' },
+      { key: 'risk_profile', label: 'Риск-профиль', type: 'select', options: ['CONSERVATIVE', 'BALANCED', 'AGGRESSIVE'] },
+    ]
+  },
+  5: { // LIFE
+    fields: [
+      { key: 'target_amount', label: 'Страховая сумма', min: 500000, max: 100000000, step: 500000, type: 'currency' },
+      { key: 'term_months', label: 'Срок программы (мес)', min: 60, max: 480, step: 12, type: 'number' },
+    ]
+  },
+  4: { // OTHER
+    fields: [
+      { key: 'target_amount', label: 'Стоимость покупки', min: 100000, max: 200000000, step: 500000, type: 'currency' },
+      { key: 'term_months', label: 'Срок до покупки (мес)', min: 1, max: 360, step: 1, type: 'number' },
+      { key: 'initial_capital', label: 'Стартовый капитал', min: 0, max: 50000000, step: 100000, type: 'currency' },
+      { key: 'inflation_rate', label: 'Инфляция объекта (%)', min: 0, max: 30, step: 1, type: 'percent' },
+    ]
+  },
+  3: { // INVESTMENT
+    fields: [
+      { key: 'term_months', label: 'Срок инвестирования (мес)', min: 12, max: 600, step: 12, type: 'number' },
+      { key: 'initial_capital', label: 'Стартовый капитал', min: 0, max: 100000000, step: 1000000, type: 'currency' },
+      { key: 'risk_profile', label: 'Риск-профиль', type: 'select', options: ['CONSERVATIVE', 'BALANCED', 'AGGRESSIVE'] },
+    ]
+  }
+};
+
+interface SliderFieldProps {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (val: number) => void;
+  format?: (val: number) => string;
+}
+
+const SliderField: React.FC<SliderFieldProps> = ({ label, value, min, max, step, onChange, format }) => {
+  return (
+    <div style={{ marginBottom: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+        <label style={{ fontSize: '14px', fontWeight: '600', color: '#666' }}>{label}</label>
+        <span style={{ fontSize: '16px', fontWeight: '700', color: 'var(--primary)' }}>
+          {format ? format(value) : value}
+        </span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        style={{
+          width: '100%',
+          height: '6px',
+          background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${(value - min) / (max - min) * 100}%, #eee ${(value - min) / (max - min) * 100}%, #eee 100%)`,
+          borderRadius: '3px',
+          appearance: 'none',
+          outline: 'none',
+          cursor: 'pointer'
+        }}
+        className="custom-slider"
+      />
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '12px', color: '#999' }}>
+        <span>{format ? format(min) : min}</span>
+        <span>{format ? format(max) : max}</span>
+      </div>
+      <style>{`
+        .custom-slider::-webkit-slider-thumb {
+          appearance: none;
+          width: 20px;
+          height: 20px;
+          background: #fff;
+          border: 3px solid var(--primary);
+          border-radius: 50%;
+          cursor: pointer;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+          transition: transform 0.1s;
+        }
+        .custom-slider::-webkit-slider-thumb:hover {
+          transform: scale(1.1);
+        }
+      `}</style>
+    </div>
+  );
+};
 
 const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   calculationData,
@@ -29,34 +134,42 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   onGoToReport,
   onRecalculate,
 }) => {
-  const [editingGoal, setEditingGoal] = React.useState<any>(null);
-  const [editForm, setEditForm] = React.useState({
-    target_amount: 0,
-    term_months: 0,
-    name: ''
-  });
+  const [editingGoal, setEditingGoal] = React.useState<GoalResult | null>(null);
+  const [editForm, setEditForm] = React.useState<any>({});
 
-  const handleEditGoal = (goal: any) => {
+  const handleEditGoal = (goal: GoalResult) => {
     setEditingGoal(goal);
-    setEditForm({
-      target_amount: goal.targetAmount || 0,
-      term_months: goal.termMonths || 0,
-      name: goal.name || ''
-    });
+
+    // Initialize form with existing values
+    const initialForm: any = {
+      name: goal.name,
+      target_amount: goal.targetAmount,
+      term_months: goal.termMonths,
+      initial_capital: goal.initialCapital,
+    };
+
+    // Pull other fields from originalData if available
+    const details = goal.originalData?.details || {};
+    const summary = goal.originalData?.summary || {};
+
+    initialForm.ops_capital = details.ops_capital || 0;
+    initialForm.risk_profile = details.risk_profile || summary.risk_profile || 'BALANCED';
+    initialForm.inflation_rate = details.inflation_rate || 0;
+
+    setEditForm(initialForm);
   };
 
   const onSubmitEdit = () => {
-    if (!onRecalculate) return;
+    if (!onRecalculate || !editingGoal) return;
 
-    // Construct the payload for recalculate
-    // Per FRONTEND_GOAL_CONFIG.md, we send the array of goals
     const updatedGoals = calculatedGoals.map((g: any) => {
-      if (g.id === editingGoal.id) {
+      if (g.goal_id === editingGoal.id) {
         return {
-          ...g, // Preserve other fields like goal_type_id
-          name: editForm.name,
-          target_amount: editForm.target_amount,
-          term_months: editForm.term_months
+          ...g,
+          ...editForm,
+          // Map snake_case to whatever backend expect if different, 
+          // but FRONTEND_GOAL_CONFIG.md suggests these exact names.
+          goal_type_id: g.goal_type_id, // Ensure we keep the ID
         };
       }
       return g;
@@ -107,10 +220,6 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     const summary = goalResult?.summary || {};
     const details = goalResult?.details || {};
 
-    // Determine Cost (Target Amount) logic
-    // For Passive Income, cost is usually the capital required.
-    // For others, it's the target amount.
-    // Logic: If 'target_capital_required' exists (Passive Income), use it. Else use 'target_amount'.
     const cost = details.target_capital_required !== undefined
       ? details.target_capital_required
       : (details.target_amount || summary.target_amount || 0);
@@ -123,11 +232,13 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
       monthlyPayment: summary?.monthly_replenishment !== undefined ? summary.monthly_replenishment : (summary.monthly_payment || 0),
       termMonths: details?.term_months || summary?.term_months || 0,
       goalType: goalResult?.goal_type,
-      // Life Goal Specifics
+      goalTypeId: goalResult?.goal_type_id,
       annualPremium: goalResult?.goal_type === 'LIFE'
         ? (summary?.initial_capital || 0)
         : (details?.total_premium || details?.annual_premium || details?.annualPremium || summary?.total_premium || summary?.annual_premium || summary?.annualPremium || 0),
-      risks: details?.risks || [], // Assuming risks might be in details
+      risks: details?.risks || [],
+      assets_allocation: summary?.assets_allocation || [],
+      originalData: goalResult
     };
   });
 
@@ -145,8 +256,29 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#F9FAFB', fontFamily: "'Inter', sans-serif" }}>
-      {/* Верхняя навигация */}
-      {/* Верхняя навигация - REMOVED (using global Header in App.tsx) */}
+      {/* Кнопка "Назад" */}
+      <div style={{ padding: '24px 32px 0' }}>
+        <button
+          onClick={onAddGoal} // Using onAddGoal as a proxy for "restart/back" if not dedicated onBack, but let's check ResultPage props
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: 'none',
+            border: 'none',
+            color: '#666',
+            cursor: 'pointer',
+            fontSize: '14px',
+            padding: '8px 0',
+            transition: 'color 0.2s'
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = '#333')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = '#666')}
+        >
+          <ArrowLeft size={20} />
+          Назад к списку клиентов
+        </button>
+      </div>
 
 
       {/* Основной контент */}
@@ -498,8 +630,8 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(0,0,0,0.7)',
-          backdropFilter: 'blur(8px)',
+          background: 'rgba(0,0,0,0.8)',
+          backdropFilter: 'blur(12px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -508,109 +640,204 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
         }}>
           <div style={{
             background: '#fff',
-            borderRadius: '24px',
+            borderRadius: '32px',
             width: '100%',
-            maxWidth: '500px',
-            padding: '32px',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
-            color: '#1a1a1a'
+            maxWidth: '900px',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+            color: '#1a1a1a',
+            overflow: 'hidden'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-              <h2 style={{ fontSize: '24px', fontWeight: '800', margin: 0, color: 'var(--primary)' }}>Редактировать цель</h2>
+            {/* Modal Header */}
+            <div style={{ padding: '32px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h2 style={{ fontSize: '28px', fontWeight: '800', margin: 0, color: 'var(--primary)', marginBottom: '4px' }}>
+                  {editingGoal.name}
+                </h2>
+                <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>Настройте параметры цели для пересчета плана</p>
+              </div>
               <button
                 onClick={() => setEditingGoal(null)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px' }}
+                style={{ background: '#F3F4F6', border: 'none', cursor: 'pointer', padding: '12px', borderRadius: '50%', color: '#666' }}
               >
-                <X size={24} color="#666" />
+                <X size={24} />
               </button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#666' }}>
-                  Название цели
-                </label>
-                <input
-                  type="text"
-                  value={editForm.name}
-                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '14px 18px',
-                    borderRadius: '12px',
-                    border: '2px solid #eee',
-                    fontSize: '16px',
-                    outline: 'none',
-                    transition: 'border-color 0.2s'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
-                  onBlur={(e) => e.target.style.borderColor = '#eee'}
-                />
+            <div style={{ flex: 1, overflowY: 'auto', padding: '32px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px' }}>
+              {/* Left Column: Form */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ marginBottom: '24px' }}>
+                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#666' }}>
+                    Название цели
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '14px 18px',
+                      borderRadius: '12px',
+                      border: '2px solid #eee',
+                      fontSize: '16px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                {/* Dynamic Fields from Config */}
+                {(GOAL_TYPE_CONFIGS[editingGoal.goalTypeId || 0]?.fields || [
+                  { key: 'target_amount', label: 'Целевая сумма', min: 10000, max: 100000000, step: 10000, type: 'currency' },
+                  { key: 'term_months', label: 'Срок (мес)', min: 1, max: 600, step: 1, type: 'number' }
+                ]).map((field: any) => {
+                  if (field.type === 'select') {
+                    return (
+                      <div key={field.key} style={{ marginBottom: '24px' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#666' }}>
+                          {field.label}
+                        </label>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          {field.options.map((opt: string) => (
+                            <button
+                              key={opt}
+                              onClick={() => setEditForm({ ...editForm, [field.key]: opt })}
+                              style={{
+                                flex: 1,
+                                padding: '10px',
+                                borderRadius: '10px',
+                                border: '2px solid',
+                                borderColor: editForm[field.key] === opt ? 'var(--primary)' : '#eee',
+                                background: editForm[field.key] === opt ? 'var(--primary)' : '#fff',
+                                color: editForm[field.key] === opt ? '#fff' : '#666',
+                                fontSize: '12px',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              {opt === 'CONSERVATIVE' ? 'Консерв.' : opt === 'BALANCED' ? 'Умерен.' : 'Агрессив.'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <SliderField
+                      key={field.key}
+                      label={field.label}
+                      value={editForm[field.key] || 0}
+                      min={field.min}
+                      max={field.max}
+                      step={field.step}
+                      onChange={(val) => setEditForm({ ...editForm, [field.key]: val })}
+                      format={(val) => field.type === 'currency' ? formatCurrency(val) : field.type === 'percent' ? `${val}%` : `${val}`}
+                    />
+                  );
+                })}
               </div>
 
+              {/* Right Column: Visualization & Risks */}
               <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#666' }}>
-                  Целевая сумма (₽)
-                </label>
-                <input
-                  type="number"
-                  value={editForm.target_amount}
-                  onChange={(e) => setEditForm({ ...editForm, target_amount: Number(e.target.value) })}
-                  style={{
-                    width: '100%',
-                    padding: '14px 18px',
-                    borderRadius: '12px',
-                    border: '2px solid #eee',
-                    fontSize: '16px',
-                    outline: 'none',
-                    transition: 'border-color 0.2s'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
-                  onBlur={(e) => e.target.style.borderColor = '#eee'}
-                />
-              </div>
+                {/* Goal Portfolio Distribution */}
+                {(editingGoal.assets_allocation && editingGoal.assets_allocation.length > 0) && (
+                  <div style={{ marginBottom: '32px' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px', color: '#111827' }}>
+                      Портфель цели
+                    </h3>
+                    <div style={{ background: '#F9FAFB', borderRadius: '20px', padding: '20px' }}>
+                      {editingGoal.assets_allocation.map((item: any, idx: number) => (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', fontSize: '14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)' }}></div>
+                            <span>{item.name}</span>
+                          </div>
+                          <span style={{ fontWeight: '600' }}>{item.share}%</span>
+                        </div>
+                      ))}
+                      <div style={{ marginTop: '16px', fontSize: '12px', color: '#666', textAlign: 'center' }}>
+                        Капитал по цели: {formatCurrency(editingGoal.initialCapital)}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#666' }}>
-                  Срок (месяцев)
-                </label>
-                <input
-                  type="number"
-                  value={editForm.term_months}
-                  onChange={(e) => setEditForm({ ...editForm, term_months: Number(e.target.value) })}
-                  style={{
-                    width: '100%',
-                    padding: '14px 18px',
-                    borderRadius: '12px',
-                    border: '2px solid #eee',
-                    fontSize: '16px',
-                    outline: 'none',
-                    transition: 'border-color 0.2s'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
-                  onBlur={(e) => e.target.style.borderColor = '#eee'}
-                />
-              </div>
+                {/* Insurance Risks (for LIFE) */}
+                {editingGoal.goalTypeId === 5 && editingGoal.risks && editingGoal.risks.length > 0 && (
+                  <div>
+                    <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px', color: '#111827' }}>
+                      Страховое покрытие
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {editingGoal.risks.map((risk: any, idx: number) => (
+                        <div key={idx} style={{
+                          padding: '16px',
+                          background: 'linear-gradient(to right, #FFF5F7, #fff)',
+                          borderRadius: '16px',
+                          border: '1px solid #FFE4ED',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}>
+                          <div>
+                            <div style={{ fontSize: '14px', fontWeight: '700', color: '#C2185B' }}>{risk.name || risk}</div>
+                            <div style={{ fontSize: '11px', color: '#999', textTransform: 'uppercase' }}>Лимит по риску</div>
+                          </div>
+                          <div style={{ fontSize: '16px', fontWeight: '800', color: '#1a1a1a' }}>
+                            {risk.limit ? formatCurrency(risk.limit) : formatCurrency(editingGoal.targetAmount)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
+                {!editingGoal.assets_allocation?.length && editingGoal.goalTypeId !== 5 && (
+                  <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '14px', textAlign: 'center', padding: '40px' }}>
+                    <div style={{ opacity: 0.5 }}>
+                      <Plus size={48} style={{ marginBottom: '16px' }} />
+                      <p>Дополнительная информация появится после пересчета</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ padding: '24px 32px', borderTop: '1px solid #eee', background: '#F9FAFB', display: 'flex', justifyContent: 'flex-end', gap: '16px' }}>
+              <button
+                onClick={() => setEditingGoal(null)}
+                style={{
+                  padding: '12px 24px',
+                  borderRadius: '100px',
+                  border: '1px solid #ddd',
+                  background: '#fff',
+                  color: '#666',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Отмена
+              </button>
               <button
                 onClick={onSubmitEdit}
                 style={{
-                  marginTop: '12px',
+                  padding: '12px 48px',
+                  borderRadius: '100px',
+                  border: 'none',
                   background: 'var(--primary)',
                   color: '#fff',
-                  border: 'none',
-                  borderRadius: '14px',
-                  padding: '16px',
-                  fontSize: '18px',
                   fontWeight: '700',
                   cursor: 'pointer',
-                  boxShadow: '0 8px 16px rgba(0,0,0,0.1)',
-                  transition: 'transform 0.2s, background 0.2s'
+                  boxShadow: '0 4px 12px rgba(194, 24, 91, 0.3)'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
               >
-                Пересчитать план
+                Сохранить и пересчитать
               </button>
             </div>
           </div>
