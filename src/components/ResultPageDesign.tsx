@@ -277,7 +277,12 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                           <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Срок</div>
                           <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{Math.round(goal.termMonths / 12)} лет</div>
                         </div>
-                        {/* Risks? */}
+                        <div>
+                          <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Ежемес. пополнение</div>
+                          <div style={{ fontSize: '18px', fontWeight: '700', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+                            {formatCurrency(Math.round((goal.annualPremium || 0) / 12))}
+                          </div>
+                        </div>
                       </>
                     ) : (
                       // Standard Layout
