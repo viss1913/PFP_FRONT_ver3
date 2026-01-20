@@ -32,15 +32,34 @@ function App() {
         setCurrentPage('list')
     }
 
-    const handleCalculationComplete = (result: any) => {
+    const handleCalculationComplete = async (result: any) => {
         console.log('Calculation Complete. Result:', result);
-        if (result?.client) {
-            console.log('Setting selected client from result:', result.client);
-            setSelectedClient(result.client);
-        } else {
-            console.warn('Result does not contain client object. selectedClient might remain null.');
+
+        // Handle FirstRun response structure: { client_id, calculation }
+        if (result?.client_id) {
+            console.log('Got client_id from firstRun:', result.client_id);
+            try {
+                const fullClient = await clientApi.getClient(result.client_id);
+                console.log('Fetched full client:', fullClient);
+                setSelectedClient(fullClient);
+            } catch (err) {
+                console.error('Failed to fetch client after creation:', err);
+            }
+
+            if (result.calculation) {
+                setCalculationResult(result.calculation);
+            } else {
+                setCalculationResult(result);
+            }
         }
-        setCalculationResult(result)
+        // Fallback or legacy structures
+        else if (result?.client) {
+            setSelectedClient(result.client);
+            setCalculationResult(result);
+        } else {
+            setCalculationResult(result);
+        }
+
         setCurrentPage('result')
     }
 
