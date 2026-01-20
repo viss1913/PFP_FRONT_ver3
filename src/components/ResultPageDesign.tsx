@@ -357,7 +357,15 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     // Determine name: use goal_name from API, or fallback to default title from Gallery items based on typeId
     const defaultTitle = GOAL_GALLERY_ITEMS.find(i => i.typeId === typeId)?.title;
     // Verify goal name from client input list matching by ID
-    const mappedName = client?.goals?.find((g: any) => g.id === goalResult.goal_id)?.name;
+    let mappedGoal = client?.goals?.find((g: any) => g.id === goalResult.goal_id);
+
+    // Fallback: match by index if ID based lookup failed
+    // This assumes the order of results matches the order of input goals, which is typical.
+    if (!mappedGoal && client?.goals && client.goals[_index]) {
+      mappedGoal = client.goals[_index];
+    }
+
+    const mappedName = mappedGoal?.name;
     const displayName = mappedName || goalResult.name || goalResult.goal_name || defaultTitle || 'Цель';
 
     return {
