@@ -211,13 +211,20 @@ const formatCurrency = (value: number) => {
 };
 
 export const ReportPDF: React.FC<ReportPDFProps> = ({ data, clientName = "Уважаемый клиент" }) => {
-    const calcRoot = data?.calculation || data || {};
+    let calcRoot = data || {};
+    if (calcRoot.calculation) {
+        calcRoot = calcRoot.calculation;
+        if (calcRoot.calculation) {
+            calcRoot = calcRoot.calculation;
+        }
+    }
+
     const calculatedGoals = calcRoot.goals || [];
-    const consolidatedPortfolio = data?.summary?.consolidated_portfolio || calcRoot?.summary?.consolidated_portfolio;
+    const consolidatedPortfolio = calcRoot?.summary?.consolidated_portfolio;
     const assetsAllocation = consolidatedPortfolio?.assets_allocation || [];
 
     // Tax Summary
-    const taxBenefitsSummary = (data?.summary?.tax_benefits_summary || calcRoot?.summary?.tax_benefits_summary) || {};
+    const taxBenefitsSummary = calcRoot?.summary?.tax_benefits_summary || {};
     const taxTotals = taxBenefitsSummary?.totals || {};
 
     // Current Date

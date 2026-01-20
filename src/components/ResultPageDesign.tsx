@@ -244,18 +244,26 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     setEditingGoal(null);
   };
 
-  // Access data from the nested 'calculation' object if it exists, otherwise fallback to top-level or empty
-  const calcRoot = calculationData?.calculation || calculationData || {};
+  // Access data from the nested 'calculation' object if it exists. 
+  // We need to handle potential double nesting: calculationData.calculation.calculation
+  let calcRoot = calculationData || {};
+  if (calcRoot.calculation) {
+    calcRoot = calcRoot.calculation;
+    if (calcRoot.calculation) {
+      calcRoot = calcRoot.calculation;
+    }
+  }
+
   const calculatedGoals = calcRoot.goals || [];
 
   // Extract Allocations
-  // New structure: calculationData.summary.consolidated_portfolio
-  const consolidatedPortfolio = calculationData?.summary?.consolidated_portfolio || calcRoot?.summary?.consolidated_portfolio;
+  // New structure: calculationData.calculation.calculation.summary.consolidated_portfolio
+  const consolidatedPortfolio = calcRoot?.summary?.consolidated_portfolio;
 
-  const assetsAllocation = consolidatedPortfolio?.assets_allocation || calculationData?.assets_allocation || calcRoot?.assets_allocation || [];
+  const assetsAllocation = consolidatedPortfolio?.assets_allocation || calcRoot?.assets_allocation || [];
 
   // Normalization for Cash Flow: convert annual to monthly
-  const rawCashFlow = consolidatedPortfolio?.cash_flow_allocation || calculationData?.cash_flow_allocation || calcRoot?.cash_flow_allocation || [];
+  const rawCashFlow = consolidatedPortfolio?.cash_flow_allocation || calcRoot?.cash_flow_allocation || [];
   const cashFlowAllocation = rawCashFlow.map((item: { payment_frequency?: string; amount: number; name: string }) => {
     if (item.payment_frequency === 'annual') {
       return {
@@ -268,7 +276,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   });
 
   // Tax Benefits Summary (New logic)
-  const taxBenefitsSummary = (calculationData?.summary?.tax_benefits_summary || calcRoot?.summary?.tax_benefits_summary) as {
+  const taxBenefitsSummary = calcRoot?.summary?.tax_benefits_summary as {
     totals?: {
       deduction_2026?: number;
       cofinancing_2026?: number;
@@ -277,7 +285,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     }
   } | undefined;
   // Fallback to legacy structure if needed, but prioritize new summary
-  const taxPlanningLegacy = (calculationData?.tax_planning || calcRoot.tax_planning) as {
+  const taxPlanningLegacy = calcRoot.tax_planning as {
     total_deductions?: number;
     monthly_payments?: number;
   } | undefined;
