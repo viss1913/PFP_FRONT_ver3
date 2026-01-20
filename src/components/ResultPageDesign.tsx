@@ -354,7 +354,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
 
     // Determine name: use goal_name from API, or fallback to default title from Gallery items based on typeId
     const defaultTitle = GOAL_GALLERY_ITEMS.find(i => i.typeId === typeId)?.title;
-    const displayName = goalResult.goal_name || defaultTitle || 'Цель';
+    const displayName = goalResult.name || goalResult.goal_name || defaultTitle || 'Цель';
 
     return {
       id: goalResult?.goal_id || 0,
