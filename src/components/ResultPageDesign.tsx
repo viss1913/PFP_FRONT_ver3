@@ -282,7 +282,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   };
 
   // Мапим результаты расчетов на карточки
-  const goalCards: GoalResult[] = (calculatedGoals as any[]).map((goalResult: any) => {
+  const goalCards: GoalResult[] = (calculatedGoals as any[]).map((goalResult: any, _index: number) => {
     const summary = goalResult?.summary || {};
     const details = goalResult?.details || {};
     const typeId = goalResult?.goal_type_id || 0;
