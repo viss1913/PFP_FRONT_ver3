@@ -903,7 +903,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                 </div>
 
                 {/* Goal Portfolio Distribution */}
-                {(editingGoal.portfolio_structure?.initial_instruments?.length > 0 || editingGoal.assets_allocation?.length > 0) ? (
+                {((editingGoal.portfolio_structure?.initial_instruments?.length || 0) > 0 || (editingGoal.assets_allocation?.length || 0) > 0) ? (
                   <div style={{ marginBottom: '32px' }}>
                     <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '16px', color: '#111827', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <div style={{ width: '4px', height: '18px', background: 'var(--primary)', borderRadius: '2px' }}></div>
