@@ -63,12 +63,14 @@ const GOAL_TYPE_CONFIGS: Record<number, GoalTypeConfig> = {
       { key: 'ops_capital', label: 'Капитал в ОПС (накопительная)', min: 0, max: 5000000, step: 10000, type: 'currency' },
       { key: 'ipk_current', label: 'Текущие баллы ИПК (СФР)', min: 0, max: 300, step: 1, type: 'number' },
       { key: 'inflation_rate', label: 'Инфляция (%)', min: 0, max: 20, step: 0.5, type: 'percent' },
+      { key: 'monthly_replenishment', label: 'Ваш взнос (Прямой расчет)', min: 0, max: 500000, step: 1000, type: 'currency' },
       { key: 'risk_profile', label: 'Риск-профиль', type: 'select', options: ['CONSERVATIVE', 'BALANCED', 'AGGRESSIVE'] },
     ]
   },
   2: { // PASSIVE_INCOME
     fields: [
       { key: 'target_amount', label: 'Желаемый доход', min: 10000, max: 2000000, step: 5000, type: 'currency' },
+      { key: 'monthly_replenishment', label: 'Ваш взнос (Прямой расчет)', min: 0, max: 1000000, step: 5000, type: 'currency' },
       { key: 'term_months', label: 'Срок накопления (мес)', min: 12, max: 600, step: 12, type: 'number' },
       { key: 'initial_capital', label: 'Стартовый капитал', min: 0, max: 100000000, step: 500000, type: 'currency' },
       { key: 'risk_profile', label: 'Риск-профиль', type: 'select', options: ['CONSERVATIVE', 'BALANCED', 'AGGRESSIVE'] },
@@ -85,6 +87,7 @@ const GOAL_TYPE_CONFIGS: Record<number, GoalTypeConfig> = {
       { key: 'target_amount', label: 'Стоимость покупки', min: 100000, max: 200000000, step: 500000, type: 'currency' },
       { key: 'term_months', label: 'Срок до покупки (мес)', min: 1, max: 360, step: 1, type: 'number' },
       { key: 'initial_capital', label: 'Стартовый капитал', min: 0, max: 50000000, step: 100000, type: 'currency' },
+      { key: 'monthly_replenishment', label: 'Ваш взнос (Прямой расчет)', min: 0, max: 1000000, step: 5000, type: 'currency' },
       { key: 'inflation_rate', label: 'Инфляция объекта (%)', min: 0, max: 30, step: 1, type: 'percent' },
       { key: 'risk_profile', label: 'Риск-профиль', type: 'select', options: ['CONSERVATIVE', 'BALANCED', 'AGGRESSIVE'] },
     ]
@@ -228,20 +231,17 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   const onSubmitEdit = () => {
     if (!onRecalculate || !editingGoal) return;
 
-    const updatedGoals = calculatedGoals.map((g: any) => {
-      if (g.goal_id === editingGoal.id) {
-        return {
-          ...g,
-          ...editForm,
-          // Map snake_case to whatever backend expect if different, 
-          // but FRONTEND_GOAL_CONFIG.md suggests these exact names.
-          goal_type_id: g.goal_type_id, // Ensure we keep the ID
-        };
-      }
-      return g;
-    });
+    // PARTIAL UPDATE Logic
+    // We send only the modified goal in the goals array.
+    const goalPayload = {
+      id: editingGoal.id,
+      goal_type_id: editingGoal.goalTypeId,
+      ...editForm,
+      // Ensure mapped names match backend expectations if needed. 
+      // Based on API docs, fields like monthly_replenishment, target_amount are correct.
+    };
 
-    onRecalculate({ goals: updatedGoals });
+    onRecalculate({ goals: [goalPayload] });
     setEditingGoal(null);
   };
 
@@ -870,7 +870,29 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                       min={field.min || 0}
                       max={field.max || 10000000}
                       step={field.step || 1}
-                      onChange={(val: number) => setEditForm({ ...editForm, [field.key]: val })}
+                      onChange={(val: number) => {
+                        // Mutually Exclusive Logic for Direct/Reverse Modes
+                        const updates: any = { [field.key]: val };
+
+                        // If user changes target_amount -> reset monthly_replenishment (Reverse Mode)
+                        if (field.key === 'target_amount') {
+                          updates['monthly_replenishment'] = 0;
+                        }
+
+                        // If user changes monthly_replenishment -> reset target_amount (Direct Mode)
+                        // Note: For Pension/Passive/Purchase, the API ignores target_amount in Direct mode, 
+                        // but visually it might be confusing if we don't handle it.
+                        // However, strictly adhering to the prompt: "Трогаете 'Взнос' — считаем 'что получится'".
+                        // We can keep target_amount as is (it becomes just a reference/gap comparator), OR we can visually disable it.
+                        // Let's NOT zero out target_amount, as the user might want to compare against it.
+                        // But we definitely need to ensure one slider affects the mode.
+
+                        // WAIT! The requirement says:
+                        // "Трогаете 'Желаемую сумму' — сбрасываем взнос" -> implemented above.
+                        // "Трогаете 'Взнос' — считаем 'что получится'" -> implies we just send val > 0.
+
+                        setEditForm({ ...editForm, ...updates });
+                      }}
                       format={field.type === 'currency' ? formatCurrency : (field.type === 'percent' ? (val: number) => `${val}%` : undefined)}
                     />
                   );
