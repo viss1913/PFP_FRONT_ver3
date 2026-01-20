@@ -1,0 +1,351 @@
+{
+    "id": 63,
+    "agent_id": 1,
+    "user_id": null,
+    "first_name": "фывпаыпа",
+    "last_name": "Unknown",
+    "middle_name": "",
+    "birth_date": "1986-12-31T00:00:00.000Z",
+    "gender": "male",
+    "phone": "345345345",
+    "email": null,
+    "notes": null,
+    "marital_status": null,
+    "dependents_count": 0,
+    "employment_type": "EMPLOYED",
+    "tax_mode": null,
+    "tax_rate": null,
+    "avg_monthly_income": "230000.00",
+    "ipk_current": "0.00",
+    "total_liquid_capital": "1300000.00",
+    "experience_years": 0,
+    "assets_total": "1300000.00",
+    "liabilities_total": "0.00",
+    "net_worth": "1300000.00",
+    "goals_summary": {
+        "goals": [
+            {
+                "details": {
+                    "state_pension": {
+                        "ipk_total": 250,
+                        "ipk_current": 0,
+                        "ipk_forecast": 250,
+                        "retirement_age": 65,
+                        "retirement_year": 2051,
+                        "point_cost_today": 145.69,
+                        "years_to_pension": 25,
+                        "point_cost_future": 568.89,
+                        "fixed_payment_today": 8907,
+                        "fixed_payment_future": 34779.99
+                    },
+                    "portfolio_structure": {
+                        "initial_instruments": [
+                            {
+                                "name": "ПДС НПФ (Updated)",
+                                "share": 100,
+                                "yield": 15,
+                                "amount": 720119.3302086439
+                            }
+                        ],
+                        "monthly_instruments": [
+                            {
+                                "name": "ПДС НПФ (Updated)",
+                                "share": 100,
+                                "yield": 15,
+                                "amount": 8491.609572237747
+                            }
+                        ]
+                    }
+                },
+                "summary": {
+                    "status": "OK",
+                    "target_months": 300,
+                    "inflation_rate": 5.6,
+                    "initial_capital": 720119.33,
+                    "total_cofinancing": 320146,
+                    "total_tax_benefit": 652570.51,
+                    "pension_gap_future": 643004.12,
+                    "initial_capital_ops": 0,
+                    "payout_yield_percent": 12,
+                    "target_amount_future": 820006.41,
+                    "monthly_replenishment": 8491.61,
+                    "target_amount_initial": 210000,
+                    "accumulation_yield_percent": 15,
+                    "state_pension_monthly_today": 45329.5,
+                    "state_pension_monthly_future": 177002.29,
+                    "required_capital_at_retirement": 64300412.45,
+                    "projected_capital_at_retirement": 64300412.56
+                },
+                "goal_type": "PENSION",
+                "goal_type_id": 1
+            },
+            {
+                "details": {
+                    "instruments": [
+                        {
+                            "name": "ПДС НПФ (Updated)",
+                            "share": 100,
+                            "yield": 13,
+                            "amount": 375572.4397913561
+                        }
+                    ],
+                    "portfolio_id": 1,
+                    "portfolio_name": "Первый портфель"
+                },
+                "summary": {
+                    "status": "OK",
+                    "target_months": 168,
+                    "inflation_rate": 4.8,
+                    "initial_capital": 375572.44,
+                    "total_cofinancing": 39854,
+                    "total_tax_benefit": 467431.04,
+                    "target_amount_future": 17735595.88,
+                    "monthly_replenishment": 26327.28,
+                    "target_amount_initial": 9200000,
+                    "projected_capital_at_end": 17735595.89,
+                    "accumulation_yield_percent": 13
+                },
+                "goal_type": "OTHER",
+                "goal_type_id": 4
+            },
+            {
+                "details": {
+                    "instruments": [
+                        {
+                            "name": "Депозит",
+                            "share": 100,
+                            "yield": 14,
+                            "amount": 100000
+                        }
+                    ],
+                    "portfolio_id": 5,
+                    "portfolio_name": "финрезерв"
+                },
+                "summary": {
+                    "status": "OK",
+                    "target_months": 12,
+                    "initial_capital": 100000,
+                    "total_tax_benefit": 0,
+                    "monthly_replenishment": 5000,
+                    "projected_capital_at_end": 178901.17,
+                    "accumulation_yield_percent": 14
+                },
+                "goal_type": "FIN_RESERVE",
+                "goal_type_id": 7
+            },
+            {
+                "details": {
+                    "risks": [
+                        {
+                            "code": "testdozhitie",
+                            "name": "Дожитие",
+                            "term": 15,
+                            "type": "endowment",
+                            "limit": 1500000,
+                            "tariff": 0.9341463,
+                            "premium": 93414.63,
+                            "limitRUR": 1500000,
+                            "premiumRUR": 93414.63,
+                            "participant": "insuredPerson"
+                        },
+                        {
+                            "code": "deathAnyCase",
+                            "name": "Смерть по любой причине",
+                            "term": 15,
+                            "type": "death",
+                            "limit": 1500000,
+                            "tariff": 0.075,
+                            "premium": 1125,
+                            "limitRUR": 1500000,
+                            "premiumRUR": 1125,
+                            "participant": "insuredPerson"
+                        },
+                        {
+                            "code": "invalid",
+                            "name": "Инвалидность ЛП",
+                            "term": 15,
+                            "type": "other",
+                            "limit": 1500000,
+                            "tariff": 0.05427,
+                            "premium": 9768.6,
+                            "limitRUR": 1500000,
+                            "premiumRUR": 9768.6,
+                            "participant": "insuredPerson"
+                        }
+                    ],
+                    "program_name": "Страхование жизни"
+                },
+                "goal_id": 5,
+                "summary": {
+                    "status": "OK",
+                    "target_months": 180,
+                    "initial_capital": 104308.23,
+                    "target_coverage": 1500000,
+                    "premium_frequency": "monthly",
+                    "total_tax_benefit": 207469.05,
+                    "expected_cash_value": 1500000,
+                    "investment_yield_percent": 5
+                },
+                "goal_type": "LIFE",
+                "goal_type_id": 5
+            }
+        ],
+        "summary": {
+            "goals_count": 4,
+            "total_capital": 83714909.62,
+            "total_state_benefit": 1687470.6,
+            "tax_benefits_summary": {
+                "totals": {
+                    "deduction_2026": 0,
+                    "cofinancing_2026": 0,
+                    "total_deductions": 1327470.6,
+                    "total_cofinancing": 360000,
+                    "total_state_benefits": 1687470.6
+                },
+                "nsj_benefits": {
+                    "annual_premium": 0,
+                    "deduction_2026": 0,
+                    "total_deductions": 207469.05
+                },
+                "pds_benefits": {
+                    "deduction_2026": 0,
+                    "cofinancing_2026": 0,
+                    "total_deductions": 1120001.55,
+                    "total_cofinancing": 360000
+                }
+            },
+            "consolidated_portfolio": {
+                "assets_allocation": [
+                    {
+                        "name": "ПДС НПФ (Updated)",
+                        "share": 92,
+                        "yield": 14.31,
+                        "amount": 1095691.77
+                    },
+                    {
+                        "name": "Депозит",
+                        "share": 8,
+                        "yield": 14,
+                        "amount": 100000
+                    }
+                ],
+                "cash_flow_allocation": [
+                    {
+                        "name": "ПДС НПФ (Updated)",
+                        "share": 87,
+                        "yield": 13.49,
+                        "amount": 34818.89,
+                        "payment_frequency": "monthly"
+                    },
+                    {
+                        "name": "Депозит",
+                        "share": 13,
+                        "yield": 14,
+                        "amount": 5000,
+                        "payment_frequency": "monthly"
+                    }
+                ],
+                "total_initial_capital": 1195691.77,
+                "total_monthly_replenishment": 39818.89
+            },
+            "total_target_amount_future": 18555602.29,
+            "total_target_amount_initial": 9410000
+        }
+    },
+    "created_at": "2026-01-20T06:12:12.000Z",
+    "updated_at": "2026-01-20T06:12:12.000Z",
+    "external_uuid": "395433ba-a335-4564-a386-ebd33348a6a5",
+    "assets": [
+        {
+            "id": 61,
+            "client_id": 63,
+            "type": "CASH",
+            "name": "Наличные",
+            "current_value": "1300000.00",
+            "currency": "RUB",
+            "yield_percent": null,
+            "start_date": "2026-01-20T00:00:00.000Z",
+            "end_date": null,
+            "risk_level": "conservative",
+            "created_at": "2026-01-20T06:12:12.000Z",
+            "updated_at": "2026-01-20T06:12:12.000Z"
+        }
+    ],
+    "liabilities": [],
+    "expenses": [],
+    "goals": [
+        {
+            "id": 166,
+            "client_id": 63,
+            "goal_type_id": 1,
+            "name": "ГосПенсия",
+            "target_amount": "210000.00",
+            "desired_monthly_income": "210000.00",
+            "term_months": 120,
+            "end_date": null,
+            "initial_capital": "0.00",
+            "inflation_rate": "5.60",
+            "risk_profile": "BALANCED",
+            "params": {
+                "smart_initial_capital": 720119.3302086439
+            },
+            "created_at": "2026-01-20T06:12:12.000Z",
+            "updated_at": "2026-01-20T06:12:12.000Z"
+        },
+        {
+            "id": 167,
+            "client_id": 63,
+            "goal_type_id": 9,
+            "name": "Загородная недвижимость",
+            "target_amount": "9200000.00",
+            "desired_monthly_income": null,
+            "term_months": 168,
+            "end_date": null,
+            "initial_capital": "0.00",
+            "inflation_rate": "4.80",
+            "risk_profile": "BALANCED",
+            "params": {
+                "smart_initial_capital": 375572.4397913562
+            },
+            "created_at": "2026-01-20T06:12:12.000Z",
+            "updated_at": "2026-01-20T06:12:12.000Z"
+        },
+        {
+            "id": 168,
+            "client_id": 63,
+            "goal_type_id": 7,
+            "name": "Финансовый резерв",
+            "target_amount": "100000.00",
+            "desired_monthly_income": null,
+            "term_months": 12,
+            "end_date": null,
+            "initial_capital": "100000.00",
+            "inflation_rate": "10.00",
+            "risk_profile": "CONSERVATIVE",
+            "params": {
+                "monthly_replenishment": 5000,
+                "smart_initial_capital": 100000
+            },
+            "created_at": "2026-01-20T06:12:12.000Z",
+            "updated_at": "2026-01-20T06:12:12.000Z"
+        },
+        {
+            "id": 169,
+            "client_id": 63,
+            "goal_type_id": 5,
+            "name": "Защита Жизни",
+            "target_amount": "1500000.00",
+            "desired_monthly_income": null,
+            "term_months": 180,
+            "end_date": null,
+            "initial_capital": "0.00",
+            "inflation_rate": "10.00",
+            "risk_profile": "CONSERVATIVE",
+            "params": {
+                "smart_initial_capital": 104308.23
+            },
+            "created_at": "2026-01-20T06:12:12.000Z",
+            "updated_at": "2026-01-20T06:12:12.000Z"
+        }
+    ]
+}

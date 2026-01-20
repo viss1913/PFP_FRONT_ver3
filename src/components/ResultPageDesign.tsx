@@ -85,12 +85,27 @@ const GOAL_TYPE_CONFIGS: Record<number, GoalTypeConfig> = {
       { key: 'term_months', label: 'Срок до покупки (мес)', min: 1, max: 360, step: 1, type: 'number' },
       { key: 'initial_capital', label: 'Стартовый капитал', min: 0, max: 50000000, step: 100000, type: 'currency' },
       { key: 'inflation_rate', label: 'Инфляция объекта (%)', min: 0, max: 30, step: 1, type: 'percent' },
+      { key: 'risk_profile', label: 'Риск-профиль', type: 'select', options: ['CONSERVATIVE', 'BALANCED', 'AGGRESSIVE'] },
     ]
   },
   3: { // INVESTMENT
     fields: [
       { key: 'term_months', label: 'Срок инвестирования (мес)', min: 12, max: 600, step: 12, type: 'number' },
       { key: 'initial_capital', label: 'Стартовый капитал', min: 0, max: 100000000, step: 1000000, type: 'currency' },
+      { key: 'monthly_replenishment', label: 'Ежем. пополнение', min: 0, max: 5000000, step: 5000, type: 'currency' },
+      { key: 'risk_profile', label: 'Риск-профиль', type: 'select', options: ['CONSERVATIVE', 'BALANCED', 'AGGRESSIVE'] },
+    ]
+  },
+  7: { // FIN_RESERVE
+    fields: [
+      { key: 'initial_capital', label: 'Стартовый капитал', min: 0, max: 100000000, step: 50000, type: 'currency' },
+      { key: 'monthly_replenishment', label: 'Ежем. пополнение', min: 0, max: 5000000, step: 5000, type: 'currency' },
+      { key: 'term_months', label: 'Срок накопления (мес)', min: 1, max: 120, step: 1, type: 'number' },
+    ]
+  },
+  8: { // RENT
+    fields: [
+      { key: 'initial_capital', label: 'Стартовый капитал', min: 0, max: 100000000, step: 50000, type: 'currency' },
       { key: 'risk_profile', label: 'Риск-профиль', type: 'select', options: ['CONSERVATIVE', 'BALANCED', 'AGGRESSIVE'] },
     ]
   }
@@ -166,6 +181,7 @@ interface EditFormState {
   ipk_current?: number;
   risk_profile?: string;
   inflation_rate?: number;
+  monthly_replenishment?: number;
   [key: string]: any;
 }
 
@@ -187,22 +203,23 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   const handleEditGoal = (goal: GoalResult) => {
     setEditingGoal(goal);
 
-    // Initialize form with existing values
+    // Pull fields from originalData to support smart merging
+    const summary = goal.originalData?.summary || {};
+    const details = goal.originalData?.details || {};
+
     const initialForm: EditFormState = {
       name: goal.name,
-      target_amount: goal.targetAmount,
-      term_months: goal.termMonths,
-      initial_capital: goal.initialCapital,
+      // Fallback chain: specific details -> summary -> top level legacy -> default
+      target_amount: details.target_amount || summary.target_amount || summary.target_amount_initial || goal.targetAmount || 0,
+      term_months: details.term_months || summary.target_months || goal.termMonths || 0,
+      initial_capital: summary.initial_capital || goal.initialCapital || 0,
+      monthly_replenishment: summary.monthly_replenishment || 0,
+
+      ops_capital: details.ops_capital || 0,
+      ipk_current: details.ipk_current || 0,
+      risk_profile: details.risk_profile || summary.risk_profile || 'BALANCED',
+      inflation_rate: details.inflation_rate || 0,
     };
-
-    // Pull other fields from originalData if available
-    const details = goal.originalData?.details || {};
-    const summary = goal.originalData?.summary || {};
-
-    initialForm.ops_capital = details.ops_capital || 0;
-    initialForm.ipk_current = details.ipk_current || 0;
-    initialForm.risk_profile = details.risk_profile || summary.risk_profile || 'BALANCED';
-    initialForm.inflation_rate = details.inflation_rate || 0;
 
     setEditForm(initialForm);
   };
