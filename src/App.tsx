@@ -33,8 +33,12 @@ function App() {
     }
 
     const handleCalculationComplete = (result: any) => {
+        console.log('Calculation Complete. Result:', result);
         if (result?.client) {
+            console.log('Setting selected client from result:', result.client);
             setSelectedClient(result.client);
+        } else {
+            console.warn('Result does not contain client object. selectedClient might remain null.');
         }
         setCalculationResult(result)
         setCurrentPage('result')
@@ -72,10 +76,19 @@ function App() {
     }
 
     const handleRecalculate = async (payload: any) => {
-        if (!selectedClient) return;
+        console.log('handleRecalculate called with payload:', payload);
+        console.log('Current selectedClient:', selectedClient);
+
+        if (!selectedClient) {
+            console.error('No selected client! Cannot recalculate.');
+            alert('Ошибка: Клиент не выбран. Невозможно выполнить пересчет.');
+            return;
+        }
         setLoadingPlan(true);
         try {
+            console.log(`Sending recalculate request to /client/${selectedClient.id}/recalculate`);
             const result = await clientApi.recalculate(selectedClient.id, payload);
+            console.log('Recalculate success:', result);
             setCalculationResult(result);
             // ResultPage should automatically re-render with new data
         } catch (error) {

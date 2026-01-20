@@ -234,13 +234,26 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
 
     // PARTIAL UPDATE Logic
     // We send only the modified goal in the goals array.
-    const goalPayload = {
+    const goalPayload: any = {
       id: editingGoal.id,
       goal_type_id: editingGoal.goalTypeId,
       ...editForm,
-      // Ensure mapped names match backend expectations if needed. 
-      // Based on API docs, fields like monthly_replenishment, target_amount are correct.
     };
+
+    // Calculate original monthly replenishment to detect if user changed it
+    const summary = editingGoal.originalData?.summary || {};
+    const originalReplenishment = summary.monthly_replenishment || 0;
+
+    // Check if user actually CHANGED the monthly_replenishment
+    // If it matches the original calculated value, we assume user didn't touch it -> treated as Auto/Reverse (0)
+    if ((editForm.monthly_replenishment || 0) === originalReplenishment && (editForm.monthly_replenishment || 0) > 0) {
+      goalPayload.monthly_replenishment = 0;
+    }
+
+    // If Direct Mode (monthly_replenishment > 0 after check), do not send target_amount to avoid confusing the backend
+    if (goalPayload.monthly_replenishment && goalPayload.monthly_replenishment > 0) {
+      delete goalPayload.target_amount;
+    }
 
     onRecalculate({ goals: [goalPayload] });
     setEditingGoal(null);
