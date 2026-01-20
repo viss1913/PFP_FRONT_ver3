@@ -6,6 +6,7 @@ import { formatMonthsToDate } from '../utils/dateUtils';
 
 interface ResultPageDesignProps {
   calculationData: any;
+  client?: any; // To access original goals (and their names)
   onAddGoal?: () => void;
   onGoToReport?: () => void;
   onRecalculate?: (payload: any) => void;
@@ -170,6 +171,7 @@ interface EditFormState {
 
 const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   calculationData,
+  client,
   onAddGoal,
   onGoToReport,
   onRecalculate,
@@ -354,7 +356,9 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
 
     // Determine name: use goal_name from API, or fallback to default title from Gallery items based on typeId
     const defaultTitle = GOAL_GALLERY_ITEMS.find(i => i.typeId === typeId)?.title;
-    const displayName = goalResult.name || goalResult.goal_name || defaultTitle || 'Цель';
+    // Verify goal name from client input list matching by ID
+    const mappedName = client?.goals?.find((g: any) => g.id === goalResult.goal_id)?.name;
+    const displayName = mappedName || goalResult.name || goalResult.goal_name || defaultTitle || 'Цель';
 
     return {
       id: goalResult?.goal_id || 0,

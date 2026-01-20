@@ -193,6 +193,7 @@ function App() {
                     )}
                     <ResultPage
                         data={calculationResult}
+                        client={selectedClient}
                         onRestart={() => setCurrentPage('list')}
                         onRecalculate={handleRecalculate}
                     />
