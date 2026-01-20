@@ -50,6 +50,7 @@ interface GoalResult {
   totalPremium?: number; // unified premium
   risks?: any[];
   assets_allocation?: any[];
+  portfolio_structure?: any;
   originalData?: any; // Full goal result from backend
   targetMonthlyIncome?: number;
 }
@@ -215,10 +216,10 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
       initial_capital: summary.initial_capital || goal.initialCapital || 0,
       monthly_replenishment: summary.monthly_replenishment || 0,
 
-      ops_capital: details.ops_capital || 0,
-      ipk_current: details.ipk_current || 0,
-      risk_profile: details.risk_profile || summary.risk_profile || 'BALANCED',
-      inflation_rate: details.inflation_rate || 0,
+      ops_capital: details.ops_capital || goal.originalData?.ops_capital || 0,
+      ipk_current: details.state_pension?.ipk_current || details.ipk_current || goal.originalData?.ipk_current || summary.ipk_current || 0,
+      risk_profile: details.risk_profile || summary.risk_profile || goal.originalData?.risk_profile || 'BALANCED',
+      inflation_rate: details.inflation_rate || goal.originalData?.inflation_rate || summary.inflation_rate || 0,
     };
 
     setEditForm(initialForm);
@@ -416,6 +417,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
 
       risks: details?.risks || [],
       assets_allocation: summary?.assets_allocation || details?.portfolio?.instruments || [],
+      portfolio_structure: goalResult?.portfolio_structure || summary?.portfolio_structure,
       originalData: goalResult
     };
   });
@@ -901,7 +903,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                 </div>
 
                 {/* Goal Portfolio Distribution */}
-                {(editingGoal.assets_allocation && editingGoal.assets_allocation.length > 0) ? (
+                {(editingGoal.portfolio_structure?.initial_instruments?.length > 0 || editingGoal.assets_allocation?.length > 0) ? (
                   <div style={{ marginBottom: '32px' }}>
                     <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '16px', color: '#111827', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <div style={{ width: '4px', height: '18px', background: 'var(--primary)', borderRadius: '2px' }}></div>
@@ -909,10 +911,17 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                     </h3>
                     <div style={{ background: '#F9FAFB', borderRadius: '24px', padding: '24px', border: '1px solid #F3F4F6' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {(editingGoal.assets_allocation || []).map((item: { name: string; share: number }, idx: number) => (
+                        {(editingGoal.portfolio_structure?.initial_instruments || editingGoal.assets_allocation || []).map((item: any, idx: number) => (
                           <div key={idx}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', fontSize: '14px' }}>
-                              <span style={{ fontWeight: '500', color: '#374151' }}>{item.name}</span>
+                              <span style={{ fontWeight: '500', color: '#374151', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {item.name}
+                                {item.yield !== undefined && (
+                                  <span style={{ fontSize: '11px', padding: '2px 6px', background: '#ECFDF5', color: '#059669', borderRadius: '4px', fontWeight: '600' }}>
+                                    +{item.yield}%
+                                  </span>
+                                )}
+                              </span>
                               <span style={{ fontWeight: '700', color: '#111827' }}>{item.share}%</span>
                             </div>
                             <div style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', overflow: 'hidden' }}>
