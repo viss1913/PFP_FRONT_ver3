@@ -229,6 +229,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   };
 
   const onSubmitEdit = () => {
+    console.log('onSubmitEdit called', { onRecalculate, editingGoal });
     if (!onRecalculate || !editingGoal) return;
 
     // PARTIAL UPDATE Logic

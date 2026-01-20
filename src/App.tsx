@@ -33,6 +33,9 @@ function App() {
     }
 
     const handleCalculationComplete = (result: any) => {
+        if (result?.client) {
+            setSelectedClient(result.client);
+        }
         setCalculationResult(result)
         setCurrentPage('result')
     }
