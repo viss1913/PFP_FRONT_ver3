@@ -78,14 +78,20 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
                 }}
                 onGoToReport={() => {
                     try {
-                        // Pass client ID to allow the preview page to fetch fresh data
-                        const clientId = client?.id || (client as any)?.client_id;
+                        // Robust ID resolution:
+                        // 1. From 'client' prop (standard)
+                        // 2. From 'data' prop (if embedded in calculation result)
+                        const clientId =
+                            client?.id ||
+                            (client as any)?.client_id ||
+                            data?.client_id ||
+                            data?.client?.id;
+
                         if (clientId) {
                             window.open(`/?page=preview&clientId=${clientId}`, '_blank');
                         } else {
-                            // Fallback for legacy or unknown state, though ReportPage now demands ID
-                            console.warn('Client ID missing for report, trying localStorage fallback');
-                            window.open('/?page=preview', '_blank');
+                            console.error('Report Error: Could not resolve Client ID', { client, data });
+                            alert('Ошибка: Не удалось определить ID клиента для генерации отчета. Попробуйте обновить страницу списка клиентов.');
                         }
                     } catch (e) {
                         console.error('Failed to open report', e);
