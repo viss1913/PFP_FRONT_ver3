@@ -1,7 +1,7 @@
 import React from 'react';
 import Header from './Header';
 import ClientList from './ClientList';
-import { clientApi } from '../api/clientApi';
+
 import type { Client } from '../types/client';
 import { ChatWidget } from './ai/ChatWidget';
 import { aiService } from '../services/aiService';
@@ -26,33 +26,30 @@ const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNa
             try {
                 // Load assistants
                 const assistants = await aiService.getAssistants();
+                let crmAssistant: AiAssistant | null = null;
+
                 if (assistants.length > 0) {
-                    const crm = assistants.find(a => a.slug === 'ai-crm' || a.name.toLowerCase().includes('crm')) || assistants[0];
-                    setActiveAssistant(crm);
+                    crmAssistant = assistants.find(a => a.slug === 'ai-crm' || a.name.toLowerCase().includes('crm')) || assistants[0];
+                    setActiveAssistant(crmAssistant);
                 }
 
-                // NEW: Load Briefing
-                const { briefing } = await clientApi.getBriefing();
-                if (briefing) {
-                    setMessages(prev => [
-                        ...prev,
-                        {
-                            id: Date.now(),
-                            role: 'assistant',
-                            content: briefing,
-                            created_at: new Date().toISOString()
-                        }
-                    ]);
+                // NEW: Load History (which now includes Auto-Briefing from backend)
+                if (crmAssistant) {
+                    const history = await aiService.getHistory(crmAssistant.id);
+                    // Map history to local state if needed, or set directly
+                    // Assuming history is [AiMessage, AiMessage...]
+                    setMessages(history);
                 }
+
             } catch (error) {
                 console.error('Failed to load initial data:', error);
 
-                // Fallback briefing for demo if API fails
+                // No fallback needed if backend guarantees auto-brief, but safe to leave empty or show error
                 if (!messages.length) {
                     setMessages([{
                         id: Date.now(),
                         role: 'assistant',
-                        content: "Доброе утро! Не удалось загрузить брифинг, но я готов к работе. Чем могу помочь?",
+                        content: "Не удалось загрузить историю чата. Попробуйте обновить страницу.",
                         created_at: new Date().toISOString()
                     }]);
                 }

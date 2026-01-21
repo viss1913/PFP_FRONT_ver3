@@ -12,8 +12,8 @@ export const aiService = {
     // 1. Get List of Assistants
     getAssistants: async (): Promise<AiAssistant[]> => {
         const token = getToken();
-        // Correct endpoint per pfp-api.yaml: /ai/assistants
-        const response = await axios.get<AiAssistant[]>(`${API_URL}/ai/assistants`, {
+        // Correct endpoint per pfp-api-v1.2.yaml: /pfp/ai/assistants
+        const response = await axios.get<AiAssistant[]>(`${API_URL}/pfp/ai/assistants`, {
             headers: { Authorization: `Bearer ${token}` }
         });
         return response.data;
@@ -22,8 +22,8 @@ export const aiService = {
     // 2. Get Chat History
     getHistory: async (assistantId: number): Promise<AiMessage[]> => {
         const token = getToken();
-        // Correct endpoint per pfp-api.yaml: /ai/history/{assistant_id}
-        const response = await axios.get<AiMessage[]>(`${API_URL}/ai/history/${assistantId}`, {
+        // Correct endpoint per pfp-api-v1.2.yaml: /pfp/ai/history/{assistant_id}
+        const response = await axios.get<AiMessage[]>(`${API_URL}/pfp/ai/history/${assistantId}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
         return response.data;
@@ -39,7 +39,7 @@ export const aiService = {
     ) => {
         const token = getToken();
         try {
-            const response = await fetch(`${API_URL}/ai/chat/stream`, {
+            const response = await fetch(`${API_URL}/pfp/ai/chat`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
