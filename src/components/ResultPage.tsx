@@ -78,8 +78,15 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
                 }}
                 onGoToReport={() => {
                     try {
-                        localStorage.setItem('pfp_report_data', JSON.stringify(data));
-                        window.open('/?page=preview', '_blank');
+                        // Pass client ID to allow the preview page to fetch fresh data
+                        const clientId = client?.id || (client as any)?.client_id;
+                        if (clientId) {
+                            window.open(`/?page=preview&clientId=${clientId}`, '_blank');
+                        } else {
+                            // Fallback for legacy or unknown state, though ReportPage now demands ID
+                            console.warn('Client ID missing for report, trying localStorage fallback');
+                            window.open('/?page=preview', '_blank');
+                        }
                     } catch (e) {
                         console.error('Failed to open report', e);
                         alert('Ошибка при открытии отчета');
