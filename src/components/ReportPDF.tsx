@@ -85,7 +85,15 @@ const COLORS = ['#C2185B', '#E91E63', '#F06292', '#F8BBD0', '#880E4F', '#AD1457'
 export const ReportPDF: React.FC<{ data: any }> = ({ data }) => {
     if (!data) return <Document><Page><Text>No Data</Text></Page></Document>;
 
-    const { client_info, ai_executive_summary, current_situation, overall_plan, goals_detailed } = data;
+    const { client_info, client_profile, ai_executive_summary, current_situation, overall_plan, goals_detailed } = data;
+
+    // Normalize Client Info
+    const rawClient = client_info || client_profile || {};
+    const normalizedClient = {
+        fio: rawClient.fio || rawClient.full_name || 'Клиент',
+        // ... other fields if needed for PDF
+    };
+
     const today = new Date().toLocaleDateString('ru-RU');
 
     // Portfolio Data
@@ -109,7 +117,7 @@ export const ReportPDF: React.FC<{ data: any }> = ({ data }) => {
                         <Text style={styles.coverTitle}>Личный Финансовый План</Text>
                         <Text style={styles.coverSubtitle}>Стратегия достижения ваших целей</Text>
                         <View style={{ height: 2, width: 100, backgroundColor: '#C2185B', marginBottom: 20 }}></View>
-                        <Text style={styles.coverMeta}>Клиент: {client_info?.fio || 'Клиент'}</Text>
+                        <Text style={styles.coverMeta}>Клиент: {normalizedClient.fio}</Text>
                         <Text style={styles.coverMeta}>Дата составления: {today}</Text>
                     </View>
                 </View>
