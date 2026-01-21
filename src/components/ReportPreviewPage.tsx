@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { ReportPDF } from './ReportPDF';
-import { Download, Wallet, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Download } from 'lucide-react';
 import {
     PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend,
     BarChart, Bar, XAxis, YAxis, CartesianGrid
@@ -166,9 +166,9 @@ export const ReportPreviewPage: React.FC = () => {
                                         <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                                         <XAxis type="number" hide />
                                         <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 11 }} />
-                                        <RechartsTooltip formatter={(val: number) => formatCurrency(val)} />
+                                        <RechartsTooltip formatter={(val: any) => formatCurrency(Number(val))} />
                                         <Bar dataKey="amount" radius={[0, 4, 4, 0]}>
-                                            {waterfallChartData.map((entry, index) => (
+                                            {waterfallChartData.map((entry: { fill: string }, index: number) => (
                                                 <Cell key={index} fill={entry.fill} />
                                             ))}
                                         </Bar>
@@ -192,7 +192,7 @@ export const ReportPreviewPage: React.FC = () => {
                                             paddingAngle={4}
                                             dataKey="value"
                                         >
-                                            {pieData.map((_, index) => (
+                                            {pieData.map((_: any, index: number) => (
                                                 <Cell key={index} fill={COLORS_PIE[index % COLORS_PIE.length]} />
                                             ))}
                                         </Pie>
