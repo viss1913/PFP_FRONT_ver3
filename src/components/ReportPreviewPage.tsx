@@ -114,10 +114,10 @@ export const ReportPreviewPage: React.FC = () => {
                 <div style={styles.block}>
                     <div style={styles.headerRow}>
                         <div>
-                            <h1 style={styles.mainTitle}>{client_info.fio || 'Клиент'}</h1>
+                            <h1 style={styles.mainTitle}>{client_info?.fio || 'Клиент'}</h1>
                             <div style={styles.subTitle}>Личный Финансовый План</div>
                             <div style={{ marginTop: 8, fontSize: 13, color: '#64748B' }}>
-                                Возраст: {client_info.age} лет | Email: {client_info.email}
+                                Возраст: {client_info?.age || '-'} лет | Email: {client_info?.email || '-'}
                             </div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
