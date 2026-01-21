@@ -1,5 +1,5 @@
 import React from 'react';
-import { Svg, Path, G, Rect, Text, View } from '@react-pdf/renderer';
+import { Svg, Path, Text, View } from '@react-pdf/renderer';
 
 interface DataItem {
     name: string;
@@ -48,7 +48,6 @@ const PdfPieChart: React.FC<PdfPieChartProps> = ({ data, size = 200, innerRadius
         ].join(' ');
 
         // Update angle for next slice
-        const currentStartAngle = startAngle;
         startAngle = endAngle;
 
         return (
