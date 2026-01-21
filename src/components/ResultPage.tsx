@@ -77,25 +77,20 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
                     onRestart();
                 }}
                 onGoToReport={() => {
-                    try {
-                        // Robust ID resolution:
-                        // 1. From 'client' prop (standard)
-                        // 2. From 'data' prop (if embedded in calculation result)
-                        const clientId =
-                            client?.id ||
-                            (client as any)?.client_id ||
-                            data?.client_id ||
-                            data?.client?.id;
+                    const clientId =
+                        client?.id ||
+                        (client as any)?.client_id ||
+                        data?.client_id ||
+                        data?.client?.id;
 
-                        if (clientId) {
-                            window.open(`/?page=preview&clientId=${clientId}`, '_blank');
-                        } else {
-                            console.error('Report Error: Could not resolve Client ID', { client, data });
-                            alert('Ошибка: Не удалось определить ID клиента для генерации отчета. Попробуйте обновить страницу списка клиентов.');
-                        }
-                    } catch (e) {
-                        console.error('Failed to open report', e);
-                        alert('Ошибка при открытии отчета');
+                    // DEBUG ALERT
+                    alert(`Debug: Trying to open report for Client ID: ${clientId}`);
+
+                    if (clientId) {
+                        window.open(`/?page=preview&clientId=${clientId}`, '_blank');
+                    } else {
+                        console.error('Report Error: Could not resolve Client ID', { client, data });
+                        alert('Ошибка: Не удалось определить ID клиента (ID пуст). Обновите страницу.');
                     }
                 }}
                 onRecalculate={onRecalculate}
