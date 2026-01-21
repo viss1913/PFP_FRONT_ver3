@@ -71,15 +71,21 @@ export const ReportPreviewPage: React.FC = () => {
     if (!reportData) return <div style={styles.center}>Нет данных для отображения</div>;
 
     // --- Data Preparation ---
-    const { client_info, ai_executive_summary, current_situation, overall_plan, goals_detailed } = reportData;
+    console.log('Report Data Render:', reportData);
+
+    const client_info = reportData?.client_info || {};
+    const ai_executive_summary = reportData?.ai_executive_summary;
+    const current_situation = reportData?.current_situation || {};
+    const overall_plan = reportData?.overall_plan || {};
+    const goals_detailed = reportData?.goals_detailed || [];
 
     // Chart A: Waterfall (Simple Bar representation for now as recharts doesn't have true waterfall easily, stacked bar is good)
     const waterfallDataRaw = overall_plan?.chart_waterfall || {};
     const waterfallChartData = [
-        { name: 'Вложения клиента', amount: waterfallDataRaw.invested_by_client, fill: COLOR_WATERFALL_BASE },
-        { name: 'Помощь государства', amount: waterfallDataRaw.state_support_nominal, fill: COLOR_WATERFALL_STATE },
-        { name: 'Инвест. доход', amount: waterfallDataRaw.investment_income, fill: COLOR_WATERFALL_INVEST },
-        { name: 'ИТОГО КАПИТАЛ', amount: waterfallDataRaw.total_projected, fill: COLOR_WATERFALL_TOTAL, isTotal: true },
+        { name: 'Вложения клиента', amount: waterfallDataRaw.invested_by_client || 0, fill: COLOR_WATERFALL_BASE },
+        { name: 'Помощь государства', amount: waterfallDataRaw.state_support_nominal || 0, fill: COLOR_WATERFALL_STATE },
+        { name: 'Инвест. доход', amount: waterfallDataRaw.investment_income || 0, fill: COLOR_WATERFALL_INVEST },
+        { name: 'ИТОГО КАПИТАЛ', amount: waterfallDataRaw.total_projected || 0, fill: COLOR_WATERFALL_TOTAL, isTotal: true },
     ];
 
     // Chart B: Portfolio Pie
@@ -114,10 +120,10 @@ export const ReportPreviewPage: React.FC = () => {
                 <div style={styles.block}>
                     <div style={styles.headerRow}>
                         <div>
-                            <h1 style={styles.mainTitle}>{client_info.fio || 'Клиент'}</h1>
+                            <h1 style={styles.mainTitle}>{client_info?.fio || 'Клиент'}</h1>
                             <div style={styles.subTitle}>Личный Финансовый План</div>
                             <div style={{ marginTop: 8, fontSize: 13, color: '#64748B' }}>
-                                Возраст: {client_info.age} лет | Email: {client_info.email}
+                                Возраст: {client_info?.age || '-'} лет | Email: {client_info?.email || '-'}
                             </div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
