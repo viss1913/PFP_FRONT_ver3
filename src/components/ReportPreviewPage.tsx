@@ -238,11 +238,11 @@ export const ReportPreviewPage: React.FC = () => {
                                             paddingAngle={5}
                                             dataKey="value"
                                         >
-                                            {portfolioData.map((entry: any, index: number) => (
+                                            {portfolioData.map((_: any, index: number) => (
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
                                         </Pie>
-                                        <RechartsTooltip formatter={(val: number) => formatCurrency(val)} />
+                                        <RechartsTooltip formatter={(val: any) => formatCurrency(val)} />
                                         <Legend verticalAlign="bottom" height={36} iconType="circle" />
                                     </PieChart>
                                 </ResponsiveContainer>
@@ -272,11 +272,11 @@ export const ReportPreviewPage: React.FC = () => {
                                             paddingAngle={2}
                                             dataKey="value"
                                         >
-                                            {cashFlowData.map((entry: any, index: number) => (
+                                            {cashFlowData.map((_: any, index: number) => (
                                                 <Cell key={`cell-${index}`} fill={COLORS_CASHFLOW[index % COLORS_CASHFLOW.length]} />
                                             ))}
                                         </Pie>
-                                        <RechartsTooltip formatter={(val: number) => formatCurrency(val)} />
+                                        <RechartsTooltip formatter={(val: any) => formatCurrency(val)} />
                                         <Legend verticalAlign="bottom" height={36} iconType="circle" />
                                     </PieChart>
                                 </ResponsiveContainer>
