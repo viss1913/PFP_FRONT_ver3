@@ -361,9 +361,11 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
         ];
         break;
       case 5: // LIFE
+        const premium = summary.initial_capital || summary.premium || 0;
         displaySlots = [
           { label: 'Страховая сумма', value: fmt(summary.target_coverage) },
-          { label: 'Взнос', value: fmt(summary.initial_capital) }, // Assuming premium is in initial_capital as per mapping, or fallback to summary.premium
+          { label: 'Взнос (год)', value: fmt(premium) },
+          { label: 'Ежем. пополнение', value: fmt(Math.round(premium / 12)) },
           { label: 'Срок', value: fmtDate(summary.target_months) },
         ];
         break;
@@ -620,7 +622,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                 style={{
                   background: 'linear-gradient(108.52deg, #C2185B 0%, #E91E63 100%)',
                   borderRadius: '24px',
-                  padding: '32px',
+                  padding: '24px',
                   color: '#fff',
                   position: 'relative',
                   minHeight: '260px',
@@ -629,7 +631,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                   boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.1), 0px 4px 6px -2px rgba(0, 0, 0, 0.05)',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                   <h3 style={{ fontSize: '24px', fontWeight: '700', margin: 0, lineHeight: '1.2' }}>Налоговое<br />планирование</h3>
                   <button
                     style={{
@@ -650,7 +652,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                   </button>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
                   {(taxBenefitsSummary) ? (
                     // New Tax Summary Layout
                     <>
