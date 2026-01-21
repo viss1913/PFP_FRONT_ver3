@@ -75,5 +75,11 @@ export const clientApi = {
     // CRM: Update Status
     updateClientStatus: async (payload: { client_id: number; crm_status: string; notes?: string }): Promise<void> => {
         await api.post('/pfp/crm/status', payload);
+    },
+
+    // Report: Get PDF Report Data
+    getReport: async (clientId: number): Promise<any> => {
+        const response = await api.get(`/pfp/reports/${clientId}`);
+        return response.data;
     }
 };

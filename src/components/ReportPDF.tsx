@@ -3,7 +3,7 @@ import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/
 import PdfPieChart from './charts/PdfPieChart';
 import { getGoalImage } from '../utils/GoalImages';
 
-// Register fonts for Cyrillic support
+// Register fonts
 Font.register({
     family: 'Roboto',
     fonts: [
@@ -21,7 +21,6 @@ const styles = StyleSheet.create({
         fontFamily: 'Roboto',
         padding: 0,
     },
-    // Cover Page
     coverPage: {
         height: '100%',
         position: 'relative',
@@ -29,516 +28,181 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
     },
     coverImage: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: '60%',
-        objectFit: 'cover',
-        opacity: 0.6
+        position: 'absolute', top: 0, left: 0, right: 0, height: '60%', objectFit: 'cover', opacity: 0.6
     },
     coverContent: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        top: '50%',
-        padding: 40,
-        justifyContent: 'center',
+        position: 'absolute', bottom: 0, left: 0, right: 0, top: '50%', padding: 40, justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.9)'
     },
     coverTitle: {
-        fontSize: 36,
-        fontWeight: 700,
-        marginBottom: 10,
-        color: '#FFFFFF'
+        fontSize: 36, fontWeight: 700, marginBottom: 10, color: '#FFFFFF'
     },
     coverSubtitle: {
-        fontSize: 20,
-        marginBottom: 30,
-        color: '#CBD5E1'
+        fontSize: 20, marginBottom: 30, color: '#CBD5E1'
     },
     coverMeta: {
-        fontSize: 12,
-        color: '#94A3B8',
-        marginTop: 5
+        fontSize: 12, color: '#94A3B8', marginTop: 5
     },
-
-    // Standard Page
     header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        padding: '20 40',
-        borderBottomWidth: 1,
-        borderBottomColor: '#E2E8F0',
-        alignItems: 'center',
-        marginTop: 10
+        flexDirection: 'row', justifyContent: 'space-between', padding: '20 40', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', alignItems: 'center', marginTop: 10
     },
     headerLogo: {
-        fontSize: 10,
-        fontWeight: 700,
-        color: '#C2185B',
-        textTransform: 'uppercase'
+        fontSize: 10, fontWeight: 700, color: '#C2185B', textTransform: 'uppercase'
     },
     pageNumber: {
-        fontSize: 10,
-        color: '#94A3B8'
+        fontSize: 10, color: '#94A3B8'
     },
     content: {
-        padding: 40,
-        flex: 1
+        padding: 40, flex: 1
     },
-
-    // Typography
-    heading1: {
-        fontSize: 24,
-        fontWeight: 700,
-        marginBottom: 20,
-        color: '#0F172A',
-    },
-    heading2: {
-        fontSize: 16,
-        fontWeight: 700,
-        marginBottom: 15,
-        marginTop: 10,
-        color: '#334155',
-    },
-    text: {
-        fontSize: 11,
-        lineHeight: 1.5,
-        color: '#475569',
-        marginBottom: 8,
-    },
-
-    // Cards & Visuals
+    heading1: { fontSize: 24, fontWeight: 700, marginBottom: 20, color: '#0F172A' },
+    heading2: { fontSize: 16, fontWeight: 700, marginBottom: 15, marginTop: 10, color: '#334155' },
+    text: { fontSize: 11, lineHeight: 1.5, color: '#475569', marginBottom: 8 },
     card: {
-        backgroundColor: '#F8FAFC',
-        borderRadius: 8,
-        padding: 20,
-        marginBottom: 20,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
+        backgroundColor: '#F8FAFC', borderRadius: 8, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#E2E8F0',
     },
-    gridTwo: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-between',
-        gap: 15
+    gridTwo: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 15 },
+    label: { fontSize: 10, color: '#64748B', marginBottom: 2 },
+    value: { fontSize: 12, fontWeight: 500, color: '#0F172A' },
+    valueLarge: { fontSize: 24, fontWeight: 700, color: '#C2185B' },
+    aiBox: {
+        backgroundColor: '#F0FDF4', padding: 15, borderRadius: 4, borderLeftWidth: 4, borderLeftColor: '#16A34A', marginBottom: 20
     },
-    statItem: {
-        width: '48%',
-        marginBottom: 10
-    },
-    label: {
-        fontSize: 10,
-        color: '#64748B',
-        marginBottom: 2
-    },
-    value: {
-        fontSize: 12,
-        fontWeight: 500,
-        color: '#0F172A',
-    },
-    valueLarge: {
-        fontSize: 16,
-        fontWeight: 700,
-        color: '#C2185B',
-    },
-    rowValue: {
-        fontSize: 12,
-        fontWeight: 500,
-        color: '#0F172A',
-        textAlign: 'right',
-        flex: 1
-    },
-    chartContainer: {
-        marginBottom: 20,
-        alignItems: 'center',
-    },
-    chartTitle: {
-        fontSize: 14,
-        fontWeight: 500,
-        marginBottom: 10,
-        color: '#334155',
-    },
-
-    // Goal Page Specifics
-    goalHero: {
-        height: 180,
-        width: '100%',
-        marginBottom: 20,
-        borderRadius: 8,
-        objectFit: 'cover'
-    },
-    goalTitleOverlay: {
-        fontSize: 28,
-        fontWeight: 700,
-        color: '#0F172A',
-        marginBottom: 5
-    },
-    goalTypeLabel: {
-        fontSize: 12,
-        color: '#64748B',
-        backgroundColor: '#F1F5F9',
-        padding: '4 8',
-        borderRadius: 4,
-        alignSelf: 'flex-start',
-        marginBottom: 20
-    },
-
-    // Portfolio
-    portfolioTable: {
-        marginTop: 10,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        borderRadius: 4
-    },
-    tableRow: {
-        flexDirection: 'row',
-        borderBottomWidth: 1,
-        borderBottomColor: '#E2E8F0',
-        padding: 8,
-        alignItems: 'center'
-    },
-    tableHeader: {
-        backgroundColor: '#F8FAFC',
-        fontWeight: 700,
-        fontSize: 10,
-        color: '#475569'
-    },
+    aiLabel: { fontSize: 10, fontWeight: 700, color: '#16A34A', textTransform: 'uppercase', marginBottom: 5 },
+    tableRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', padding: 8, alignItems: 'center' },
+    tableHeader: { backgroundColor: '#F8FAFC', fontWeight: 700, fontSize: 10, color: '#475569' },
     colName: { width: '60%', fontSize: 10 },
     colValue: { width: '40%', fontSize: 10, textAlign: 'right' },
-    row: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 5,
-    },
 });
-
-interface ReportPDFProps {
-    data: any;
-    clientName?: string;
-}
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('ru-RU', {
-        style: 'currency',
-        currency: 'RUB',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
+        style: 'currency', currency: 'RUB', minimumFractionDigits: 0, maximumFractionDigits: 0,
     }).format(value);
 };
 
 const COLORS = ['#C2185B', '#E91E63', '#F06292', '#F8BBD0', '#880E4F', '#AD1457'];
-const COLORS_CASHFLOW = ['#0D9488', '#14B8A6', '#5EEAD4', '#CCFBF1', '#0F766E'];
 
-export const ReportPDF: React.FC<ReportPDFProps> = ({ data, clientName = "Уважаемый клиент" }) => {
-    let calcRoot = data || {};
-    if (calcRoot.calculation) {
-        calcRoot = calcRoot.calculation;
-        if (calcRoot.calculation) {
-            calcRoot = calcRoot.calculation;
-        }
-    }
+export const ReportPDF: React.FC<{ data: any }> = ({ data }) => {
+    if (!data) return <Document><Page><Text>No Data</Text></Page></Document>;
 
-    const calculatedGoals = calcRoot.goals || [];
-    const consolidatedPortfolio = calcRoot?.summary?.consolidated_portfolio;
-    const assetsAllocation = consolidatedPortfolio?.assets_allocation || [];
-    const cashFlowAllocation = consolidatedPortfolio?.cash_flow_allocation || [];
+    const { client_info, ai_executive_summary, current_situation, overall_plan, goals_detailed } = data;
+    const today = new Date().toLocaleDateString('ru-RU');
 
-    // Data for Charts
-    const portfolioData = assetsAllocation.map((item: any, index: number) => ({
+    // Portfolio Data
+    const portfolioAlloc = overall_plan?.consolidated_portfolio?.assets_allocation || [];
+    const pieData = portfolioAlloc.map((item: any, index: number) => ({
         name: item.name,
-        value: item.amount || item.share,
+        value: item.share,
         color: COLORS[index % COLORS.length]
     })).filter((i: any) => i.value > 0);
 
-    const cashFlowData = cashFlowAllocation.map((item: any, index: number) => ({
-        name: item.name,
-        value: item.amount,
-        color: COLORS_CASHFLOW[index % COLORS_CASHFLOW.length]
-    })).filter((i: any) => i.value > 0);
-
-    // Tax Summary
-    const taxBenefitsSummary = calcRoot?.summary?.tax_benefits_summary || {};
-    const taxTotals = taxBenefitsSummary?.totals || {};
-
-    // Current Date
-    const today = new Date().toLocaleDateString('ru-RU');
-
     return (
         <Document>
-            {/* 1. Cover Page */}
+            {/* 1. COVER PAGE */}
             <Page size="A4" style={styles.page}>
                 <View style={styles.coverPage}>
-                    {/* Abstract background image or solid color */}
                     <Image
                         src="https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=2000"
                         style={styles.coverImage}
                     />
-                    <View style={{ ...styles.coverContent, backgroundColor: 'rgba(15, 23, 42, 0.9)', height: '100%', top: 0, left: 0, width: '100%' }}>
-                        <View style={{ marginTop: 300 }}>
-                            <Text style={styles.coverTitle}>Личный Финансовый План</Text>
-                            <Text style={styles.coverSubtitle}>Стратегия достижения ваших целей</Text>
-
-                            <View style={{ height: 2, width: 100, backgroundColor: '#C2185B', marginBottom: 20 }}></View>
-
-                            <Text style={styles.coverMeta}>Клиент: {clientName}</Text>
-                            <Text style={styles.coverMeta}>Дата составления: {today}</Text>
-                        </View>
+                    <View style={styles.coverContent}>
+                        <Text style={styles.coverTitle}>Личный Финансовый План</Text>
+                        <Text style={styles.coverSubtitle}>Стратегия достижения ваших целей</Text>
+                        <View style={{ height: 2, width: 100, backgroundColor: '#C2185B', marginBottom: 20 }}></View>
+                        <Text style={styles.coverMeta}>Клиент: {client_info?.fio || 'Клиент'}</Text>
+                        <Text style={styles.coverMeta}>Дата составления: {today}</Text>
                     </View>
                 </View>
             </Page>
 
-            {/* 2. Executive Summary */}
+            {/* 2. EXECUTIVE SUMMARY & HEALTH */}
             <Page size="A4" style={styles.page}>
                 <View style={styles.header}>
                     <Text style={styles.headerLogo}>AI Financial Planner</Text>
                     <Text style={styles.pageNumber}>Резюме</Text>
                 </View>
                 <View style={styles.content}>
-                    <Text style={styles.heading1}>Обзор ситуации</Text>
-                    <Text style={styles.text}>
-                        Ниже представлены ключевые показатели вашего финансового плана.
-                        Мы проанализировали {calculatedGoals.length} целей и составили оптимальную стратегию их достижения.
-                    </Text>
+                    <Text style={styles.heading1}>Резюме Эксперта</Text>
 
-                    <View style={{ ...styles.gridTwo, marginTop: 20 }}>
-                        <View style={{ ...styles.card, width: '48%' }}>
-                            <Text style={styles.label}>Количество целей</Text>
-                            <Text style={{ fontSize: 24, fontWeight: 700, color: '#0F172A' }}>{calculatedGoals.length}</Text>
+                    {/* AI Executive Summary */}
+                    {ai_executive_summary && (
+                        <View style={styles.aiBox}>
+                            <Text style={styles.aiLabel}>Мнение ИИ-Советника</Text>
+                            <Text style={styles.text}>{ai_executive_summary.replace(/[*_#]/g, '')}</Text>
                         </View>
-                        <View style={{ ...styles.card, width: '48%' }}>
-                            <Text style={styles.label}>Налоговая выгода (2026)</Text>
-                            <Text style={{ fontSize: 24, fontWeight: 700, color: '#10B981' }}>
-                                +{formatCurrency(taxTotals.total_deductions || 0)}
-                            </Text>
+                    )}
+
+                    <Text style={styles.heading2}>Текущее финансовое состояние</Text>
+                    <View style={styles.gridTwo}>
+                        <View style={{ ...styles.card, width: '30%' }}>
+                            <Text style={styles.label}>Активы</Text>
+                            <Text style={styles.valueLarge}>{formatCurrency(current_situation?.assets_total || 0)}</Text>
+                        </View>
+                        <View style={{ ...styles.card, width: '30%' }}>
+                            <Text style={styles.label}>Обязательства</Text>
+                            <Text style={{ ...styles.valueLarge, color: '#DC2626' }}>{formatCurrency(current_situation?.liabilities_total || 0)}</Text>
+                        </View>
+                        <View style={{ ...styles.card, width: '30%' }}>
+                            <Text style={styles.label}>Чистый капитал</Text>
+                            <Text style={{ ...styles.valueLarge, color: '#059669' }}>{formatCurrency(current_situation?.net_worth || 0)}</Text>
                         </View>
                     </View>
 
-                    {/* Charts Section */}
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
-                        <View style={{ width: '48%', alignItems: 'center' }}>
-                            <Text style={styles.heading2}>Структура активов</Text>
-                            <PdfPieChart data={portfolioData} size={150} />
-                        </View>
-                        <View style={{ width: '48%', alignItems: 'center' }}>
-                            <Text style={styles.heading2}>Денежный поток</Text>
-                            <PdfPieChart data={cashFlowData} size={150} />
-                        </View>
-                    </View>
-
-                    <Text style={styles.heading2}>Портфель активов</Text>
-                    <View style={styles.portfolioTable}>
-                        <View style={[styles.tableRow, styles.tableHeader]}>
-                            <Text style={styles.colName}>Класс актива</Text>
-                            <Text style={styles.colValue}>Доля портфеля</Text>
-                        </View>
-                        {assetsAllocation.length > 0 ? (
-                            assetsAllocation.map((item: any, idx: number) => (
-                                <View key={idx} style={styles.tableRow}>
-                                    <Text style={styles.colName}>{item.name}</Text>
-                                    <Text style={styles.colValue}>{item.share}%</Text>
+                    <Text style={styles.heading2}>Структура портфеля</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <PdfPieChart data={pieData} size={150} />
+                        <View style={{ flex: 1, marginLeft: 20 }}>
+                            {portfolioAlloc.map((item: any, idx: number) => (
+                                <View key={idx} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
+                                    <Text style={{ fontSize: 10, color: '#334155' }}>{item.name}</Text>
+                                    <Text style={{ fontSize: 10, fontWeight: 700 }}>{item.share}%</Text>
                                 </View>
-                            ))
-                        ) : (
-                            <View style={styles.tableRow}><Text style={styles.text}>Нет данных о порфтеле</Text></View>
-                        )}
-                    </View>
-
-                    <View style={{ marginTop: 20 }}>
-                        <Text style={styles.text}>
-                            Рекомендуемая стратегия: Сбалансированный портфель с акцентом на регулярные пополнения для достижения долгосрочных целей.
-                        </Text>
+                            ))}
+                        </View>
                     </View>
                 </View>
             </Page>
 
-            {/* 3. Goal Pages (One per Goal) */}
-            {calculatedGoals.map((goal: any, index: number) => {
-                const summary = goal.summary || {};
-                const details = goal.details || {};
-
-                // Improved Data Mapping
-                const cost =
-                    details.target_capital_required ||
-                    details.target_amount ||
-                    summary.target_amount ||
-                    summary.target_amount_initial ||
-                    summary.target_coverage ||
-                    0;
-
-                const term = details.term_months || summary.term_months || 0;
-
-                const monthly = summary.monthly_replenishment !== undefined ? summary.monthly_replenishment : (summary.monthly_payment || 0);
-
-                // Get Image
-                const img = getGoalImage(goal.goal_name || goal.name, goal.goal_type_id || 0);
-
-                // --- SPECIAL TEMPLATE FOR FINANCIAL RESERVE ---
-                if (goal.goal_type === 'FIN_RESERVE') {
-                    return (
-                        <Page key={index} size="A4" style={styles.page}>
-                            <View style={styles.header}>
-                                <Text style={styles.headerLogo}>Цель {index + 1}</Text>
-                                <Text style={styles.pageNumber}>{index + 3}</Text>
-                            </View>
-                            <View style={styles.content}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 40 }}>
-                                    {/* AI Avatar Placeholder */}
-                                    <Image
-                                        src="https://img.freepik.com/premium-photo/3d-avatar-robot-with-display-face_1029469-236531.jpg"
-                                        style={{ width: 100, height: 100, borderRadius: 50, marginRight: 20, objectFit: 'cover' }}
-                                    />
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={{ fontSize: 24, fontWeight: 700, color: '#0F172A', marginBottom: 8 }}>Финансовый резерв</Text>
-                                        <Text style={{ fontSize: 14, color: '#64748B', fontStyle: 'italic' }}>Ваш фундамент безопасности</Text>
+            {/* 3. GOALS DETAILED */}
+            <Page size="A4" style={styles.page}>
+                <View style={styles.header}>
+                    <Text style={styles.headerLogo}>Детализация по целям</Text>
+                    <Text style={styles.pageNumber}>План</Text>
+                </View>
+                <View style={styles.content}>
+                    {goals_detailed?.map((goal: any, index: number) => {
+                        const img = getGoalImage(goal.name, 0); // fallback typeId 0, name search
+                        return (
+                            <View key={index} style={{ marginBottom: 30, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingBottom: 20 }}>
+                                <View style={{ flexDirection: 'row', marginBottom: 15 }}>
+                                    {img && (
+                                        <Image src={img} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 15, objectFit: 'cover' }} />
+                                    )}
+                                    <View>
+                                        <Text style={{ fontSize: 10, color: '#94A3B8', textTransform: 'uppercase', fontWeight: 700 }}>{goal.type}</Text>
+                                        <Text style={{ fontSize: 16, fontWeight: 700, color: '#0F172A' }}>{goal.name}</Text>
                                     </View>
                                 </View>
 
-                                <View style={{ backgroundColor: '#F0F9FF', padding: 30, borderRadius: 16, marginBottom: 40, borderLeft: '4px solid #0EA5E9' }}>
-                                    <Text style={{ fontSize: 14, lineHeight: 1.6, color: '#334155', marginBottom: 15 }}>
-                                        Привет! Я ваш ИИ-помощник.
-                                    </Text>
-                                    <Text style={{ fontSize: 14, lineHeight: 1.6, color: '#334155', marginBottom: 15 }}>
-                                        Финансовый резерв — это не просто деньги, это ваша свобода от непредвиденных обстоятельств.
-                                        Я рассчитал, что для вашего спокойствия необходимо иметь сумму, покрывающую расходы на несколько месяцев.
-                                    </Text>
-                                    <Text style={{ fontSize: 14, lineHeight: 1.6, color: '#334155' }}>
-                                        Сейчас ваш резерв составляет <Text style={{ fontWeight: 700 }}>{formatCurrency(summary.initial_capital || 0)}</Text>.
-                                        {cost > (summary.initial_capital || 0)
-                                            ? `Нам нужно накопить еще ${formatCurrency(cost - (summary.initial_capital || 0))}.`
-                                            : "Поздравляю! Ваш резерв полностью сформирован."}
-                                    </Text>
-                                </View>
-
-                                <Text style={styles.heading2}>Параметры резерва</Text>
                                 <View style={styles.gridTwo}>
-                                    <View style={styles.card}>
-                                        <Text style={styles.label}>Целевая сумма</Text>
-                                        <Text style={{ fontSize: 24, fontWeight: 700, color: '#0EA5E9' }}>{formatCurrency(cost)}</Text>
+                                    <View style={{ width: '30%' }}>
+                                        <Text style={styles.label}>Ежемесячный платеж</Text>
+                                        <Text style={styles.value}>{formatCurrency(goal.monthly_payment)}</Text>
                                     </View>
-                                    <View style={styles.card}>
-                                        <Text style={styles.label}>Текущий размер</Text>
-                                        <Text style={{ fontSize: 24, fontWeight: 700, color: '#64748B' }}>{formatCurrency(summary.initial_capital || 0)}</Text>
+                                    <View style={{ width: '30%' }}>
+                                        <Text style={styles.label}>Срок</Text>
+                                        <Text style={styles.value}>{goal.term_months} мес.</Text>
                                     </View>
-                                </View>
-
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 }}>
-                                    <View style={{ width: '48%' }}>
-                                        <Text style={styles.heading2}>Распределение</Text>
-                                        {summary.assets_allocation && summary.assets_allocation.length > 0 ? (
-                                            <PdfPieChart
-                                                data={summary.assets_allocation.map((item: any, i: number) => ({
-                                                    name: item.name,
-                                                    value: item.share,
-                                                    color: COLORS[i % COLORS.length]
-                                                }))}
-                                                size={150}
-                                            />
-                                        ) : (
-                                            <Text style={styles.text}>Нет данных о распределении</Text>
-                                        )}
-                                    </View>
-                                    <View style={{ width: '48%', justifyContent: 'center' }}>
-                                        <Text style={styles.text}>
-                                            Рекомендуется хранить резерв в высоколиквидных инструментах: депозитах, накопительных счетах или фондах денежного рынка.
-                                        </Text>
+                                    <View style={{ width: '30%' }}>
+                                        <Text style={styles.label}>Прогноз накоплений</Text>
+                                        <Text style={styles.value}>{formatCurrency(goal.projected_amount)}</Text>
                                     </View>
                                 </View>
                             </View>
-                        </Page>
-                    );
-                }
-
-                // --- STANDARD GOAL PAGE ---
-                return (
-                    <Page key={index} size="A4" style={styles.page}>
-                        <View style={styles.header}>
-                            <Text style={styles.headerLogo}>Цель {index + 1}</Text>
-                            <Text style={styles.pageNumber}>{index + 3}</Text>
-                        </View>
-
-                        <View style={styles.content}>
-                            {/* Hero Image */}
-                            {img && <Image src={img} style={styles.goalHero} />}
-
-                            <Text style={styles.goalTitleOverlay}>{goal.goal_name || `Цель ${index + 1}`}</Text>
-                            <Text style={styles.goalTypeLabel}>{goal.goal_type || 'Тип не указан'}</Text>
-
-                            {/* Goal Allocation Chart */}
-                            {summary.assets_allocation && summary.assets_allocation.length > 0 && (
-                                <View style={styles.chartContainer}>
-                                    <Text style={styles.chartTitle}>Распределение портфеля цели</Text>
-                                    <PdfPieChart
-                                        data={summary.assets_allocation.map((item: any, i: number) => ({
-                                            name: item.name,
-                                            value: item.share,
-                                            color: COLORS[i % COLORS.length]
-                                        }))}
-                                        size={120}
-                                    />
-                                </View>
-                            )}
-
-                            <View style={styles.card}>
-                                <Text style={styles.heading2}>Параметры цели</Text>
-                                <View style={styles.gridTwo}>
-                                    <View style={styles.statItem}>
-                                        <Text style={styles.label}>Необходимый капитал</Text>
-                                        <Text style={styles.valueLarge}>{formatCurrency(cost)}</Text>
-                                    </View>
-                                    <View style={styles.statItem}>
-                                        <Text style={styles.label}>Ежемесячный взнос</Text>
-                                        <Text style={styles.valueLarge}>{formatCurrency(monthly)}</Text>
-                                    </View>
-                                    <View style={styles.statItem}>
-                                        <Text style={styles.label}>Начальный капитал</Text>
-                                        <Text style={styles.value}>{formatCurrency(summary.initial_capital || 0)}</Text>
-                                    </View>
-                                    <View style={styles.statItem}>
-                                        <Text style={styles.label}>Срок достижения</Text>
-                                        <Text style={styles.value}>{term} мес.</Text>
-                                    </View>
-                                </View>
-                            </View>
-
-                            {/* Goal Specific Portfolio */}
-                            <Text style={styles.heading2}>Инвестиционная стратегия цели</Text>
-                            <View style={styles.portfolioTable}>
-                                <View style={[styles.tableRow, styles.tableHeader]}>
-                                    <Text style={styles.colName}>Инструмент</Text>
-                                    <Text style={styles.colValue}>Доля</Text>
-                                </View>
-                                {summary.assets_allocation && summary.assets_allocation.length > 0 ? (
-                                    summary.assets_allocation.map((item: any, idx: number) => (
-                                        <View key={idx} style={styles.tableRow}>
-                                            <Text style={styles.colName}>{item.name}</Text>
-                                            <Text style={styles.colValue}>{item.share}%</Text>
-                                        </View>
-                                    ))
-                                ) : (
-                                    <View style={styles.tableRow}><Text style={styles.text}>Портфель рассчитывается для всего плана</Text></View>
-                                )}
-                            </View>
-
-                            {/* Risks? */}
-                            {details.risks && details.risks.length > 0 && (
-                                <View style={{ marginTop: 20 }}>
-                                    <Text style={styles.heading2}>Покрытие рисков</Text>
-                                    {details.risks.map((risk: any, rIdx: number) => (
-                                        <View key={rIdx} style={styles.row}>
-                                            <Text style={styles.text}>• {risk.risk_name}</Text>
-                                            <Text style={{ ...styles.text, fontWeight: 'bold' }}>{formatCurrency(risk.limit_amount)}</Text>
-                                        </View>
-                                    ))}
-                                </View>
-                            )}
-                        </View>
-                    </Page>
-                );
-            })}
-
+                        );
+                    })}
+                </View>
+            </Page>
         </Document>
     );
 };
-
