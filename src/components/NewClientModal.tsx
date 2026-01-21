@@ -26,7 +26,12 @@ const NewClientModal: React.FC<NewClientModalProps> = ({ isOpen, onClose, onSubm
     useEffect(() => {
         if (isOpen) {
             // Generate UUID on open
-            setUuid(crypto.randomUUID());
+            try {
+                setUuid(crypto.randomUUID());
+            } catch (e) {
+                // Fallback if crypto.randomUUID is not available (e.g. non-secure context)
+                setUuid(Date.now().toString(36) + Math.random().toString(36).substr(2));
+            }
             setFio('');
             setPhone('+7 (');
             setStatus('THINKING');
