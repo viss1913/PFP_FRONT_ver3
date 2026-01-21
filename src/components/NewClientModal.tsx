@@ -19,7 +19,7 @@ interface NewClientModalProps {
 
 const NewClientModal: React.FC<NewClientModalProps> = ({ isOpen, onClose, onSubmit }) => {
     const [fio, setFio] = useState('');
-    const [phone, setPhone] = useState('');
+    const [phone, setPhone] = useState('+7 (');
     const [uuid, setUuid] = useState('');
     const [status, setStatus] = useState<ClientStatus>('THINKING');
 
@@ -28,10 +28,46 @@ const NewClientModal: React.FC<NewClientModalProps> = ({ isOpen, onClose, onSubm
             // Generate UUID on open
             setUuid(crypto.randomUUID());
             setFio('');
-            setPhone('');
+            setPhone('+7 (');
             setStatus('THINKING');
         }
     }, [isOpen]);
+
+    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const input = e.target.value;
+        let numbersValue = input.replace(/\D/g, '');
+
+        // Handle empty or just prefix deletion attempt
+        if (!numbersValue) {
+            setPhone('+7 (');
+            return;
+        }
+
+        // If user provided 7 or 8 at start, strip it to get pure parts
+        // This handles cases where user pastes 8999... or 7999...
+        if (['7', '8'].includes(numbersValue[0])) {
+            numbersValue = numbersValue.substring(1);
+        }
+
+        // Truncate to max 10 digits
+        const nums = numbersValue.slice(0, 10);
+
+        let formatted = '+7';
+        if (nums.length > 0) {
+            formatted += ' (' + nums.substring(0, 3);
+        }
+        if (nums.length >= 4) {
+            formatted += ') ' + nums.substring(3, 6);
+        }
+        if (nums.length >= 7) {
+            formatted += '-' + nums.substring(6, 8);
+        }
+        if (nums.length >= 9) {
+            formatted += '-' + nums.substring(8, 10);
+        }
+
+        setPhone(formatted);
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -115,7 +151,7 @@ const NewClientModal: React.FC<NewClientModalProps> = ({ isOpen, onClose, onSubm
                                         <input
                                             type="tel"
                                             value={phone}
-                                            onChange={(e) => setPhone(e.target.value)}
+                                            onChange={handlePhoneChange}
                                             placeholder="+7 (999) 000-00-00"
                                             style={{ paddingLeft: '40px' }}
                                             required

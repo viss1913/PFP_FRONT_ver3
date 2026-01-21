@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, User, Calendar, DollarSign, ChevronLeft, ChevronRight, Edit2 } from 'lucide-react';
+import { Search, Plus, User, Calendar, Wallet, ChevronLeft, ChevronRight, Edit2 } from 'lucide-react';
 import { clientApi } from '../api/clientApi';
 import type { Client } from '../types/client';
 import StatusDropdown from './StatusDropdown';
@@ -159,7 +159,7 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
                             <div style={{ display: 'flex', gap: '32px', alignItems: 'center' }}>
                                 <div style={{ textAlign: 'right' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '13px', justifyContent: 'flex-end', marginBottom: '4px' }}>
-                                        <DollarSign size={14} /> Капитал
+                                        <Wallet size={14} /> Капитал
                                     </div>
                                     <div style={{ fontWeight: 600, fontSize: '16px' }}>{formatMoney(client.net_worth)}</div>
                                 </div>
