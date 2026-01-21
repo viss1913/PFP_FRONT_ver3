@@ -64,5 +64,16 @@ export const clientApi = {
     recalculate: async (id: number, payload: any): Promise<any> => {
         const response = await api.post(`/client/${id}/recalculate`, payload);
         return response.data;
+    },
+
+    // CRM: Morning Briefing
+    getBriefing: async (): Promise<{ briefing: string }> => {
+        const response = await api.get('/pfp/crm/briefing');
+        return response.data;
+    },
+
+    // CRM: Update Status
+    updateClientStatus: async (payload: { client_id: number; crm_status: string; notes?: string }): Promise<void> => {
+        await api.post('/pfp/crm/status', payload);
     }
 };

@@ -1,6 +1,7 @@
 import React from 'react';
 import Header from './Header';
 import ClientList from './ClientList';
+import { clientApi } from '../api/clientApi';
 import type { Client } from '../types/client';
 import { ChatWidget } from './ai/ChatWidget';
 import { aiService } from '../services/aiService';
@@ -23,15 +24,38 @@ const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNa
     React.useEffect(() => {
         const loadAssistant = async () => {
             try {
+                // Load assistants
                 const assistants = await aiService.getAssistants();
                 if (assistants.length > 0) {
-                    // Try to find specific 'crm' assistant, or fallback to first
                     const crm = assistants.find(a => a.slug === 'ai-crm' || a.name.toLowerCase().includes('crm')) || assistants[0];
                     setActiveAssistant(crm);
                 }
+
+                // NEW: Load Briefing
+                const { briefing } = await clientApi.getBriefing();
+                if (briefing) {
+                    setMessages(prev => [
+                        ...prev,
+                        {
+                            id: Date.now(),
+                            role: 'assistant',
+                            content: briefing,
+                            created_at: new Date().toISOString()
+                        }
+                    ]);
+                }
             } catch (error) {
-                console.error('Failed to load assistants:', error);
-                // Fallback message in UI
+                console.error('Failed to load initial data:', error);
+
+                // Fallback briefing for demo if API fails
+                if (!messages.length) {
+                    setMessages([{
+                        id: Date.now(),
+                        role: 'assistant',
+                        content: "Доброе утро! Не удалось загрузить брифинг, но я готов к работе. Чем могу помочь?",
+                        created_at: new Date().toISOString()
+                    }]);
+                }
             }
         };
         loadAssistant();

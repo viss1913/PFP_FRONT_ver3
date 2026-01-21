@@ -1,3 +1,4 @@
+pfp-api-v1.2.yaml
 openapi: 3.0.0
 info:
   title: PFP Service API (Updated)
@@ -215,8 +216,69 @@ components:
                - $ref: '#/components/schemas/FinReserveCalculationResult'
                - $ref: '#/components/schemas/RentCalculationResult'
 
+                - $ref: '#/components/schemas/FinReserveCalculationResult'
+                - $ref: '#/components/schemas/RentCalculationResult'
+    
+    # --- CRM ---
+    CrmBriefingResponse:
+      type: object
+      properties:
+        briefing:
+          type: string
+          description: AI-generated daily briefing text
+          example: "Доброе утро! Сегодня стоит позвонить Ивану (думает 3 дня)..."
+
 paths:
-  /calculate:
+  /pfp/crm/briefing:
+    get:
+      summary: Get daily AI CRM briefing
+      description: Returns a text summary of clients requiring attention (THINKING, RENEWAL).
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrmBriefingResponse'
+                
+  /pfp/crm/status:
+    post:
+      summary: Update Client CRM status
+      description: Endpoint for the frontend to update status (e.g. from the dropdown)
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientCrmUpdate'
+      responses:
+        '200':
+          description: Status updated
+        
+    # --- CRM ---
+    CrmBriefingResponse:
+      type: object
+      properties:
+        briefing:
+          type: string
+          description: AI-generated daily briefing text
+          example: "Доброе утро! Сегодня стоит позвонить Ивану (думает 3 дня)..."
+          
+    ClientCrmUpdate:
+      type: object
+      properties:
+        client_id:
+          type: integer
+        crm_status:
+          type: string
+          enum: [THINKING, BOUGHT, REFUSED, RENEWAL]
+          description: "Status for the dropdown menu"
+        notes:
+          type: string
+          description: "Optional comment from agent"
     post:
       summary: Calculate all financial goals
       security:

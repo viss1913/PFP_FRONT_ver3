@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, Phone, Fingerprint } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import StatusDropdown from './StatusDropdown';
+import type { ClientStatus } from '../types/client';
 
 interface NewClientData {
     fio: string;
     phone: string;
     uuid: string;
+    crm_status: ClientStatus;
 }
 
 interface NewClientModalProps {
@@ -18,6 +21,7 @@ const NewClientModal: React.FC<NewClientModalProps> = ({ isOpen, onClose, onSubm
     const [fio, setFio] = useState('');
     const [phone, setPhone] = useState('');
     const [uuid, setUuid] = useState('');
+    const [status, setStatus] = useState<ClientStatus>('THINKING');
 
     useEffect(() => {
         if (isOpen) {
@@ -25,12 +29,13 @@ const NewClientModal: React.FC<NewClientModalProps> = ({ isOpen, onClose, onSubm
             setUuid(crypto.randomUUID());
             setFio('');
             setPhone('');
+            setStatus('THINKING');
         }
     }, [isOpen]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSubmit({ fio, phone, uuid });
+        onSubmit({ fio, phone, uuid, crm_status: status });
     };
 
     return (
@@ -68,7 +73,6 @@ const NewClientModal: React.FC<NewClientModalProps> = ({ isOpen, onClose, onSubm
                             style={{
                                 width: '100%',
                                 maxWidth: '480px',
-                                // removed fixed positioning from here
                             }}
                         >
                             <button
@@ -135,6 +139,14 @@ const NewClientModal: React.FC<NewClientModalProps> = ({ isOpen, onClose, onSubm
                                             }}
                                         />
                                     </div>
+                                </div>
+
+                                <div className="input-group">
+                                    <label className="label">Статус продажи</label>
+                                    <StatusDropdown
+                                        currentStatus={status}
+                                        onStatusChange={setStatus}
+                                    />
                                 </div>
 
                                 <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>

@@ -13,6 +13,9 @@ export interface Client {
     external_uuid?: string;
     uuid?: string;
 
+    // CRM
+    crm_status?: ClientStatus;
+
     // New fields for v3
     assets?: Asset[];
     goals?: ClientGoal[];
@@ -59,6 +62,14 @@ export interface ClientFilters {
     search?: string;
     page?: number;
     limit?: number;
+}
+
+export type ClientStatus = 'THINKING' | 'BOUGHT' | 'REFUSED' | 'RENEWAL';
+
+export interface ClientCrmUpdatePayload {
+    client_id: number;
+    crm_status: ClientStatus;
+    notes?: string;
 }
 
 export interface ClientListResponse {
