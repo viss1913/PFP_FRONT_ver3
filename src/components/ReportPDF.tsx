@@ -1,5 +1,6 @@
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/renderer';
+import PdfPieChart from './charts/PdfPieChart';
 import { getGoalImage } from '../utils/GoalImages';
 
 // Register fonts for Cyrillic support
@@ -142,6 +143,23 @@ const styles = StyleSheet.create({
         fontWeight: 700,
         color: '#C2185B',
     },
+    rowValue: {
+        fontSize: 12,
+        fontWeight: 500,
+        color: '#0F172A',
+        textAlign: 'right',
+        flex: 1
+    },
+    chartContainer: {
+        marginBottom: 20,
+        alignItems: 'center',
+    },
+    chartTitle: {
+        fontSize: 14,
+        fontWeight: 500,
+        marginBottom: 10,
+        color: '#334155',
+    },
 
     // Goal Page Specifics
     goalHero: {
@@ -210,6 +228,9 @@ const formatCurrency = (value: number) => {
     }).format(value);
 };
 
+const COLORS = ['#C2185B', '#E91E63', '#F06292', '#F8BBD0', '#880E4F', '#AD1457'];
+const COLORS_CASHFLOW = ['#0D9488', '#14B8A6', '#5EEAD4', '#CCFBF1', '#0F766E'];
+
 export const ReportPDF: React.FC<ReportPDFProps> = ({ data, clientName = "Уважаемый клиент" }) => {
     let calcRoot = data || {};
     if (calcRoot.calculation) {
@@ -222,6 +243,20 @@ export const ReportPDF: React.FC<ReportPDFProps> = ({ data, clientName = "Ува
     const calculatedGoals = calcRoot.goals || [];
     const consolidatedPortfolio = calcRoot?.summary?.consolidated_portfolio;
     const assetsAllocation = consolidatedPortfolio?.assets_allocation || [];
+    const cashFlowAllocation = consolidatedPortfolio?.cash_flow_allocation || [];
+
+    // Data for Charts
+    const portfolioData = assetsAllocation.map((item: any, index: number) => ({
+        name: item.name,
+        value: item.amount || item.share,
+        color: COLORS[index % COLORS.length]
+    })).filter((i: any) => i.value > 0);
+
+    const cashFlowData = cashFlowAllocation.map((item: any, index: number) => ({
+        name: item.name,
+        value: item.amount,
+        color: COLORS_CASHFLOW[index % COLORS_CASHFLOW.length]
+    })).filter((i: any) => i.value > 0);
 
     // Tax Summary
     const taxBenefitsSummary = calcRoot?.summary?.tax_benefits_summary || {};
@@ -280,6 +315,18 @@ export const ReportPDF: React.FC<ReportPDFProps> = ({ data, clientName = "Ува
                         </View>
                     </View>
 
+                    {/* Charts Section */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 }}>
+                        <View style={{ width: '48%', alignItems: 'center' }}>
+                            <Text style={styles.heading2}>Структура активов</Text>
+                            <PdfPieChart data={portfolioData} size={150} />
+                        </View>
+                        <View style={{ width: '48%', alignItems: 'center' }}>
+                            <Text style={styles.heading2}>Денежный поток</Text>
+                            <PdfPieChart data={cashFlowData} size={150} />
+                        </View>
+                    </View>
+
                     <Text style={styles.heading2}>Портфель активов</Text>
                     <View style={styles.portfolioTable}>
                         <View style={[styles.tableRow, styles.tableHeader]}>
@@ -329,6 +376,21 @@ export const ReportPDF: React.FC<ReportPDFProps> = ({ data, clientName = "Ува
 
                             <Text style={styles.goalTitleOverlay}>{goal.goal_name || `Цель ${index + 1}`}</Text>
                             <Text style={styles.goalTypeLabel}>{goal.goal_type || 'Тип не указан'}</Text>
+
+                            {/* Goal Allocation Chart */}
+                            {summary.assets_allocation && summary.assets_allocation.length > 0 && (
+                                <View style={styles.chartContainer}>
+                                    <Text style={styles.chartTitle}>Распределение портфеля цели</Text>
+                                    <PdfPieChart
+                                        data={summary.assets_allocation.map((item: any, i: number) => ({
+                                            name: item.name,
+                                            value: item.share,
+                                            color: COLORS[i % COLORS.length]
+                                        }))}
+                                        size={120}
+                                    />
+                                </View>
+                            )}
 
                             <View style={styles.card}>
                                 <Text style={styles.heading2}>Параметры цели</Text>
