@@ -357,12 +357,100 @@ export const ReportPDF: React.FC<ReportPDFProps> = ({ data, clientName = "Ува
             {calculatedGoals.map((goal: any, index: number) => {
                 const summary = goal.summary || {};
                 const details = goal.details || {};
-                const cost = details.target_capital_required || details.target_amount || summary.target_amount || 0;
+
+                // Improved Data Mapping
+                const cost =
+                    details.target_capital_required ||
+                    details.target_amount ||
+                    summary.target_amount ||
+                    summary.target_amount_initial ||
+                    summary.target_coverage ||
+                    0;
+
+                const term = details.term_months || summary.term_months || 0;
+
                 const monthly = summary.monthly_replenishment !== undefined ? summary.monthly_replenishment : (summary.monthly_payment || 0);
 
                 // Get Image
                 const img = getGoalImage(goal.goal_name || goal.name, goal.goal_type_id || 0);
 
+                // --- SPECIAL TEMPLATE FOR FINANCIAL RESERVE ---
+                if (goal.goal_type === 'FIN_RESERVE') {
+                    return (
+                        <Page key={index} size="A4" style={styles.page}>
+                            <View style={styles.header}>
+                                <Text style={styles.headerLogo}>Цель {index + 1}</Text>
+                                <Text style={styles.pageNumber}>{index + 3}</Text>
+                            </View>
+                            <View style={styles.content}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 40 }}>
+                                    {/* AI Avatar Placeholder */}
+                                    <Image
+                                        src="https://img.freepik.com/premium-photo/3d-avatar-robot-with-display-face_1029469-236531.jpg"
+                                        style={{ width: 100, height: 100, borderRadius: 50, marginRight: 20, objectFit: 'cover' }}
+                                    />
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{ fontSize: 24, fontWeight: 700, color: '#0F172A', marginBottom: 8 }}>Финансовый резерв</Text>
+                                        <Text style={{ fontSize: 14, color: '#64748B', fontStyle: 'italic' }}>Ваш фундамент безопасности</Text>
+                                    </View>
+                                </View>
+
+                                <View style={{ backgroundColor: '#F0F9FF', padding: 30, borderRadius: 16, marginBottom: 40, borderLeft: '4px solid #0EA5E9' }}>
+                                    <Text style={{ fontSize: 14, lineHeight: 1.6, color: '#334155', marginBottom: 15 }}>
+                                        Привет! Я ваш ИИ-помощник.
+                                    </Text>
+                                    <Text style={{ fontSize: 14, lineHeight: 1.6, color: '#334155', marginBottom: 15 }}>
+                                        Финансовый резерв — это не просто деньги, это ваша свобода от непредвиденных обстоятельств.
+                                        Я рассчитал, что для вашего спокойствия необходимо иметь сумму, покрывающую расходы на несколько месяцев.
+                                    </Text>
+                                    <Text style={{ fontSize: 14, lineHeight: 1.6, color: '#334155' }}>
+                                        Сейчас ваш резерв составляет <Text style={{ fontWeight: 700 }}>{formatCurrency(summary.initial_capital || 0)}</Text>.
+                                        {cost > (summary.initial_capital || 0)
+                                            ? `Нам нужно накопить еще ${formatCurrency(cost - (summary.initial_capital || 0))}.`
+                                            : "Поздравляю! Ваш резерв полностью сформирован."}
+                                    </Text>
+                                </View>
+
+                                <Text style={styles.heading2}>Параметры резерва</Text>
+                                <View style={styles.gridTwo}>
+                                    <View style={styles.card}>
+                                        <Text style={styles.label}>Целевая сумма</Text>
+                                        <Text style={{ fontSize: 24, fontWeight: 700, color: '#0EA5E9' }}>{formatCurrency(cost)}</Text>
+                                    </View>
+                                    <View style={styles.card}>
+                                        <Text style={styles.label}>Текущий размер</Text>
+                                        <Text style={{ fontSize: 24, fontWeight: 700, color: '#64748B' }}>{formatCurrency(summary.initial_capital || 0)}</Text>
+                                    </View>
+                                </View>
+
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 }}>
+                                    <View style={{ width: '48%' }}>
+                                        <Text style={styles.heading2}>Распределение</Text>
+                                        {summary.assets_allocation && summary.assets_allocation.length > 0 ? (
+                                            <PdfPieChart
+                                                data={summary.assets_allocation.map((item: any, i: number) => ({
+                                                    name: item.name,
+                                                    value: item.share,
+                                                    color: COLORS[i % COLORS.length]
+                                                }))}
+                                                size={150}
+                                            />
+                                        ) : (
+                                            <Text style={styles.text}>Нет данных о распределении</Text>
+                                        )}
+                                    </View>
+                                    <View style={{ width: '48%', justifyContent: 'center' }}>
+                                        <Text style={styles.text}>
+                                            Рекомендуется хранить резерв в высоколиквидных инструментах: депозитах, накопительных счетах или фондах денежного рынка.
+                                        </Text>
+                                    </View>
+                                </View>
+                            </View>
+                        </Page>
+                    );
+                }
+
+                // --- STANDARD GOAL PAGE ---
                 return (
                     <Page key={index} size="A4" style={styles.page}>
                         <View style={styles.header}>
@@ -409,7 +497,7 @@ export const ReportPDF: React.FC<ReportPDFProps> = ({ data, clientName = "Ува
                                     </View>
                                     <View style={styles.statItem}>
                                         <Text style={styles.label}>Срок достижения</Text>
-                                        <Text style={styles.value}>{details.term_months || summary.term_months || 0} мес.</Text>
+                                        <Text style={styles.value}>{term} мес.</Text>
                                     </View>
                                 </View>
                             </View>
