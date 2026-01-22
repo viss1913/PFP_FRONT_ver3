@@ -203,7 +203,7 @@ export const ReportPreviewPage: React.FC = () => {
                                             innerRadius={60} outerRadius={80}
                                             paddingAngle={4} dataKey="value"
                                         >
-                                            {pieData.map((_, index: number) => (
+                                            {pieData.map((_: any, index: number) => (
                                                 <Cell key={index} fill={COLORS_PIE[index % COLORS_PIE.length]} />
                                             ))}
                                         </Pie>
