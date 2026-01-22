@@ -451,7 +451,6 @@ export const ReportPDF: React.FC<{ data: any }> = ({ data }) => {
                 const name = goal.goal_name || goal.name;
                 const summary = goal.summary || {};
                 const details = goal.details || {};
-                const type = goal.goal_type || 'GOAL';
 
                 // Data Extraction
                 const currentDiff = summary.target_amount_initial || 0;
