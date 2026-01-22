@@ -14,6 +14,15 @@ Font.register({
     ],
 });
 
+const COLORS_FIGMA = {
+    primary: '#6B214C', // Deep Purple
+    dark: '#1E1E1E',
+    light: '#F8FAFC',
+    slate: '#64748B',
+    white: '#FFFFFF',
+    border: '#E2E8F0',
+};
+
 const styles = StyleSheet.create({
     page: {
         flexDirection: 'column',
@@ -26,7 +35,7 @@ const styles = StyleSheet.create({
         height: '100%',
         width: '100%',
         position: 'relative',
-        backgroundColor: '#1E293B', // Dark fallback
+        backgroundColor: '#000000',
     },
     coverImage: {
         position: 'absolute',
@@ -35,62 +44,36 @@ const styles = StyleSheet.create({
         width: '100%',
         height: '100%',
         objectFit: 'cover',
-        opacity: 0.8,
+        opacity: 0.6,
     },
-    coverOverlay: {
+    coverTitleBox: {
         position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-        backgroundColor: 'rgba(0,0,0,0.4)', // Dark overlay for text readability
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        backgroundColor: COLORS_FIGMA.primary,
+        padding: '30 50',
+        textAlign: 'center',
+        width: '85%',
     },
-    coverContent: {
-        position: 'absolute',
-        bottom: 80,
-        left: 40,
-        right: 40,
-    },
-    coverTitle: {
-        fontSize: 42,
-        fontWeight: 700,
+    coverLabel: {
+        fontSize: 10,
+        letterSpacing: 2,
+        fontWeight: 300,
         color: '#FFFFFF',
         marginBottom: 10,
-        textTransform: 'uppercase',
-        letterSpacing: 2,
     },
-    coverSubtitle: {
-        fontSize: 24,
-        fontWeight: 300,
-        color: '#E2E8F0',
-        marginBottom: 40,
-    },
-    coverDivider: {
-        height: 4,
-        width: 80,
-        backgroundColor: '#C2185B', // Primary brand color
-        marginBottom: 30,
-    },
-    coverMetaContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.3)',
-        paddingTop: 20,
-    },
-    coverMetaItem: {
-        flexDirection: 'column',
-    },
-    coverMetaLabel: {
-        fontSize: 10,
-        color: '#94A3B8',
-        textTransform: 'uppercase',
-        marginBottom: 4,
-    },
-    coverMetaValue: {
-        fontSize: 14,
+    coverClientName: {
+        fontSize: 32,
+        fontWeight: 700,
         color: '#FFFFFF',
-        fontWeight: 500,
+        marginBottom: 8,
+        textTransform: 'uppercase',
+    },
+    coverDateText: {
+        fontSize: 12,
+        color: '#FFFFFF',
+        opacity: 0.8,
     },
 
     // --- COMMON HEADER ---
@@ -116,28 +99,57 @@ const styles = StyleSheet.create({
 
     // --- SUMMARY PAGE ---
     contentContainer: {
-        padding: 40,
+        padding: '30 40',
     },
     sectionTitle: {
         fontSize: 20,
         fontWeight: 700,
-        color: '#1E293B',
+        color: COLORS_FIGMA.dark,
         marginBottom: 20,
         borderLeftWidth: 4,
-        borderLeftColor: '#C2185B',
+        borderLeftColor: COLORS_FIGMA.primary,
         paddingLeft: 10,
     },
-    aiSummaryBox: {
-        backgroundColor: '#F8FAFC',
+
+    // AI Box in PDF
+    aiContainer: {
+        backgroundColor: '#FDF2F8',
+        borderRadius: 12,
         padding: 20,
-        borderRadius: 8,
+        flexDirection: 'row',
+        gap: 20,
+        alignItems: 'center',
         marginBottom: 30,
+        borderWidth: 1,
+        borderColor: '#FCE7F3',
     },
-    aiSummaryText: {
+    aiAvatarBox: {
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        overflow: 'hidden',
+        borderWidth: 2,
+        borderColor: 'white',
+    },
+    aiAvatar: {
+        width: '100%',
+        height: '100%',
+    },
+    aiTextBox: {
+        flex: 1,
+    },
+    aiLabel: {
+        fontSize: 9,
+        fontWeight: 700,
+        color: '#BE185D',
+        letterSpacing: 1,
+        marginBottom: 5,
+    },
+    aiMessage: {
         fontSize: 11,
-        lineHeight: 1.6,
-        color: '#334155',
-        textAlign: 'justify',
+        lineHeight: 1.5,
+        color: COLORS_FIGMA.dark,
+        fontStyle: 'italic',
     },
 
     // Goals Table
@@ -160,15 +172,52 @@ const styles = StyleSheet.create({
     },
     colName: { width: '50%', fontSize: 10, fontWeight: 500, color: '#334155' },
     colDate: { width: '25%', fontSize: 10, color: '#64748B', textAlign: 'center' },
-    colCost: { width: '25%', fontSize: 10, color: '#334155', textAlign: 'right', fontWeight: 700 },
+    colCost: { width: '25%', fontSize: 10, color: COLORS_FIGMA.primary, textAlign: 'right', fontWeight: 700 },
 
-    // Portfolio Section
+    // Insurance Card in PDF
+    insuranceCard: {
+        backgroundColor: COLORS_FIGMA.white,
+        borderWidth: 1,
+        borderColor: COLORS_FIGMA.border,
+        borderRadius: 10,
+        padding: 15,
+        marginBottom: 15,
+    },
+    insuranceName: {
+        fontSize: 14,
+        fontWeight: 700,
+        color: COLORS_FIGMA.dark,
+        marginBottom: 12,
+    },
+    riskGrid: {
+        flexDirection: 'row',
+        gap: 15,
+    },
+    riskItem: {
+        flex: 1,
+        backgroundColor: COLORS_FIGMA.light,
+        padding: 10,
+        borderRadius: 6,
+    },
+    riskLabel: {
+        fontSize: 8,
+        color: COLORS_FIGMA.slate,
+        marginBottom: 3,
+        textTransform: 'uppercase',
+    },
+    riskValue: {
+        fontSize: 11,
+        fontWeight: 700,
+        color: COLORS_FIGMA.primary,
+    },
+
+    // Portfolio
     portfolioSection: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginTop: 20,
-        backgroundColor: '#F8FAFC',
+        marginTop: 10,
+        backgroundColor: COLORS_FIGMA.light,
         padding: 20,
         borderRadius: 12,
     },
@@ -184,124 +233,56 @@ const styles = StyleSheet.create({
         borderBottomColor: '#E2E8F0',
         paddingBottom: 4,
     },
-    legendLabel: { fontSize: 10, color: '#475569' },
-    legendValue: { fontSize: 10, fontWeight: 700, color: '#1E293B' },
+    legendLabel: { fontSize: 9, color: '#475569' },
+    legendValue: { fontSize: 9, fontWeight: 700, color: COLORS_FIGMA.dark },
 
     // --- GOAL PAGE STYLES ---
     goalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: 30,
-        paddingBottom: 20,
+        marginBottom: 20,
+        paddingBottom: 15,
         borderBottomWidth: 2,
         borderBottomColor: '#F1F5F9',
     },
-    goalTitleBlock: {
-        flex: 1,
-    },
-    goalTitle: {
-        fontSize: 28,
-        fontWeight: 700,
-        color: '#1E293B',
-        marginBottom: 5,
-    },
-    goalDate: {
-        fontSize: 18,
-        fontWeight: 300,
-        color: '#64748B',
-    },
+    goalTitle: { fontSize: 24, fontWeight: 700, color: COLORS_FIGMA.dark, marginBottom: 4 },
+    goalDate: { fontSize: 14, fontWeight: 300, color: COLORS_FIGMA.slate },
     goalBadge: {
         backgroundColor: '#FDF2F8',
-        paddingHorizontal: 15,
-        paddingVertical: 8,
-        borderRadius: 20,
-        marginLeft: 20,
+        paddingHorizontal: 12,
+        paddingVertical: 5,
+        borderRadius: 15,
     },
-    goalBadgeText: {
-        color: '#C2185B',
-        fontWeight: 700,
-        fontSize: 12,
-        textTransform: 'uppercase',
-    },
+    goalBadgeText: { color: COLORS_FIGMA.primary, fontWeight: 700, fontSize: 10, textTransform: 'uppercase' },
 
-    // Main Grid
-    mainGrid: {
-        flexDirection: 'row',
-        gap: 30,
-        marginBottom: 40,
-    },
-    paramsCol: {
-        width: '40%',
-    },
-    imageCol: {
-        width: '60%',
-        height: 250,
-        borderRadius: 12,
-        overflow: 'hidden',
-    },
-    goalImage: {
-        width: '100%',
-        height: '100%',
-        objectFit: 'cover',
-    },
+    mainGrid: { flexDirection: 'row', gap: 25, marginBottom: 30 },
+    paramsCol: { width: '45%' },
+    imageCol: { width: '55%', height: 200, borderRadius: 10, overflow: 'hidden' },
+    goalImage: { width: '100%', height: '100%', objectFit: 'cover' },
 
-    // Parameter Row
-    paramRow: {
-        marginBottom: 20,
-    },
-    paramLabel: {
-        fontSize: 10,
-        color: '#94A3B8',
-        marginBottom: 4,
-        textTransform: 'uppercase',
-    },
-    paramValue: {
-        fontSize: 16,
-        fontWeight: 500,
-        color: '#1E293B',
-    },
-    paramValueLarge: {
-        fontSize: 22,
-        fontWeight: 700,
-        color: '#1E293B',
-    },
-    divider: {
-        height: 1,
-        backgroundColor: '#E2E8F0',
-        marginVertical: 10,
-    },
+    paramRow: { marginBottom: 15 },
+    paramLabel: { fontSize: 9, color: COLORS_FIGMA.slate, marginBottom: 3, textTransform: 'uppercase' },
+    paramValue: { fontSize: 13, fontWeight: 500, color: COLORS_FIGMA.dark },
+    paramValueLarge: { fontSize: 18, fontWeight: 700, color: COLORS_FIGMA.primary },
+    divider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 8 },
 
-    // Footer Portfolios
-    footerGrid: {
-        flexDirection: 'row',
-        gap: 20,
-    },
+    pensionGrid: { flexDirection: 'row', gap: 20, marginTop: 10 },
+    pensionCol: { flex: 1 },
+    pensionBigValue: { fontSize: 20, fontWeight: 700, color: COLORS_FIGMA.dark },
+    pensionLabel: { fontSize: 9, color: COLORS_FIGMA.slate, textTransform: 'uppercase', marginBottom: 5 },
+
+    footerGrid: { flexDirection: 'row', gap: 15 },
     portfolioCard: {
-        flex: 1,
-        padding: 20,
-        backgroundColor: '#FFFFFF',
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
+        flex: 1, padding: 15, backgroundColor: '#FFFFFF', borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0',
     },
-    cardTitle: {
-        fontSize: 12,
-        fontWeight: 700,
-        color: '#1E293B',
-        marginBottom: 15,
-        minHeight: 30, // Align titles
-    },
+    cardTitle: { fontSize: 10, fontWeight: 700, color: COLORS_FIGMA.dark, marginBottom: 10, minHeight: 25 },
     pItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 8,
-        paddingBottom: 4,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F1F5F9',
+        flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6, paddingBottom: 3,
+        borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
     },
-    pName: { fontSize: 10, color: '#475569', flex: 1, marginRight: 10 },
-    pValue: { fontSize: 10, fontWeight: 700, color: '#1E293B' },
+    pName: { fontSize: 8, color: '#475569', flex: 1, marginRight: 5 },
+    pValue: { fontSize: 8, fontWeight: 700, color: COLORS_FIGMA.dark },
 });
 
 const formatCurrency = (value: number) => {
@@ -310,29 +291,32 @@ const formatCurrency = (value: number) => {
     }).format(value);
 };
 
-const COLORS = ['#C2185B', '#E91E63', '#F06292', '#F8BBD0', '#880E4F', '#AD1457'];
+const getSummaryTemplate = (data: any) => {
+    const goals = data.goals_detailed || [];
+    const hasGap = goals.some((g: any) => g.summary?.status === 'GAP');
+    const clientName = data.client_info?.full_name?.split(' ')[0] || 'Клиент';
 
-// Interface for Portfolio Instrument
-interface PortfolioInstrument {
-    name: string;
-    share?: number;
-    amount: number;
-}
+    if (hasGap) {
+        return `Здравствуйте, ${clientName}! Я проанализировала ваши цели и текущие возможности. В плане обнаружен дефицит капитала для достижения некоторых целей. Мы рекомендуем рассмотреть увеличение ежемесячных взносов или использование налоговых льгот (ПДС), чтобы выйти на желаемый уровень дохода в будущем. Ваш план требует небольшой корректировки для 100% уверенности.`;
+    }
+
+    return `Здравствуйте, ${clientName}! Я проанализировала ваши финансовые цели. Ваш план выглядит отлично — текущая стратегия позволяет достичь всех поставленных задач в срок. Мы распределили активы таким образом, чтобы минимизировать риски и обеспечить стабильный рост капитала. Вы на верном пути к финансовой независимости!`;
+};
+
+const COLORS_PIE = ['#6B214C', '#A855F7', '#D8B4FE', '#F3E8FF', '#4C1D95', '#7C3AED'];
 
 export const ReportPDF: React.FC<{ data: any }> = ({ data }) => {
     if (!data) return <Document><Page size="A4"><Text>No Data</Text></Page></Document>;
 
-    const { client_info, client_profile, ai_executive_summary, overall_plan, goals_detailed } = data;
+    const { client_info, overall_plan, goals_detailed, insurance_protection } = data;
+    const clientName = client_info?.full_name || client_info?.fio || 'Клиент';
+    const todayLabel = new Date().toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' });
 
-    const clientName = client_info?.full_name || client_profile?.full_name || client_info?.fio || 'Клиент';
-    const today = new Date().toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' });
-
-    // Portfolio Chart Data
     const portfolioAlloc = overall_plan?.consolidated_portfolio?.assets_allocation || [];
     const pieData = portfolioAlloc.map((item: any, index: number) => ({
         name: item.name,
         value: item.share,
-        color: COLORS[index % COLORS.length]
+        color: COLORS_PIE[index % COLORS_PIE.length]
     })).filter((i: any) => i.value > 0);
 
     return (
@@ -341,30 +325,13 @@ export const ReportPDF: React.FC<{ data: any }> = ({ data }) => {
             <Page size="A4" style={styles.page}>
                 <View style={styles.coverPage}>
                     <Image
-                        src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=2000"
+                        src="public/assets/report_cover.png"
                         style={styles.coverImage}
                     />
-                    <View style={styles.coverOverlay} />
-
-                    <View style={styles.coverContent}>
-                        <View style={styles.coverDivider} />
-                        <Text style={styles.coverTitle}>Личный Финансовый План</Text>
-                        <Text style={styles.coverSubtitle}>Стратегия достижения ваших целей</Text>
-
-                        <View style={styles.coverMetaContainer}>
-                            <View style={styles.coverMetaItem}>
-                                <Text style={styles.coverMetaLabel}>Клиент</Text>
-                                <Text style={styles.coverMetaValue}>{clientName}</Text>
-                            </View>
-                            <View style={styles.coverMetaItem}>
-                                <Text style={styles.coverMetaLabel}>Дата</Text>
-                                <Text style={styles.coverMetaValue}>{today}</Text>
-                            </View>
-                            <View style={styles.coverMetaItem}>
-                                <Text style={styles.coverMetaLabel}>Советник</Text>
-                                <Text style={styles.coverMetaValue}>AI Financial Planner</Text>
-                            </View>
-                        </View>
+                    <View style={styles.coverTitleBox}>
+                        <Text style={styles.coverLabel}>ПЕРСОНАЛЬНОЕ ФИНАНСОВОЕ РЕШЕНИЕ</Text>
+                        <Text style={styles.coverClientName}>{clientName}</Text>
+                        <Text style={styles.coverDateText}>{todayLabel}</Text>
                     </View>
                 </View>
             </Page>
@@ -377,15 +344,19 @@ export const ReportPDF: React.FC<{ data: any }> = ({ data }) => {
                 </View>
 
                 <View style={styles.contentContainer}>
-                    {/* AI Intro */}
                     <Text style={styles.sectionTitle}>Резюме стратегии</Text>
-                    {ai_executive_summary && (
-                        <View style={styles.aiSummaryBox}>
-                            <Text style={styles.aiSummaryText}>{ai_executive_summary.replace(/[*_#]/g, '')}</Text>
+                    <View style={styles.aiContainer}>
+                        <View style={styles.aiAvatarBox}>
+                            <Image
+                                src="public/assets/ai_avatar.png"
+                            />
                         </View>
-                    )}
+                        <View style={styles.aiTextBox}>
+                            <Text style={styles.aiLabel}>МНЕНИЕ ИИ-СОВЕТНИКА</Text>
+                            <Text style={styles.aiMessage}>{getSummaryTemplate(data)}</Text>
+                        </View>
+                    </View>
 
-                    {/* Goals Overview */}
                     <Text style={styles.sectionTitle}>Ваши цели</Text>
                     <View style={styles.goalsTable}>
                         <View style={styles.tableHeaderRow}>
@@ -397,7 +368,6 @@ export const ReportPDF: React.FC<{ data: any }> = ({ data }) => {
                             const cost = goal.summary?.target_amount_future || goal.summary?.target_amount_initial || 0;
                             const months = goal.summary?.target_months || 0;
                             const yearEnd = new Date().getFullYear() + Math.ceil(months / 12);
-
                             return (
                                 <View key={idx} style={styles.tableRow}>
                                     <Text style={styles.colName}>{goal.goal_name || goal.name}</Text>
@@ -408,32 +378,28 @@ export const ReportPDF: React.FC<{ data: any }> = ({ data }) => {
                         })}
                     </View>
 
-                    {/* Insurance Protection */}
-                    {data.insurance_protection && data.insurance_protection.length > 0 && (
+                    {insurance_protection && insurance_protection.length > 0 && (
                         <>
                             <Text style={styles.sectionTitle}>Страховая защита</Text>
-                            <View style={{ marginBottom: 30 }}>
-                                {data.insurance_protection.map((program: any, idx: number) => (
-                                    <View key={idx} style={{ marginBottom: 15, backgroundColor: '#F0FDF4', padding: 15, borderRadius: 8, borderLeftWidth: 4, borderLeftColor: '#16A34A' }}>
-                                        <Text style={{ fontSize: 12, fontWeight: 700, color: '#16A34A', marginBottom: 10 }}>{program.program_name}</Text>
-                                        <View>
-                                            {program.risks?.map((risk: any, rIdx: number) => (
-                                                <View key={rIdx} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5, paddingBottom: 5, borderBottomWidth: 1, borderBottomColor: 'rgba(22, 163, 74, 0.1)' }}>
-                                                    <Text style={{ fontSize: 10, color: '#334155' }}>{risk.risk_name}</Text>
-                                                    <Text style={{ fontSize: 10, fontWeight: 700, color: '#1E293B' }}>{formatCurrency(risk.limit_amount)}</Text>
-                                                </View>
-                                            ))}
-                                        </View>
+                            {insurance_protection.map((prog: any, i: number) => (
+                                <View key={i} style={styles.insuranceCard}>
+                                    <Text style={styles.insuranceName}>{prog.program_name}</Text>
+                                    <View style={styles.riskGrid}>
+                                        {prog.risks?.map((risk: any, j: number) => (
+                                            <View key={j} style={styles.riskItem}>
+                                                <Text style={styles.riskLabel}>{risk.risk_name}</Text>
+                                                <Text style={styles.riskValue}>{formatCurrency(risk.limit_amount)}</Text>
+                                            </View>
+                                        ))}
                                     </View>
-                                ))}
-                            </View>
+                                </View>
+                            ))}
                         </>
                     )}
 
-                    {/* Portfolio Chart */}
                     <Text style={styles.sectionTitle}>Структура портфеля</Text>
                     <View style={styles.portfolioSection}>
-                        <PdfPieChart data={pieData} size={180} hideLegend={true} />
+                        <PdfPieChart data={pieData} size={150} hideLegend={true} />
                         <View style={styles.portfolioLegend}>
                             {portfolioAlloc.map((item: any, idx: number) => (
                                 <View key={idx} style={styles.legendItem}>
@@ -451,21 +417,12 @@ export const ReportPDF: React.FC<{ data: any }> = ({ data }) => {
                 const name = goal.goal_name || goal.name;
                 const summary = goal.summary || {};
                 const details = goal.details || {};
-
-                // Data Extraction
-                const currentDiff = summary.target_amount_initial || 0;
-                const futureValue = summary.target_amount_future || currentDiff;
                 const months = summary.target_months || 0;
                 const yearEnd = new Date().getFullYear() + Math.ceil(months / 12);
-                const inflation = summary.inflation_rate || 0;
-                const initialCap = summary.initial_capital || 0;
-                const monthlyPay = summary.monthly_replenishment || 0;
+                const type = goal.goal_type || goal.type;
 
-                // Portfolio Data
                 const initialInstruments = details.portfolio_structure?.initial_instruments || details.instruments || [];
                 const monthlyInstruments = details.portfolio_structure?.monthly_instruments || [];
-
-                // Image
                 const imgUrl = getGoalImage(name, index);
 
                 return (
@@ -476,81 +433,73 @@ export const ReportPDF: React.FC<{ data: any }> = ({ data }) => {
                         </View>
 
                         <View style={styles.contentContainer}>
-                            {/* GOAL HEADER */}
                             <View style={styles.goalHeader}>
-                                <View style={styles.goalTitleBlock}>
+                                <View style={{ flex: 1 }}>
                                     <Text style={styles.goalTitle}>{name}. {months > 0 ? `Январь ${yearEnd}г.` : ''}</Text>
                                     <Text style={styles.goalDate}>{months} месяцев до цели</Text>
                                 </View>
                                 <View style={styles.goalBadge}>
-                                    <Text style={styles.goalBadgeText}>Цель {index + 1}</Text>
+                                    <Text style={styles.goalBadgeText}>{type}</Text>
                                 </View>
                             </View>
 
-                            {/* MAIN GRID */}
+                            {type === 'PENSION' ? (
+                                <View style={{ marginBottom: 30 }}>
+                                    <View style={styles.pensionGrid}>
+                                        <View style={styles.pensionCol}>
+                                            <Text style={styles.pensionLabel}>В ценах сегодня</Text>
+                                            <Text style={styles.pensionBigValue}>{formatCurrency(summary.state_pension_monthly_today || 0)}</Text>
+                                        </View>
+                                        <View style={styles.pensionCol}>
+                                            <Text style={styles.pensionLabel}>В будущем (инфляция {summary.inflation_rate}%)</Text>
+                                            <Text style={{ ...styles.pensionBigValue, color: COLORS_FIGMA.primary }}>{formatCurrency(summary.state_pension_monthly_future || 0)}</Text>
+                                        </View>
+                                    </View>
+                                    <View style={styles.divider} />
+                                </View>
+                            ) : null}
+
                             <View style={styles.mainGrid}>
                                 <View style={styles.paramsCol}>
                                     <View style={styles.paramRow}>
                                         <Text style={styles.paramLabel}>Текущая стоимость</Text>
-                                        <Text style={styles.paramValue}>{formatCurrency(currentDiff)}</Text>
-                                    </View>
-                                    <View style={styles.paramRow}>
-                                        <Text style={styles.paramLabel}>Инфляция, в год</Text>
-                                        <Text style={styles.paramValue}>{inflation}%</Text>
+                                        <Text style={styles.paramValue}>{formatCurrency(summary.target_amount_initial || 0)}</Text>
                                     </View>
                                     <View style={styles.divider} />
                                     <View style={styles.paramRow}>
-                                        <Text style={styles.paramLabel}>Стоимость с учетом инфляции</Text>
-                                        <Text style={styles.paramValueLarge}>{formatCurrency(futureValue)}</Text>
+                                        <Text style={styles.paramLabel}>Будущая стоимость</Text>
+                                        <Text style={styles.paramValueLarge}>{formatCurrency(summary.target_amount_future || 0)}</Text>
                                     </View>
                                     <View style={styles.paramRow}>
-                                        <Text style={styles.paramLabel}>Первоначальный капитал</Text>
-                                        <Text style={styles.paramValue}>{formatCurrency(initialCap)}</Text>
-                                    </View>
-                                    <View style={styles.paramRow}>
-                                        <Text style={styles.paramLabel}>Рекомендованное пополнение</Text>
-                                        <Text style={styles.paramValueLarge}>{formatCurrency(monthlyPay)}</Text>
+                                        <Text style={styles.paramLabel}>Ежемесячное пополнение</Text>
+                                        <Text style={styles.paramValueLarge}>{formatCurrency(summary.monthly_replenishment || 0)}</Text>
                                     </View>
                                 </View>
-
                                 <View style={styles.imageCol}>
                                     {imgUrl && <Image src={imgUrl} style={styles.goalImage} />}
                                 </View>
                             </View>
 
-                            {/* FOOTER - PORTFOLIOS */}
                             <View style={styles.footerGrid}>
-                                {/* Portfolio 1: Initial Capital */}
                                 <View style={styles.portfolioCard}>
-                                    <Text style={styles.cardTitle}>Портфель для первоначального капитала</Text>
-                                    {initialInstruments.length > 0 ? (
-                                        initialInstruments.map((inst: PortfolioInstrument, idx: number) => (
-                                            <View key={idx} style={styles.pItem}>
-                                                <Text style={styles.pName}>{inst.name}</Text>
-                                                <Text style={styles.pValue}>{formatCurrency(inst.amount)}</Text>
-                                            </View>
-                                        ))
-                                    ) : (
-                                        <Text style={{ fontSize: 10, color: '#94A3B8' }}>Нет данных</Text>
-                                    )}
+                                    <Text style={styles.cardTitle}>Стартовый капитал</Text>
+                                    {initialInstruments.map((inst: any, idx: number) => (
+                                        <View key={idx} style={styles.pItem}>
+                                            <Text style={styles.pName}>{inst.name}</Text>
+                                            <Text style={styles.pValue}>{formatCurrency(inst.amount)}</Text>
+                                        </View>
+                                    ))}
                                 </View>
-
-                                {/* Portfolio 2: Monthly Capital */}
                                 <View style={styles.portfolioCard}>
-                                    <Text style={styles.cardTitle}>Портфель для ежемесячного пополнения</Text>
-                                    {monthlyInstruments.length > 0 ? (
-                                        monthlyInstruments.map((inst: PortfolioInstrument, idx: number) => (
-                                            <View key={idx} style={styles.pItem}>
-                                                <Text style={styles.pName}>{inst.name}</Text>
-                                                <Text style={styles.pValue}>{formatCurrency(inst.amount)}</Text>
-                                            </View>
-                                        ))
-                                    ) : (
-                                        <Text style={{ fontSize: 10, color: '#94A3B8' }}>Пополняется в те же инструменты</Text>
-                                    )}
+                                    <Text style={styles.cardTitle}>Ежемесячный поток</Text>
+                                    {monthlyInstruments.length > 0 ? monthlyInstruments.map((inst: any, idx: number) => (
+                                        <View key={idx} style={styles.pItem}>
+                                            <Text style={styles.pName}>{inst.name}</Text>
+                                            <Text style={styles.pValue}>{formatCurrency(inst.amount)}</Text>
+                                        </View>
+                                    )) : <Text style={{ fontSize: 8, color: COLORS_FIGMA.slate }}>Аналогично стартовому</Text>}
                                 </View>
                             </View>
-
                         </View>
                     </Page>
                 );
