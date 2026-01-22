@@ -179,7 +179,14 @@ export const ReportPDF: React.FC<{ data: any }> = ({ data }) => {
                 </View>
                 <View style={styles.content}>
                     {goals_detailed?.map((goal: any, index: number) => {
-                        const img = getGoalImage(goal.name, 0); // fallback typeId 0, name search
+                        const name = goal.goal_name || goal.name;
+                        const type = goal.goal_type || goal.type;
+                        const summary = goal.summary || {};
+                        const monthlyPayment = summary.monthly_replenishment || goal.monthly_payment || 0;
+                        const term = summary.target_months || goal.term_months || 0;
+                        const projected = summary.projected_capital_at_end || summary.projected_capital_at_retirement || goal.projected_amount || 0;
+
+                        const img = getGoalImage(name, 0);
                         return (
                             <View key={index} style={{ marginBottom: 30, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingBottom: 20 }}>
                                 <View style={{ flexDirection: 'row', marginBottom: 15 }}>
@@ -187,23 +194,23 @@ export const ReportPDF: React.FC<{ data: any }> = ({ data }) => {
                                         <Image src={img} style={{ width: 60, height: 60, borderRadius: 8, marginRight: 15, objectFit: 'cover' }} />
                                     )}
                                     <View>
-                                        <Text style={{ fontSize: 10, color: '#94A3B8', textTransform: 'uppercase', fontWeight: 700 }}>{goal.type}</Text>
-                                        <Text style={{ fontSize: 16, fontWeight: 700, color: '#0F172A' }}>{goal.name}</Text>
+                                        <Text style={{ fontSize: 10, color: '#94A3B8', textTransform: 'uppercase', fontWeight: 700 }}>{type}</Text>
+                                        <Text style={{ fontSize: 16, fontWeight: 700, color: '#0F172A' }}>{name}</Text>
                                     </View>
                                 </View>
 
                                 <View style={styles.gridTwo}>
                                     <View style={{ width: '30%' }}>
                                         <Text style={styles.label}>Ежемесячный платеж</Text>
-                                        <Text style={styles.value}>{formatCurrency(goal.monthly_payment)}</Text>
+                                        <Text style={styles.value}>{formatCurrency(monthlyPayment)}</Text>
                                     </View>
                                     <View style={{ width: '30%' }}>
                                         <Text style={styles.label}>Срок</Text>
-                                        <Text style={styles.value}>{goal.term_months} мес.</Text>
+                                        <Text style={styles.value}>{term} мес.</Text>
                                     </View>
                                     <View style={{ width: '30%' }}>
                                         <Text style={styles.label}>Прогноз накоплений</Text>
-                                        <Text style={styles.value}>{formatCurrency(goal.projected_amount)}</Text>
+                                        <Text style={styles.value}>{formatCurrency(projected)}</Text>
                                     </View>
                                 </View>
                             </View>

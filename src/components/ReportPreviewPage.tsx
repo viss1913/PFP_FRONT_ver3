@@ -210,26 +210,33 @@ export const ReportPreviewPage: React.FC = () => {
                 <div style={styles.block}>
                     <h2 style={styles.blockTitle}>Детализация по целям</h2>
                     <div style={styles.goalsGrid}>
-                        {goals_detailed?.map((goal: any, idx: number) => (
-                            <div key={idx} style={styles.goalCard}>
-                                <div style={styles.goalHeader}>
-                                    <span style={styles.goalType}>{goal.type}</span>
-                                    <span style={styles.goalName}>{goal.name}</span>
-                                </div>
-                                <div style={styles.goalRow}>
-                                    <span>Ежемесячный платеж:</span>
-                                    <strong>{formatCurrency(goal.monthly_payment)}</strong>
-                                </div>
-                                <div style={styles.goalRow}>
-                                    <span>Срок:</span>
-                                    <strong>{goal.term_months} мес.</strong>
-                                </div>
-                                <div style={styles.goalRow}>
-                                    <span>Прогноз накоплений:</span>
-                                    <strong style={{ color: '#C2185B' }}>{formatCurrency(goal.projected_amount)}</strong>
-                                </div>
-                            </div>
-                        ))}
+                        <div style={styles.goalsGrid}>
+                            {goals_detailed?.map((goal: any, idx: number) => {
+                                const summary = goal.summary || {};
+                                const projected = summary.projected_capital_at_end || summary.projected_capital_at_retirement || 0;
+
+                                return (
+                                    <div key={idx} style={styles.goalCard}>
+                                        <div style={styles.goalHeader}>
+                                            <span style={styles.goalType}>{goal.goal_type || goal.type}</span>
+                                            <span style={styles.goalName}>{goal.goal_name || goal.name}</span>
+                                        </div>
+                                        <div style={styles.goalRow}>
+                                            <span>Ежемесячный платеж:</span>
+                                            <strong>{formatCurrency(summary.monthly_replenishment || goal.monthly_payment || 0)}</strong>
+                                        </div>
+                                        <div style={styles.goalRow}>
+                                            <span>Срок:</span>
+                                            <strong>{summary.target_months || goal.term_months} мес.</strong>
+                                        </div>
+                                        <div style={styles.goalRow}>
+                                            <span>Прогноз накоплений:</span>
+                                            <strong style={{ color: '#C2185B' }}>{formatCurrency(projected || goal.projected_amount || 0)}</strong>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
 
