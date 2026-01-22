@@ -408,6 +408,28 @@ export const ReportPDF: React.FC<{ data: any }> = ({ data }) => {
                         })}
                     </View>
 
+                    {/* Insurance Protection */}
+                    {data.insurance_protection && data.insurance_protection.length > 0 && (
+                        <>
+                            <Text style={styles.sectionTitle}>Страховая защита</Text>
+                            <View style={{ marginBottom: 30 }}>
+                                {data.insurance_protection.map((program: any, idx: number) => (
+                                    <View key={idx} style={{ marginBottom: 15, backgroundColor: '#F0FDF4', padding: 15, borderRadius: 8, borderLeftWidth: 4, borderLeftColor: '#16A34A' }}>
+                                        <Text style={{ fontSize: 12, fontWeight: 700, color: '#16A34A', marginBottom: 10 }}>{program.program_name}</Text>
+                                        <View>
+                                            {program.risks?.map((risk: any, rIdx: number) => (
+                                                <View key={rIdx} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5, paddingBottom: 5, borderBottomWidth: 1, borderBottomColor: 'rgba(22, 163, 74, 0.1)' }}>
+                                                    <Text style={{ fontSize: 10, color: '#334155' }}>{risk.risk_name}</Text>
+                                                    <Text style={{ fontSize: 10, fontWeight: 700, color: '#1E293B' }}>{formatCurrency(risk.limit_amount)}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    </View>
+                                ))}
+                            </View>
+                        </>
+                    )}
+
                     {/* Portfolio Chart */}
                     <Text style={styles.sectionTitle}>Структура портфеля</Text>
                     <View style={styles.portfolioSection}>
