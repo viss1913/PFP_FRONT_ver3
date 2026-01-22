@@ -210,33 +210,38 @@ export const ReportPreviewPage: React.FC = () => {
                 <div style={styles.block}>
                     <h2 style={styles.blockTitle}>Детализация по целям</h2>
                     <div style={styles.goalsGrid}>
-                        <div style={styles.goalsGrid}>
-                            {goals_detailed?.map((goal: any, idx: number) => {
-                                const summary = goal.summary || {};
-                                const projected = summary.projected_capital_at_end || summary.projected_capital_at_retirement || 0;
+                        {goals_detailed?.map((goal: any, idx: number) => {
+                            const type = goal.goal_type || goal.type;
 
-                                return (
-                                    <div key={idx} style={styles.goalCard}>
-                                        <div style={styles.goalHeader}>
-                                            <span style={styles.goalType}>{goal.goal_type || goal.type}</span>
-                                            <span style={styles.goalName}>{goal.goal_name || goal.name}</span>
-                                        </div>
-                                        <div style={styles.goalRow}>
-                                            <span>Ежемесячный платеж:</span>
-                                            <strong>{formatCurrency(summary.monthly_replenishment || goal.monthly_payment || 0)}</strong>
-                                        </div>
-                                        <div style={styles.goalRow}>
-                                            <span>Срок:</span>
-                                            <strong>{summary.target_months || goal.term_months} мес.</strong>
-                                        </div>
-                                        <div style={styles.goalRow}>
-                                            <span>Прогноз накоплений:</span>
-                                            <strong style={{ color: '#C2185B' }}>{formatCurrency(projected || goal.projected_amount || 0)}</strong>
-                                        </div>
+                            if (type === 'PENSION') {
+                                return <PensionGoalCard key={idx} goal={goal} />;
+                            }
+
+                            // Default / Standard Goal Card
+                            const summary = goal.summary || {};
+                            const projected = summary.projected_capital_at_end || summary.projected_capital_at_retirement || 0;
+
+                            return (
+                                <div key={idx} style={styles.goalCard}>
+                                    <div style={styles.goalHeader}>
+                                        <span style={styles.goalType}>{type}</span>
+                                        <span style={styles.goalName}>{goal.goal_name || goal.name}</span>
                                     </div>
-                                );
-                            })}
-                        </div>
+                                    <div style={styles.goalRow}>
+                                        <span>Ежемесячный платеж:</span>
+                                        <strong>{formatCurrency(summary.monthly_replenishment || goal.monthly_payment || 0)}</strong>
+                                    </div>
+                                    <div style={styles.goalRow}>
+                                        <span>Срок:</span>
+                                        <strong>{summary.target_months || goal.term_months || 0} мес.</strong>
+                                    </div>
+                                    <div style={styles.goalRow}>
+                                        <span>Прогноз накоплений:</span>
+                                        <strong style={{ color: '#C2185B' }}>{formatCurrency(projected || goal.projected_amount || 0)}</strong>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -249,6 +254,80 @@ export const ReportPreviewPage: React.FC = () => {
                         {JSON.stringify(reportData, null, 2)}
                     </pre>
                 </details>
+            </div>
+        </div>
+    );
+};
+
+
+
+const PensionGoalCard = ({ goal }: any) => {
+    const summary = goal.summary || {};
+    const details = goal.details?.state_pension || {};
+
+    // Formula values
+    const fixedPayment = details.fixed_payment_today || 0;
+    const ipkTotal = details.ipk_total || 0;
+    const pointCost = details.point_cost_today || 0;
+
+    // Pension values
+    const pensionToday = summary.state_pension_monthly_today || 0;
+    const pensionFuture = summary.state_pension_monthly_future || 0;
+    const desiredIncome = summary.desired_monthly_income_initial || 100000; // Example fallback
+
+    return (
+        <div style={{ ...styles.goalCard, gridColumn: 'span 2', background: '#F8FAFC' }}>
+            <div style={styles.goalHeader}>
+                <span style={styles.goalType}>ГОСУДАРСТВЕННАЯ ПЕНСИЯ</span>
+                <span style={styles.goalName}>{goal.goal_name || 'Страховая пенсия РФ'}</span>
+            </div>
+
+            <div style={{ display: 'flex', gap: 40, marginTop: 10 }}>
+                {/* LEFT: Formula */}
+                <div style={{ flex: 1 }}>
+                    <div style={styles.sectionLabel}>Как считается ваша пенсия (в ценах сегодня):</div>
+                    <div style={styles.formulaBox}>
+                        <div style={styles.formulaItem}>
+                            <div style={styles.formulaVal}>{formatCurrency(fixedPayment)}</div>
+                            <div style={styles.formulaDesc}>Фикс. выплата</div>
+                        </div>
+                        <div style={styles.formulaOp}>+</div>
+                        <div style={styles.formulaItem}>
+                            <div style={styles.formulaVal}>{ipkTotal.toFixed(1)}</div>
+                            <div style={styles.formulaDesc}>Баллы (ИПК)</div>
+                        </div>
+                        <div style={styles.formulaOp}>×</div>
+                        <div style={styles.formulaItem}>
+                            <div style={styles.formulaVal}>{pointCost} ₽</div>
+                            <div style={styles.formulaDesc}>Стоимость балла</div>
+                        </div>
+                        <div style={styles.formulaOp}>=</div>
+                        <div style={{ ...styles.formulaItem, border: '2px solid #10B981', padding: '4px 8px', borderRadius: 6 }}>
+                            <div style={{ ...styles.formulaVal, color: '#059669' }}>{formatCurrency(pensionToday)}</div>
+                            <div style={styles.formulaDesc}>Итого</div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* RIGHT: Comparison */}
+                <div style={{ flex: 1, borderLeft: '1px solid #E2E8F0', paddingLeft: 40 }}>
+                    <div style={styles.sectionLabel}>Перспектива (Инфляция 5.6%)</div>
+                    <div style={styles.compareRow}>
+                        <div style={styles.compareItem}>
+                            <div style={styles.compareLabel}>В ценах сегодня</div>
+                            <div style={styles.compareValue}>{formatCurrency(pensionToday)}</div>
+                        </div>
+                        <div style={styles.arrowRight}>➝</div>
+                        <div style={styles.compareItem}>
+                            <div style={styles.compareLabel}>В будущем</div>
+                            <div style={{ ...styles.compareValue, color: '#C2185B' }}>{formatCurrency(pensionFuture)}</div>
+                        </div>
+                    </div>
+                    <div style={{ marginTop: 15, fontSize: 12, color: '#64748B' }}>
+                        Чтобы получать желаемые <strong>{formatCurrency(desiredIncome)}</strong>,
+                        вам нужен капитал: <strong>{formatCurrency(summary.required_capital_at_retirement || 0)}</strong>.
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -364,6 +443,39 @@ const styles: any = {
     },
     goalRow: {
         display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#475569', marginBottom: 6
+    },
+    sectionLabel: {
+        fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', marginBottom: 12, letterSpacing: 0.5
+    },
+    formulaBox: {
+        display: 'flex', alignItems: 'center', gap: 10
+    },
+    formulaItem: {
+        textAlign: 'center'
+    },
+    formulaVal: {
+        fontSize: 16, fontWeight: 700, color: '#1E293B'
+    },
+    formulaDesc: {
+        fontSize: 10, color: '#64748B', marginTop: 2
+    },
+    formulaOp: {
+        fontSize: 18, color: '#CBD5E1', fontWeight: 300, paddingBottom: 15
+    },
+    compareRow: {
+        display: 'flex', alignItems: 'center', gap: 20
+    },
+    compareItem: {
+
+    },
+    compareLabel: {
+        fontSize: 11, color: '#64748B', marginBottom: 4
+    },
+    compareValue: {
+        fontSize: 20, fontWeight: 700, color: '#0F172A'
+    },
+    arrowRight: {
+        fontSize: 20, color: '#CBD5E1'
     }
 };
 
