@@ -259,8 +259,6 @@ export const ReportPreviewPage: React.FC = () => {
     );
 };
 
-);
-
 const PensionGoalCard = ({ goal }: any) => {
     const summary = goal.summary || {};
     const details = goal.details?.state_pension || {};
