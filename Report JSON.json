@@ -1,0 +1,350 @@
+{
+    "client_info": {
+        "id": 85,
+        "full_name": "Unknown варвар",
+        "age": 0,
+        "email": null
+    },
+    "current_situation": {
+        "assets_total": 300000,
+        "liabilities_total": 0,
+        "net_worth": 300000,
+        "assets_breakdown": [
+            {
+                "name": "Наличные",
+                "value": 300000
+            }
+        ]
+    },
+    "overall_plan": {
+        "chart_waterfall": {
+            "invested_by_client": 18936594,
+            "state_support_nominal": 1088000,
+            "investment_income": 33744841,
+            "total_projected": 53769435
+        },
+        "consolidated_portfolio": {
+            "total_initial_capital": 790288.74,
+            "total_monthly_replenishment": 273091.41,
+            "assets_allocation": [
+                {
+                    "name": "ПДС НПФ (Updated)",
+                    "amount": 766288.74,
+                    "share": 97,
+                    "yield": 13.99
+                },
+                {
+                    "name": "Депозит",
+                    "amount": 24000,
+                    "share": 3,
+                    "yield": 14
+                }
+            ],
+            "cash_flow_allocation": [
+                {
+                    "name": "ПДС НПФ (Updated)",
+                    "amount": 268091.41,
+                    "share": 98,
+                    "yield": 13.54,
+                    "payment_frequency": "monthly"
+                },
+                {
+                    "name": "Депозит",
+                    "amount": 5000,
+                    "share": 2,
+                    "yield": 14,
+                    "payment_frequency": "monthly"
+                }
+            ]
+        },
+        "tax_benefits": {
+            "pds_benefits": {
+                "deduction_2026": 52000,
+                "cofinancing_2026": 36000,
+                "total_deductions": 728000,
+                "total_cofinancing": 360000
+            },
+            "nsj_benefits": {
+                "annual_premium": 0,
+                "deduction_2026": 0,
+                "total_deductions": 0
+            },
+            "totals": {
+                "deduction_2026": 52000,
+                "cofinancing_2026": 36000,
+                "total_deductions": 728000,
+                "total_cofinancing": 360000,
+                "total_state_benefits": 1088000
+            }
+        }
+    },
+    "goals_detailed": [
+        {
+            "goal_id": 230,
+            "goal_type_id": 1,
+            "goal_type": "PENSION",
+            "summary": {
+                "status": "GAP",
+                "target_amount_initial": 195000,
+                "target_amount_future": 441563.72,
+                "projected_pension_monthly_future": 441563.72,
+                "projected_pension_monthly_present": 195000,
+                "inflation_rate": 5.6,
+                "initial_capital": 190288.74,
+                "initial_capital_ops": 0,
+                "monthly_replenishment": 36518.5,
+                "pension_gap_future": 354241.68,
+                "target_months": 180,
+                "projected_capital_at_retirement": 35424168.1,
+                "required_capital_at_retirement": 35424168.09,
+                "total_tax_benefit": 728000,
+                "total_cofinancing": 360000,
+                "accumulation_yield_percent": 15,
+                "payout_yield_percent": 12,
+                "state_pension_monthly_future": 87322.04,
+                "state_pension_monthly_today": 38562.49,
+                "ipk_current": 105.69
+            },
+            "details": {
+                "state_pension": {
+                    "ipk_total": 203.55,
+                    "ipk_current": 105.69,
+                    "ipk_forecast": 97.86,
+                    "point_cost_today": 145.69,
+                    "point_cost_future": 329.9,
+                    "fixed_payment_today": 8907,
+                    "fixed_payment_future": 20169.27,
+                    "retirement_age": 60,
+                    "retirement_year": 2041,
+                    "years_to_pension": 15
+                },
+                "portfolio_structure": {
+                    "initial_instruments": [
+                        {
+                            "name": "ПДС НПФ (Updated)",
+                            "share": 100,
+                            "yield": 15,
+                            "amount": 190288.74484384208
+                        },
+                        {
+                            "name": "ПДС НПФ (Updated)",
+                            "share": 100,
+                            "yield": 15,
+                            "amount": 190288.74484384208
+                        }
+                    ],
+                    "monthly_instruments": [
+                        {
+                            "name": "ПДС НПФ (Updated)",
+                            "share": 100,
+                            "yield": 15,
+                            "amount": 36518.50383057735
+                        },
+                        {
+                            "name": "ПДС НПФ (Updated)",
+                            "share": 100,
+                            "yield": 15,
+                            "amount": 36518.50383057735
+                        }
+                    ]
+                },
+                "yearly_breakdown": [
+                    {
+                        "year": 2026,
+                        "month": 12,
+                        "tax_refund_projected": 0,
+                        "cofinancing_for_year": 0
+                    },
+                    {
+                        "year": 2027,
+                        "month": 12,
+                        "tax_refund_projected": 52000,
+                        "cofinancing_for_year": 36000
+                    },
+                    {
+                        "year": 2028,
+                        "month": 12,
+                        "tax_refund_projected": 52000,
+                        "cofinancing_for_year": 36000
+                    },
+                    {
+                        "year": 2029,
+                        "month": 12,
+                        "tax_refund_projected": 52000,
+                        "cofinancing_for_year": 36000
+                    },
+                    {
+                        "year": 2030,
+                        "month": 12,
+                        "tax_refund_projected": 52000,
+                        "cofinancing_for_year": 36000
+                    },
+                    {
+                        "year": 2031,
+                        "month": 12,
+                        "tax_refund_projected": 52000,
+                        "cofinancing_for_year": 36000
+                    },
+                    {
+                        "year": 2032,
+                        "month": 12,
+                        "tax_refund_projected": 52000,
+                        "cofinancing_for_year": 36000
+                    },
+                    {
+                        "year": 2033,
+                        "month": 12,
+                        "tax_refund_projected": 52000,
+                        "cofinancing_for_year": 36000
+                    },
+                    {
+                        "year": 2034,
+                        "month": 12,
+                        "tax_refund_projected": 52000,
+                        "cofinancing_for_year": 36000
+                    },
+                    {
+                        "year": 2035,
+                        "month": 12,
+                        "tax_refund_projected": 52000,
+                        "cofinancing_for_year": 36000
+                    },
+                    {
+                        "year": 2036,
+                        "month": 12,
+                        "tax_refund_projected": 52000,
+                        "cofinancing_for_year": 36000
+                    },
+                    {
+                        "year": 2037,
+                        "month": 12,
+                        "tax_refund_projected": 52000,
+                        "cofinancing_for_year": 0
+                    },
+                    {
+                        "year": 2038,
+                        "month": 12,
+                        "tax_refund_projected": 52000,
+                        "cofinancing_for_year": 0
+                    },
+                    {
+                        "year": 2039,
+                        "month": 12,
+                        "tax_refund_projected": 52000,
+                        "cofinancing_for_year": 0
+                    },
+                    {
+                        "year": 2040,
+                        "month": 12,
+                        "tax_refund_projected": 52000,
+                        "cofinancing_for_year": 0
+                    },
+                    {
+                        "year": 2041,
+                        "month": 1,
+                        "tax_refund_projected": 0,
+                        "cofinancing_for_year": 0
+                    }
+                ]
+            },
+            "goal_name": "ГосПенсия"
+        },
+        {
+            "goal_id": 231,
+            "goal_type_id": 4,
+            "goal_type": "OTHER",
+            "summary": {
+                "status": "OK",
+                "target_amount_initial": 13900000,
+                "target_amount_future": 18253005.78,
+                "inflation_rate": 5.6,
+                "initial_capital": 385711.26,
+                "monthly_replenishment": 195054.4,
+                "target_months": 60,
+                "projected_capital_at_end": 18253005.78,
+                "total_tax_benefit": 0,
+                "total_cofinancing": 0,
+                "accumulation_yield_percent": 13
+            },
+            "details": {
+                "portfolio_id": 1,
+                "portfolio_name": "Первый портфель",
+                "instruments": [
+                    {
+                        "name": "ПДС НПФ (Updated)",
+                        "share": 100,
+                        "yield": 13,
+                        "amount": 385711.2551561579
+                    }
+                ],
+                "yearly_breakdown": [
+                    {
+                        "year": 2026,
+                        "month": 12,
+                        "tax_refund_projected": 0,
+                        "cofinancing_for_year": 0
+                    },
+                    {
+                        "year": 2027,
+                        "month": 12,
+                        "tax_refund_projected": 0,
+                        "cofinancing_for_year": 0
+                    },
+                    {
+                        "year": 2028,
+                        "month": 12,
+                        "tax_refund_projected": 0,
+                        "cofinancing_for_year": 0
+                    },
+                    {
+                        "year": 2029,
+                        "month": 12,
+                        "tax_refund_projected": 0,
+                        "cofinancing_for_year": 0
+                    },
+                    {
+                        "year": 2030,
+                        "month": 12,
+                        "tax_refund_projected": 0,
+                        "cofinancing_for_year": 0
+                    },
+                    {
+                        "year": 2031,
+                        "month": 1,
+                        "tax_refund_projected": 0,
+                        "cofinancing_for_year": 0
+                    }
+                ]
+            },
+            "goal_name": "Квартира"
+        },
+        {
+            "goal_id": 232,
+            "goal_type_id": 7,
+            "goal_type": "FIN_RESERVE",
+            "summary": {
+                "status": "OK",
+                "initial_capital": 24000,
+                "monthly_replenishment": 5000,
+                "target_months": 12,
+                "projected_capital_at_end": 92261.17,
+                "accumulation_yield_percent": 14,
+                "total_tax_benefit": 0
+            },
+            "details": {
+                "portfolio_id": 5,
+                "portfolio_name": "финрезерв",
+                "instruments": [
+                    {
+                        "name": "Депозит",
+                        "share": 100,
+                        "yield": 14,
+                        "amount": 24000
+                    }
+                ]
+            },
+            "goal_name": "Финансовый резерв"
+        }
+    ],
+    "ai_executive_summary": "Варвар начал свой инвестиционный путь с амбициозной и продуманной стратегией, которая привела к значительному росту капитала. Через вложенные 18 936 594 рублей и с учетом инвестиционного дохода в 33 744 841 рубль,总资产现已达到53,769,435卢布，增长了2.84倍。这不仅展示了投资者的耐心和长期视野，还充分体现了复利的力量及其对财富累积的积极影响。\n\n国家通过税收优惠和个人经费支持提供了1,088,000卢布的额外资金支持，这一部分补助极大地加速了财富的增长进程。这种旨在鼓励居民进行长期投资的财政激励措施，占据了初始投资总额的近6%，展现出政府政策如何与个人财务规划相辅相成，共同促进资本增长。\n\n在此强调，保持定时期续投资的习惯是维持此类增长势头的关键。尤其是那些政府提供的税收减免和补贴，应尽可能地通过再投资转化为更多的资本收益，以此形成良性循环，持续促进资产管理的增值。同时，不应忽视市场波动可能带来的风险，确保投资组合的多元化配置，以降低不确定性对财务目标实现的影响。"
+}

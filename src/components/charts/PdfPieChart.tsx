@@ -12,9 +12,10 @@ interface PdfPieChartProps {
     data: DataItem[];
     size?: number;
     innerRadius?: number; // For Donut chart support
+    hideLegend?: boolean;
 }
 
-const PdfPieChart: React.FC<PdfPieChartProps> = ({ data, size = 200, innerRadius = 0 }) => {
+const PdfPieChart: React.FC<PdfPieChartProps> = ({ data, size = 200, innerRadius = 0, hideLegend = false }) => {
     const total = data.reduce((sum, item) => sum + item.value, 0);
     const center = size / 2;
     const radius = size / 2;
@@ -85,7 +86,7 @@ const PdfPieChart: React.FC<PdfPieChartProps> = ({ data, size = 200, innerRadius
                     />
                 )}
             </Svg>
-            <Legend />
+            {!hideLegend && <Legend />}
         </View>
     );
 };
