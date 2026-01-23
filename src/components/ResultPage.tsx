@@ -14,7 +14,7 @@ interface ResultPageProps {
     onDeleteGoal?: (goalId: number) => void;
 }
 
-const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRecalculate, onAddGoal, onDeleteGoal }) => {
+const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onRecalculate, onAddGoal, onDeleteGoal }) => {
     const [messages, setMessages] = useState<AiMessage[]>([]);
     const [isTyping, setIsTyping] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
@@ -75,6 +75,7 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRecalculate, on
                 client={client}
                 onAddGoal={onAddGoal}
                 onDeleteGoal={onDeleteGoal}
+                onRestart={onRestart}
                 onGoToReport={() => {
                     const clientId =
                         client?.id ||

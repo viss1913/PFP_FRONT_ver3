@@ -12,6 +12,7 @@ interface ResultPageDesignProps {
   onDeleteGoal?: (goalId: number) => void;
   onGoToReport?: () => void;
   onRecalculate?: (payload: any) => void;
+  onRestart?: () => void;
 }
 
 interface GoalField {
@@ -194,10 +195,10 @@ interface EditFormState {
 const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   calculationData,
   client,
-  onAddGoal,
   onDeleteGoal,
   onGoToReport,
   onRecalculate,
+  onRestart,
 }: ResultPageDesignProps) => {
   const [editingGoal, setEditingGoal] = React.useState<GoalResult | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = React.useState(false);
@@ -451,7 +452,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
       {/* Кнопка "Назад" */}
       <div style={{ padding: '24px 32px 0' }}>
         <button
-          onClick={onAddGoal} // Using onAddGoal as a proxy for "restart/back" if not dedicated onBack, but let's check ResultPage props
+          onClick={onRestart}
           style={{
             display: 'flex',
             alignItems: 'center',
