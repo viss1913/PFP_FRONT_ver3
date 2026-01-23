@@ -57,7 +57,6 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
         const newGoal: ClientGoal = {
             goal_type_id: typeId,
             name: selectedGalleryItem.title,
-            risk_profile: data.riskProfile || 'BALANCED',
             initial_capital: 0,
             monthly_replenishment: 0,
             target_amount: 0,

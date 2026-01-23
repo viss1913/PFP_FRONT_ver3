@@ -20,8 +20,7 @@ const AddGoalModal: React.FC<AddGoalModalProps> = ({ isOpen, onClose, onAdd }) =
         initial_capital: 0,
         desired_monthly_income: 100000,
         inflation_rate: 5.6,
-        monthly_replenishment: 0,
-        risk_profile: 'BALANCED'
+        monthly_replenishment: 0
     });
 
     if (!isOpen) return null;
