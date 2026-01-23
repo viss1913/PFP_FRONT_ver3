@@ -195,6 +195,7 @@ interface EditFormState {
 const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   calculationData,
   client,
+  onAddGoal,
   onDeleteGoal,
   onGoToReport,
   onRecalculate,
