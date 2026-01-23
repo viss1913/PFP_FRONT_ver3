@@ -23,12 +23,11 @@ import other from '../assets/goals/drugoe.png';
 // Goal Type IDs
 export const GOAL_TYPE_PENSION = 1;
 export const GOAL_TYPE_PASSIVE_INCOME = 2;
-export const GOAL_TYPE_INVESTMENT = 3; // "Large Purchase" / "Investment"
-export const GOAL_TYPE_REAL_ESTATE = 4; // "Real Estate" / "Other" logic
-export const GOAL_TYPE_EDUCATION = 6;
+export const GOAL_TYPE_INVESTMENT = 3;
+export const GOAL_TYPE_OTHER = 4; // Major Purchase / Real Estate / Other
+export const GOAL_TYPE_LIFE = 5;
 export const GOAL_TYPE_FIN_RESERVE = 7;
 export const GOAL_TYPE_RENT = 8;
-export const GOAL_TYPE_OTHER = 9;
 
 // Config for Grid Display
 // Each item represents a card in the gallery
@@ -36,7 +35,7 @@ export const GOAL_GALLERY_ITEMS = [
     { id: 'pension', typeId: GOAL_TYPE_PENSION, title: 'ГосПенсия', image: gospensiya, description: 'На старость' },
     { id: 'passive', typeId: GOAL_TYPE_PASSIVE_INCOME, title: 'Пассивный доход', image: passivnyy, description: 'Жить на проценты' },
     { id: 'rent', typeId: GOAL_TYPE_RENT, title: 'Получение ежемесячного дохода', image: rent, description: 'Рента' },
-    { id: 'edu', typeId: GOAL_TYPE_EDUCATION, title: 'Образование ребёнка', image: education, description: 'Детям' },
+    { id: 'edu', typeId: GOAL_TYPE_OTHER, title: 'Образование ребёнка', image: education, description: 'Детям' },
 
     // Logic for "Other" mappings
     // User said: "Все остальное - OTHER (id=9)"
@@ -66,7 +65,7 @@ export const getGoalImage = (goalName: string, typeId: number): string => {
     if (typeId === GOAL_TYPE_PASSIVE_INCOME) return passivnyy;
     if (typeId === GOAL_TYPE_RENT) return rent;
     if (typeId === GOAL_TYPE_INVESTMENT) return invest;
-    if (typeId === GOAL_TYPE_EDUCATION) return education;
+    if (typeId === GOAL_TYPE_OTHER) return other;
 
     // Default fallback
     return other;

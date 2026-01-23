@@ -32,8 +32,10 @@ const AddGoalModal: React.FC<AddGoalModalProps> = ({ isOpen, onClose, onAdd }) =
         // Set defaults based on type
         if (type.typeId === 1 || type.typeId === 2) {
             setFormData(prev => ({ ...prev, desired_monthly_income: 100000, term_months: type.typeId === 1 ? 0 : 120 }));
-        } else if (type.typeId === 7 || type.typeId === 8) {
-            setFormData(prev => ({ ...prev, initial_capital: 1000000, monthly_replenishment: type.typeId === 7 ? 10000 : 0 }));
+        } else if (type.typeId === 8) { // RENT
+            setFormData(prev => ({ ...prev, initial_capital: 1000000, monthly_replenishment: 0 }));
+        } else if (type.typeId === 7) { // FIN_RESERVE
+            setFormData(prev => ({ ...prev, initial_capital: 200000, monthly_replenishment: 10000, term_months: 12 }));
         } else {
             setFormData(prev => ({ ...prev, target_amount: 3000000, term_months: 60 }));
         }
@@ -119,7 +121,7 @@ const AddGoalModal: React.FC<AddGoalModalProps> = ({ isOpen, onClose, onAdd }) =
                                 </div>
                             )}
 
-                            {(selectedType?.typeId === 2 || selectedType?.typeId === 3 || selectedType?.typeId === 4 || selectedType?.typeId === 5) && (
+                            {(selectedType?.typeId === 2 || selectedType?.typeId === 3 || selectedType?.typeId === 4 || selectedType?.typeId === 5 || selectedType?.typeId === 7) && (
                                 <div>
                                     <label style={{ display: 'block', fontWeight: '700', marginBottom: '10px', color: '#444' }}>Срок (мес)</label>
                                     <input type="number" value={formData.term_months} onChange={e => setFormData({ ...formData, term_months: +e.target.value })} style={{ width: '100%', padding: '16px', borderRadius: '16px', border: '2px solid #eee', fontSize: '16px', outline: 'none' }} onFocus={e => e.currentTarget.style.borderColor = '#C2185B'} onBlur={e => e.currentTarget.style.borderColor = '#eee'} />
