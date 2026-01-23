@@ -66,6 +66,18 @@ export const clientApi = {
         return response.data;
     },
 
+    // Add Goal
+    addGoal: async (clientId: number, goal: any): Promise<any> => {
+        const response = await api.post(`/client/${clientId}/goals`, goal);
+        return response.data;
+    },
+
+    // Delete Goal
+    deleteGoal: async (clientId: number, goalId: number): Promise<any> => {
+        const response = await api.delete(`/client/${clientId}/goals/${goalId}`);
+        return response.data;
+    },
+
 
 
     // CRM: Update Status

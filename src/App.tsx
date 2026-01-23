@@ -118,6 +118,42 @@ function App() {
         }
     }
 
+    const handleAddGoal = async (goal: any) => {
+        if (!selectedClient) return;
+        setLoadingPlan(true);
+        try {
+            const result = await clientApi.addGoal(selectedClient.id, goal);
+            setCalculationResult(result);
+            // After adding a goal, we might want to refresh client info to get new goal IDs
+            const updatedClient = await clientApi.getClient(selectedClient.id);
+            setSelectedClient(updatedClient);
+        } catch (error) {
+            console.error('Failed to add goal:', error);
+            alert('Не удалось добавить цель.');
+        } finally {
+            setLoadingPlan(false);
+        }
+    };
+
+    const handleDeleteGoal = async (goalId: number) => {
+        if (!selectedClient) return;
+        if (!window.confirm('Вы уверены, что хотите удалить эту цель?')) return;
+
+        setLoadingPlan(true);
+        try {
+            const result = await clientApi.deleteGoal(selectedClient.id, goalId);
+            setCalculationResult(result);
+            // Refresh client info
+            const updatedClient = await clientApi.getClient(selectedClient.id);
+            setSelectedClient(updatedClient);
+        } catch (error) {
+            console.error('Failed to delete goal:', error);
+            alert('Не удалось удалить цель.');
+        } finally {
+            setLoadingPlan(false);
+        }
+    };
+
     if (currentPage === 'report-preview') {
         return <ReportPreviewPage />;
     }
@@ -231,6 +267,8 @@ function App() {
                         client={selectedClient}
                         onRestart={() => setCurrentPage('list')}
                         onRecalculate={handleRecalculate}
+                        onAddGoal={handleAddGoal}
+                        onDeleteGoal={handleDeleteGoal}
                     />
                 </div>
             )}

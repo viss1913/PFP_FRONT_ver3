@@ -1,13 +1,15 @@
 import React from 'react';
-import { X, Plus, ArrowLeft } from 'lucide-react';
+import { X, Plus, ArrowLeft, Trash2 } from 'lucide-react';
 import { getGoalImage, GOAL_GALLERY_ITEMS } from '../utils/GoalImages';
 import { PortfolioDistribution } from './PortfolioDistribution';
 import { formatMonthsToDate } from '../utils/dateUtils';
+import AddGoalModal from './AddGoalModal';
 
 interface ResultPageDesignProps {
   calculationData: any;
-  client?: any; // To access original goals (and their names)
-  onAddGoal?: () => void;
+  client?: any;
+  onAddGoal?: (goal: any) => void;
+  onDeleteGoal?: (goalId: number) => void;
   onGoToReport?: () => void;
   onRecalculate?: (payload: any) => void;
 }
@@ -193,10 +195,12 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   calculationData,
   client,
   onAddGoal,
+  onDeleteGoal,
   onGoToReport,
   onRecalculate,
 }: ResultPageDesignProps) => {
   const [editingGoal, setEditingGoal] = React.useState<GoalResult | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = React.useState(false);
   const [editForm, setEditForm] = React.useState<EditFormState>({
     name: '',
     target_amount: 0,
@@ -601,6 +605,35 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                 >
                   <div style={{ position: 'relative', zIndex: 1, flex: 1 }}>
                     <h3 style={{ fontSize: '24px', fontWeight: '800', margin: 0, textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>{goal.name}</h3>
+                    {onDeleteGoal && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteGoal(goal.id);
+                        }}
+                        style={{
+                          position: 'absolute',
+                          top: '0',
+                          right: '0',
+                          background: 'rgba(255,255,255,0.2)',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: '32px',
+                          height: '32px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#fff',
+                          cursor: 'pointer',
+                          transition: 'background 0.2s',
+                          zIndex: 10
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,0,0,0.4)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.2)')}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', position: 'relative', zIndex: 1 }}>
@@ -700,7 +733,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
 
             {/* Placeholder для добавления цели */}
             <button
-              onClick={onAddGoal}
+              onClick={() => setIsAddModalOpen(true)}
               style={{
                 borderRadius: '24px',
                 border: '2px dashed #E5E7EB',
@@ -750,6 +783,15 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
           </div>
         </main>
       </div>
+
+      <AddGoalModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onAdd={(goal) => {
+          if (onAddGoal) onAddGoal(goal);
+          setIsAddModalOpen(false);
+        }}
+      />
 
       {/* Editing Modal */}
       {editingGoal && (
