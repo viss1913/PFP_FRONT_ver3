@@ -40,21 +40,30 @@ function App() {
             console.log('Got client_id from firstRun:', result.client_id);
             try {
                 const fullClient = await clientApi.getClient(result.client_id);
-                console.log('Fetched full client:', fullClient);
+                console.log('Fetched full client after firstRun:', fullClient);
+                // CRITICAL: Ensure ID is preserved if API doesn't return it in fullClient object
+                if (!fullClient.id) {
+                    console.log('API response missing client.id, using client_id from firstRun:', result.client_id);
+                    fullClient.id = result.client_id;
+                }
                 setSelectedClient(fullClient);
             } catch (err) {
                 console.error('Failed to fetch client after creation:', err);
             }
 
             if (result.calculation) {
-                setCalculationResult(result.calculation);
+                // Check for nested calculation structure as seen in verify script
+                const finalCalc = result.calculation.calculation || result.calculation;
+                setCalculationResult(finalCalc);
             } else {
                 setCalculationResult(result);
             }
         }
         // Fallback or legacy structures
         else if (result?.client) {
-            setSelectedClient(result.client);
+            const client = result.client;
+            if (!client.id && result.client_id) client.id = result.client_id;
+            setSelectedClient(client);
             setCalculationResult(result);
         } else {
             setCalculationResult(result);
@@ -73,12 +82,15 @@ function App() {
         setLoadingPlan(true);
         try {
             const fullClient = await clientApi.getClient(client.id);
+            if (!fullClient.id) fullClient.id = client.id; // Preserve ID
             setSelectedClient(fullClient);
             setNewClientData(null);
 
             if (fullClient.goals_summary) {
                 // If client has a saved plan, show it
-                setCalculationResult(fullClient.goals_summary);
+                // Handle nested structure if necessary
+                const finalCalc = fullClient.goals_summary.calculation || fullClient.goals_summary;
+                setCalculationResult(finalCalc);
                 setCurrentPage('result');
             } else {
                 // Otherwise open CJM flow for editing/creation
@@ -108,8 +120,10 @@ function App() {
             console.log(`Sending recalculate request to /client/${selectedClient.id}/recalculate`);
             const result = await clientApi.recalculate(selectedClient.id, payload);
             console.log('Recalculate success:', result);
-            setCalculationResult(result);
-            // ResultPage should automatically re-render with new data
+
+            // Handle nested calculation result
+            const finalCalc = result?.calculation?.calculation || result?.calculation || result;
+            setCalculationResult(finalCalc);
         } catch (error) {
             console.error('Recalculation failed:', error);
             alert('Не удалось произвести пересчет. Проверьте данные.');
@@ -122,10 +136,17 @@ function App() {
         if (!selectedClient) return;
         setLoadingPlan(true);
         try {
+            console.log(`Sending addGoal request for client ${selectedClient.id}`);
             const result = await clientApi.addGoal(selectedClient.id, goal);
-            setCalculationResult(result);
-            // After adding a goal, we might want to refresh client info to get new goal IDs
+            console.log('addGoal success:', result);
+
+            // Handle nested calculation result
+            const finalCalc = result?.calculation?.calculation || result?.calculation || result;
+            setCalculationResult(finalCalc);
+
+            // After adding a goal, refresh client info
             const updatedClient = await clientApi.getClient(selectedClient.id);
+            if (!updatedClient.id) updatedClient.id = selectedClient.id; // Preserve ID
             setSelectedClient(updatedClient);
         } catch (error) {
             console.error('Failed to add goal:', error);
@@ -141,10 +162,17 @@ function App() {
 
         setLoadingPlan(true);
         try {
+            console.log(`Sending deleteGoal request for client ${selectedClient.id}, goal ${goalId}`);
             const result = await clientApi.deleteGoal(selectedClient.id, goalId);
-            setCalculationResult(result);
+            console.log('deleteGoal success:', result);
+
+            // Handle nested calculation result
+            const finalCalc = result?.calculation?.calculation || result?.calculation || result;
+            setCalculationResult(finalCalc);
+
             // Refresh client info
             const updatedClient = await clientApi.getClient(selectedClient.id);
+            if (!updatedClient.id) updatedClient.id = selectedClient.id; // Preserve ID
             setSelectedClient(updatedClient);
         } catch (error) {
             console.error('Failed to delete goal:', error);
