@@ -44,19 +44,19 @@ export interface SmmAgentProfile {
 export const smmApi = {
     // Получение данных текущего агента
     getMe: async (): Promise<SmmAgentProfile> => {
-        const response = await api.get('/me');
+        const response = await api.get('me');
         return response.data;
     },
 
     // Получение истории публикаций
     getPosts: async (): Promise<SmmPost[]> => {
-        const response = await api.get('/me/posts');
+        const response = await api.get('me/posts');
         return response.data;
     },
 
     // Ручная отправка поста
     sendManualPost: async (text: string, imageUrl?: string): Promise<{ success: boolean; message: string; sent_post: SmmPost }> => {
-        const response = await api.post('/me/send-manual-post', {
+        const response = await api.post('me/send-manual-post', {
             text,
             image_url: imageUrl
         });
@@ -65,7 +65,7 @@ export const smmApi = {
 
     // Статистика (опционально)
     getStats: async (from: string, to: string): Promise<any> => {
-        const response = await api.get('/me/stats', {
+        const response = await api.get('me/stats', {
             params: { from, to }
         });
         return response.data;

@@ -17,15 +17,18 @@ const AiSmmPage: React.FC<AiSmmPageProps> = ({ onNavigate }) => {
 
     useEffect(() => {
         const loadInitialData = async () => {
+            console.log('SMM: Loading initial data...');
             try {
                 const [profileData, postsData] = await Promise.all([
                     smmApi.getMe(),
                     smmApi.getPosts()
                 ]);
+                console.log('SMM: Profile data:', profileData);
+                console.log('SMM: Posts data:', postsData);
                 setProfile(profileData);
                 setPosts(postsData);
             } catch (error) {
-                console.error('Failed to load SMM data:', error);
+                console.error('SMM: Failed to load data:', error);
             } finally {
                 setIsLoading(false);
             }
