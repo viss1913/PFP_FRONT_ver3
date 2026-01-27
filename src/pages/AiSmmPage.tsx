@@ -14,29 +14,30 @@ const AiSmmPage: React.FC<AiSmmPageProps> = ({ onNavigate }) => {
     const [imageUrl, setImageUrl] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isSending, setIsSending] = useState(false);
+    const [healthStatus, setHealthStatus] = useState<'loading' | 'ok' | 'error'>('loading');
+    const [errorDetails, setErrorDetails] = useState<string | null>(null);
 
     useEffect(() => {
         const loadInitialData = async () => {
             console.log('SMM: Loading initial data...');
             try {
-                // Сначала проверяем доступность бэкенда вообще
+                // Проврка доступности бэкенда
                 const isHealthy = await smmApi.checkHealth();
-                console.log('SMM: Backend health check:', isHealthy ? 'OK' : 'FAILED');
+                setHealthStatus(isHealthy ? 'ok' : 'error');
 
                 if (!isHealthy) {
-                    console.warn('SMM: Could not reach /health endpoint. Check domain and Vercel settings.');
+                    console.warn('SMM: Health check failed.');
                 }
 
                 const [profileData, postsData] = await Promise.all([
                     smmApi.getMe(),
                     smmApi.getPosts()
                 ]);
-                console.log('SMM: Profile data:', profileData);
-                console.log('SMM: Posts data:', postsData);
                 setProfile(profileData);
                 setPosts(postsData);
-            } catch (error) {
+            } catch (error: any) {
                 console.error('SMM: Failed to load data:', error);
+                setErrorDetails(error?.response?.data ? JSON.stringify(error.response.data) : error.message);
             } finally {
                 setIsLoading(false);
             }
@@ -129,6 +130,26 @@ const AiSmmPage: React.FC<AiSmmPageProps> = ({ onNavigate }) => {
                         </div>
                     )}
                 </div>
+
+                {healthStatus === 'error' && (
+                    <div style={{
+                        background: '#fff5f5',
+                        border: '1px solid #feb2b2',
+                        borderRadius: '16px',
+                        padding: '20px',
+                        marginBottom: '32px',
+                        color: '#c53030'
+                    }}>
+                        <h3 style={{ margin: '0 0 10px 0', fontSize: '16px' }}>⚠️ Ошибка подключения к бэкенду SMM</h3>
+                        <p style={{ margin: '0 0 15px 0', fontSize: '14px' }}>
+                            Бэкенд не вернул ответ на проверку здоровья (Health Check). Это может означать, что адрес в настройках Vercel указан неверно или сервер недоступен.
+                        </p>
+                        <div style={{ padding: '12px', background: '#fff', borderRadius: '8px', fontSize: '12px', fontFamily: 'monospace' }}>
+                            <div><b>Configured URL:</b> {import.meta.env.VITE_SMM_API_URL || 'NOT SET (using internal fallback)'}</div>
+                            {errorDetails && <div style={{ marginTop: '8px' }}><b>Response Error:</b> {errorDetails}</div>}
+                        </div>
+                    </div>
+                )}
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: '32px' }}>
                     {/* Left Column: Create Post & History */}
