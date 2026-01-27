@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const SMM_API_URL = import.meta.env.VITE_SMM_API_URL || 'http://backend_ai_smm.railway.internal';
+const rawUrl = import.meta.env.VITE_SMM_API_URL || 'http://backend_ai_smm.railway.internal';
+// Добавляем префикс /api/v1/agent если его нет, и гарантируем протокол
+const SMM_API_URL = rawUrl.includes('/api/v1/agent')
+    ? rawUrl
+    : `${rawUrl.replace(/\/$/, '')}/api/v1/agent`;
 
 const api = axios.create({
     baseURL: SMM_API_URL,
