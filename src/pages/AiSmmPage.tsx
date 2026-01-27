@@ -19,6 +19,14 @@ const AiSmmPage: React.FC<AiSmmPageProps> = ({ onNavigate }) => {
         const loadInitialData = async () => {
             console.log('SMM: Loading initial data...');
             try {
+                // Сначала проверяем доступность бэкенда вообще
+                const isHealthy = await smmApi.checkHealth();
+                console.log('SMM: Backend health check:', isHealthy ? 'OK' : 'FAILED');
+
+                if (!isHealthy) {
+                    console.warn('SMM: Could not reach /health endpoint. Check domain and Vercel settings.');
+                }
+
                 const [profileData, postsData] = await Promise.all([
                     smmApi.getMe(),
                     smmApi.getPosts()
