@@ -2,12 +2,12 @@ import React from 'react';
 import { User, ChevronDown } from 'lucide-react';
 
 interface HeaderProps {
-    activePage?: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products';
-    onNavigate?: (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products') => void;
+    activePage?: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products' | 'smm';
+    onNavigate?: (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products' | 'smm') => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ activePage = 'crm', onNavigate }) => {
-    const handleNavClick = (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products', e: React.MouseEvent) => {
+    const handleNavClick = (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products' | 'smm', e: React.MouseEvent) => {
         e.preventDefault();
         if (onNavigate) {
             onNavigate(page);
@@ -54,6 +54,9 @@ const Header: React.FC<HeaderProps> = ({ activePage = 'crm', onNavigate }) => {
             <nav style={{ display: 'flex', gap: '40px', height: '100%' }}>
                 <a href="#" onClick={(e) => handleNavClick('crm', e)} style={getLinkStyle('crm')}>
                     AI CRM
+                </a>
+                <a href="#" onClick={(e) => handleNavClick('smm', e)} style={getLinkStyle('smm')}>
+                    AI SMM
                 </a>
                 <a href="#" onClick={(e) => handleNavClick('pfp', e)} style={getLinkStyle('pfp')}>
                     ПФП

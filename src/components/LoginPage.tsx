@@ -21,9 +21,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 password
             });
 
+            console.log('Login response full data:', response.data);
+
             if (response.data && response.data.token) {
                 localStorage.setItem('token', response.data.token);
-                // Also store user info if available, but for now token is enough
+                if (response.data.user) {
+                    localStorage.setItem('user', JSON.stringify(response.data.user));
+                }
                 onLoginSuccess();
             } else {
                 alert('Ошибка: Токен не получен от сервера');

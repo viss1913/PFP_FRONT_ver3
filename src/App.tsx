@@ -7,11 +7,12 @@ import ResultPageTest from './components/ResultPageTest'
 import AiCrmPage from './components/AiCrmPage'
 import Header from './components/Header'
 import AiAssistantPage from './pages/AiAssistantPage'
+import AiSmmPage from './pages/AiSmmPage'
 import ReportPreviewPage from './components/ReportPreviewPage'
 import type { Client } from './types/client'
 import { clientApi } from './api/clientApi'
 
-type Page = 'login' | 'list' | 'cjm' | 'edit' | 'result' | 'test' | 'ai-assistant' | 'report-preview'
+type Page = 'login' | 'list' | 'cjm' | 'edit' | 'result' | 'test' | 'ai-assistant' | 'report-preview' | 'smm'
 
 function App() {
     // Для тестирования: устанавливаем 'test' чтобы сразу видеть страницу результатов
@@ -194,9 +195,20 @@ function App() {
                 <AiAssistantPage
                     onNavigate={(page) => {
                         if (page === 'crm') setCurrentPage('list');
-                        else if (page === 'pfp') setCurrentPage('list'); // Default to list for now
+                        else if (page === 'pfp') setCurrentPage('list');
                         else if (page === 'ai-assistant') setCurrentPage('ai-assistant');
-                        // Add other navigations as needed
+                        else if (page === 'smm') setCurrentPage('smm');
+                    }}
+                />
+            )}
+
+            {currentPage === 'smm' && (
+                <AiSmmPage
+                    onNavigate={(page) => {
+                        if (page === 'crm') setCurrentPage('list');
+                        else if (page === 'pfp') setCurrentPage('list');
+                        else if (page === 'ai-assistant') setCurrentPage('ai-assistant');
+                        else if (page === 'smm') setCurrentPage('smm');
                     }}
                 />
             )}
@@ -227,6 +239,7 @@ function App() {
                             console.log('Navigate to:', page);
                             if (page === 'ai-assistant') setCurrentPage('ai-assistant');
                             else if (page === 'crm') setCurrentPage('list');
+                            else if (page === 'smm') setCurrentPage('smm');
                         }}
                     />
                 </>
