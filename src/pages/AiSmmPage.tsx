@@ -16,6 +16,7 @@ const AiSmmPage: React.FC<AiSmmPageProps> = ({ onNavigate }) => {
     const [isSending, setIsSending] = useState(false);
     const [healthStatus, setHealthStatus] = useState<'loading' | 'ok' | 'error'>('loading');
     const [errorDetails, setErrorDetails] = useState<string | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
 
     useEffect(() => {
         const loadInitialData = async () => {
@@ -64,6 +65,28 @@ const AiSmmPage: React.FC<AiSmmPageProps> = ({ onNavigate }) => {
             alert('Ошибка при отправке поста');
         } finally {
             setIsSending(false);
+        }
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            console.log('SMM: Uploading image:', file.name);
+            const result = await smmApi.uploadImage(file);
+            console.log('SMM: Upload result:', result);
+            if (result.success && result.url) {
+                setImageUrl(result.url);
+            } else {
+                alert('Ошибка при загрузке изображения');
+            }
+        } catch (error) {
+            console.error('SMM: Upload failed:', error);
+            alert('Не удалось загрузить изображение');
+        } finally {
+            setIsUploading(false);
         }
     };
 
@@ -188,27 +211,70 @@ const AiSmmPage: React.FC<AiSmmPageProps> = ({ onNavigate }) => {
                                         onBlur={(e) => e.target.style.borderColor = '#eee'}
                                     />
                                 </div>
-                                <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
-                                    <div style={{ position: 'relative', flex: 1 }}>
-                                        <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#999' }}>
-                                            <ImageIcon size={18} />
-                                        </div>
-                                        <input
-                                            type="text"
-                                            value={imageUrl}
-                                            onChange={(e) => setImageUrl(e.target.value)}
-                                            placeholder="URL изображения (необязательно)"
-                                            style={{
-                                                width: '100%',
-                                                padding: '12px 12px 12px 40px',
-                                                borderRadius: '12px',
-                                                border: '1px solid #eee',
-                                                background: '#fcfcfc',
-                                                fontSize: '14px',
-                                                outline: 'none'
-                                            }}
-                                        />
+                                <div style={{ marginBottom: '20px' }}>
+                                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                        <label style={{
+                                            flex: 1,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '10px',
+                                            padding: '12px 20px',
+                                            background: '#f8f9fa',
+                                            border: '2px dashed #eee',
+                                            borderRadius: '12px',
+                                            cursor: 'pointer',
+                                            fontSize: '14px',
+                                            color: '#666',
+                                            transition: 'all 0.2s'
+                                        }}
+                                            onMouseOver={(e) => e.currentTarget.style.borderColor = '#D946EF'}
+                                            onMouseOut={(e) => e.currentTarget.style.borderColor = '#eee'}
+                                        >
+                                            <ImageIcon size={20} color={imageUrl ? '#D946EF' : '#999'} />
+                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {isUploading ? 'Загрузка...' : imageUrl ? 'Изображение выбрано' : 'Добавить изображение'}
+                                            </span>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handleFileUpload}
+                                                style={{ display: 'none' }}
+                                                disabled={isUploading}
+                                            />
+                                        </label>
+                                        {imageUrl && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setImageUrl('')}
+                                                style={{
+                                                    padding: '8px 12px',
+                                                    background: '#fff',
+                                                    border: '1px solid #eee',
+                                                    borderRadius: '8px',
+                                                    fontSize: '12px',
+                                                    color: '#ff4d4f',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Удалить
+                                            </button>
+                                        )}
                                     </div>
+                                    {imageUrl && (
+                                        <div style={{ marginTop: '12px' }}>
+                                            <img
+                                                src={imageUrl}
+                                                alt="Preview"
+                                                style={{
+                                                    width: '100px',
+                                                    height: '100px',
+                                                    objectFit: 'cover',
+                                                    borderRadius: '8px',
+                                                    border: '2px solid #D946EF'
+                                                }}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                                 <button
                                     type="submit"

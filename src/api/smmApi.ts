@@ -96,6 +96,17 @@ export const smmApi = {
         });
         return response.data;
     },
+    // Загрузка изображения
+    uploadImage: async (file: File): Promise<{ success: boolean; url: string }> => {
+        const formData = new FormData();
+        formData.append('image', file);
+        const response = await api.post('agent/upload', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return response.data;
+    },
 
     // Статистика (опционально)
     getStats: async (from: string, to: string): Promise<any> => {
