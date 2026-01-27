@@ -29,6 +29,14 @@ function App() {
         }
     }, []);
 
+    const handleNavigate = (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products' | 'smm') => {
+        console.log('Navigating to:', page);
+        if (page === 'ai-assistant') setCurrentPage('ai-assistant');
+        else if (page === 'smm') setCurrentPage('smm');
+        else if (page === 'crm' || page === 'pfp') setCurrentPage('list');
+        // Handle other pages if they have dedicated views
+    };
+
     const handleLoginSuccess = () => {
         setCurrentPage('list')
     }
@@ -192,25 +200,11 @@ function App() {
             {currentPage === 'login' && <LoginPage onLoginSuccess={handleLoginSuccess} />}
 
             {currentPage === 'ai-assistant' && (
-                <AiAssistantPage
-                    onNavigate={(page) => {
-                        if (page === 'crm') setCurrentPage('list');
-                        else if (page === 'pfp') setCurrentPage('list');
-                        else if (page === 'ai-assistant') setCurrentPage('ai-assistant');
-                        else if (page === 'smm') setCurrentPage('smm');
-                    }}
-                />
+                <AiAssistantPage onNavigate={handleNavigate} />
             )}
 
             {currentPage === 'smm' && (
-                <AiSmmPage
-                    onNavigate={(page) => {
-                        if (page === 'crm') setCurrentPage('list');
-                        else if (page === 'pfp') setCurrentPage('list');
-                        else if (page === 'ai-assistant') setCurrentPage('ai-assistant');
-                        else if (page === 'smm') setCurrentPage('smm');
-                    }}
-                />
+                <AiSmmPage onNavigate={handleNavigate} />
             )}
 
             {currentPage === 'list' && (
@@ -235,12 +229,7 @@ function App() {
                     <AiCrmPage
                         onSelectClient={handleSelectClient}
                         onNewClient={handleNewClient}
-                        onNavigate={(page) => {
-                            console.log('Navigate to:', page);
-                            if (page === 'ai-assistant') setCurrentPage('ai-assistant');
-                            else if (page === 'crm') setCurrentPage('list');
-                            else if (page === 'smm') setCurrentPage('smm');
-                        }}
+                        onNavigate={handleNavigate}
                     />
                 </>
             )}
@@ -249,10 +238,7 @@ function App() {
                 <div style={{ minHeight: '100vh', background: '#f8f9fa' }}>
                     <Header
                         activePage="pfp"
-                        onNavigate={(page) => {
-                            if (page === 'crm') setCurrentPage('list');
-                            else if (page === 'ai-assistant') setCurrentPage('ai-assistant');
-                        }}
+                        onNavigate={handleNavigate}
                     />
                     <CJMFlow
                         onComplete={handleCalculationComplete}
@@ -266,10 +252,7 @@ function App() {
                 <div style={{ minHeight: '100vh', background: '#f8f9fa' }}>
                     <Header
                         activePage="pfp"
-                        onNavigate={(page) => {
-                            if (page === 'crm') setCurrentPage('list');
-                            else if (page === 'ai-assistant') setCurrentPage('ai-assistant');
-                        }}
+                        onNavigate={handleNavigate}
                     />
                     <CJMFlow
                         onComplete={handleCalculationComplete}
@@ -283,10 +266,7 @@ function App() {
                 <div style={{ minHeight: '100vh', background: '#f8f9fa' }}>
                     <Header
                         activePage="pfp"
-                        onNavigate={(page) => {
-                            if (page === 'crm') setCurrentPage('list');
-                            else if (page === 'ai-assistant') setCurrentPage('ai-assistant');
-                        }}
+                        onNavigate={handleNavigate}
                     />
                     {loadingPlan && (
                         <div style={{

@@ -6,7 +6,7 @@ import { aiService } from '../services/aiService';
 import type { AiAssistant, AiMessage } from '../types/ai';
 
 interface AiAssistantPageProps {
-    onNavigate: (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products') => void;
+    onNavigate: (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products' | 'smm') => void;
 }
 
 const AiAssistantPage: React.FC<AiAssistantPageProps> = ({ onNavigate }) => {

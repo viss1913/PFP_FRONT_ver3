@@ -11,7 +11,7 @@ import { useState } from 'react';
 interface AiCrmPageProps {
     onSelectClient: (client: Client) => void;
     onNewClient: () => void;
-    onNavigate: (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products') => void;
+    onNavigate: (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products' | 'smm') => void;
 }
 
 const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNavigate }) => {
