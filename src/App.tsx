@@ -8,11 +8,12 @@ import AiCrmPage from './components/AiCrmPage'
 import Header from './components/Header'
 import AiAssistantPage from './pages/AiAssistantPage'
 import AiSmmPage from './pages/AiSmmPage'
+import AiAgentPage from './pages/AiAgentPage'
 import ReportPreviewPage from './components/ReportPreviewPage'
 import type { Client } from './types/client'
 import { clientApi } from './api/clientApi'
 
-type Page = 'login' | 'list' | 'cjm' | 'edit' | 'result' | 'test' | 'ai-assistant' | 'report-preview' | 'smm'
+type Page = 'login' | 'list' | 'cjm' | 'edit' | 'result' | 'test' | 'ai-assistant' | 'report-preview' | 'smm' | 'ai-agent'
 
 function App() {
     // Для тестирования: устанавливаем 'test' чтобы сразу видеть страницу результатов
@@ -33,6 +34,7 @@ function App() {
         console.log('Navigating to:', page);
         if (page === 'ai-assistant') setCurrentPage('ai-assistant');
         else if (page === 'smm') setCurrentPage('smm');
+        else if (page === 'ai-agent') setCurrentPage('ai-agent');
         else if (page === 'crm' || page === 'pfp') setCurrentPage('list');
         // Handle other pages if they have dedicated views
     };
@@ -205,6 +207,10 @@ function App() {
 
             {currentPage === 'smm' && (
                 <AiSmmPage onNavigate={handleNavigate} />
+            )}
+
+            {currentPage === 'ai-agent' && (
+                <AiAgentPage onNavigate={handleNavigate} />
             )}
 
             {currentPage === 'list' && (

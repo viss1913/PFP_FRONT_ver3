@@ -34,7 +34,8 @@
       "email": "agent@example.com",
       "telegram_channel_id": "@my_channel",
       "region": "Москва",
-      "is_active": true
+      "is_active": true,
+      "bot_status": "active" // "active", "no_access", "restricted"
     }
     ```
 
@@ -102,6 +103,7 @@
 
 ## Коды ответов
 *   `200 OK`: Успешный запрос.
-*   `401 Unauthorized`: Токен отсутствует или невалиден (не совпадает секрет или истек срок).
-*   `404 Not Found`: Агент с таким UUID из токена не найден в базе SMM AI (нужна синхронизация через вебхук).
+*   `401 Unauthorized`: Токен отсутствует или невалиден.
+*   `404 Not Found`: Агент с таким UUID не найден.
+*   `403 Forbidden`: (Опционально) Бот не является админом (проверяйте `bot_status` в `/me`).
 *   `500 Error`: Ошибка на стороне бэкенда.

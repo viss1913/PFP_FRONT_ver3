@@ -1,0 +1,1987 @@
+openapi: 3.0.0
+info:
+  title: PFP Service API
+  version: 1.0.0
+  description: API for managing Products & Portfolios
+servers:
+  - url: /api
+    description: Main API server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+  schemas:
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        product_type:
+          type: string
+          description: |
+            **ВАЖНО: На фронтенде это поле должно быть выпадающим списком!**
+            Код типа продукта из справочника типов продуктов.
+            Получить список доступных типов: GET /api/pfp/product-types
+            Значение должно быть одним из кодов (code) из этого списка.
+            Для софинансирования ПДС используйте тип "PDS".
+        currency:
+          type: string
+        min_term_months:
+          type: integer
+        max_term_months:
+          type: integer
+        min_amount:
+          type: number
+        max_amount:
+          type: number
+        yields:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductYield'
+    ProductYield:
+      type: object
+      properties:
+        term_from_months:
+          type: integer
+        term_to_months:
+          type: integer
+        amount_from:
+          type: number
+        amount_to:
+          type: number
+        yield_percent:
+          type: number
+    ProductCreate:
+      type: object
+      required:
+        - name
+        - product_type
+        - currency
+      description: |
+        Схема для создания нового продукта.
+        Поле product_type должно быть выбрано из списка доступных типов продуктов,
+        полученных через GET /api/pfp/product-types
+      properties:
+        name:
+          type: string
+          description: Название продукта
+        product_type:
+          type: string
+          description: |
+            **ВАЖНО: Это поле должно быть выпадающим списком на фронтенде!**
+            Код типа продукта из справочника типов продуктов.
+            Получить список доступных типов: GET /api/pfp/product-types
+            Значение должно быть одним из кодов (code) из этого списка.
+            Для софинансирования ПДС используйте тип "PDS".
+          example: PDS
+        currency:
+          type: string
+          description: Валюта продукта
+          example: RUB
+        lines:
+          type: array
+          description: Массив линий доходности продукта
+          items:
+            $ref: '#/components/schemas/ProductLine'
+    ProductLine:
+      type: object
+      description: Линия доходности продукта
+      required:
+        - min_term_months
+        - max_term_months
+        - min_amount
+        - max_amount
+        - yield_percent
+      properties:
+        min_term_months:
+          type: number
+          description: Минимальный срок в месяцах (включительно)
+        max_term_months:
+          type: number
+          description: Максимальный срок в месяцах (включительно)
+        min_amount:
+          type: number
+          description: Минимальная сумма (включительно)
+        max_amount:
+          type: number
+          description: Максимальная сумма (включительно)
+        yield_percent:
+          type: number
+          description: Доходность в процентах годовых (%)
+    ProductType:
+      type: object
+      description: Тип продукта
+      properties:
+        id:
+          type: integer
+          description: ID типа продукта
+        code:
+          type: string
+          maxLength: 50
+          description: Код типа продукта (PDS, IIS, ISZH, etc.)
+          example: PDS
+        name:
+          type: string
+          maxLength: 255
+          description: Название типа продукта
+          example: Программа долгосрочных сбережений
+        description:
+          type: string
+          nullable: true
+          description: Описание типа продукта
+        is_active:
+          type: boolean
+          description: Активен ли тип
+          default: true
+        order_index:
+          type: integer
+          description: Порядок сортировки
+          default: 0
+        created_at:
+          type: string
+          format: date-time
+          description: Дата создания
+        updated_at:
+          type: string
+          format: date-time
+          description: Дата обновления
+    ProductTypeCreate:
+      type: object
+      required:
+        - code
+        - name
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Код типа продукта (уникальный)
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Название типа продукта
+        description:
+          type: string
+          nullable: true
+          description: Описание типа продукта
+        is_active:
+          type: boolean
+          default: true
+        order_index:
+          type: integer
+          default: 0
+    ProductTypeUpdate:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Код типа продукта (уникальный)
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Название типа продукта
+        description:
+          type: string
+          nullable: true
+          description: Описание типа продукта
+        is_active:
+          type: boolean
+        order_index:
+          type: integer
+    Portfolio:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        currency:
+          type: string
+        amount_from:
+          type: number
+        amount_to:
+          type: number
+        term_from_months:
+          type: integer
+        term_to_months:
+          type: integer
+        classes:
+          type: array
+          items:
+            type: object # simplified
+        riskProfiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/PortfolioRiskProfile'
+    PortfolioUpdate:
+      type: object
+      description: |
+        Схема для обновления портфеля. Все поля опциональны.
+        **Важно:** Поддерживаются оба формата для риск-профилей:
+        - `riskProfiles` (camelCase, рекомендуется)
+        - `risk_profiles` (snake_case, для обратной совместимости)
+      properties:
+        name:
+          type: string
+        currency:
+          type: string
+        amount_from:
+          type: number
+        amount_to:
+          type: number
+        term_from_months:
+          type: integer
+        term_to_months:
+          type: integer
+        age_from:
+          type: integer
+          nullable: true
+        age_to:
+          type: integer
+          nullable: true
+        investor_type:
+          type: string
+          nullable: true
+        gender:
+          type: string
+          nullable: true
+        classes:
+          type: array
+          items:
+            type: integer
+          description: Массив ID классов портфеля
+        riskProfiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/PortfolioRiskProfile'
+          description: Массив риск-профилей (camelCase, рекомендуется)
+        risk_profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/PortfolioRiskProfile'
+          description: Массив риск-профилей (snake_case, для обратной совместимости)
+    PortfolioRiskProfile:
+      type: object
+      properties:
+        profile_type:
+          type: string
+          enum: [CONSERVATIVE, BALANCED, AGGRESSIVE]
+        potential_yield_percent:
+          type: number
+        instruments:
+          type: array
+          items:
+            $ref: '#/components/schemas/PortfolioInstrument'
+    PortfolioInstrument:
+      type: object
+      description: |
+        Инструмент портфеля. При GET-запросе может содержать дополнительные поля (id, portfolio_risk_profile_id),
+        которые автоматически игнорируются при PUT-запросе.
+      properties:
+        product_id:
+          type: integer
+          description: ID продукта (обязательно)
+        bucket_type:
+          type: string
+          enum: [INITIAL_CAPITAL, TOP_UP]
+          description: Тип сегмента (INITIAL_CAPITAL - стартовый капитал, TOP_UP - пополнения)
+          nullable: true
+        share_percent:
+          type: number
+          description: Доля в процентах (обязательно)
+        order_index:
+          type: integer
+          description: Порядок сортировки (опционально)
+          nullable: true
+        id:
+          type: integer
+          description: |
+            ID инструмента (только в GET-ответе, игнорируется при PUT).
+            Это поле присутствует в ответе API, но не нужно отправлять при обновлении.
+          readOnly: true
+        portfolio_risk_profile_id:
+          type: integer
+          description: |
+            ID профиля риска (только в GET-ответе, игнорируется при PUT).
+            Это поле присутствует в ответе API, но не нужно отправлять при обновлении.
+          readOnly: true
+    SystemSetting:
+      type: object
+      properties:
+        key:
+          type: string
+          description: Unique setting key
+        value:
+          oneOf:
+            - type: string
+            - type: number
+            - type: object
+          description: Setting value (type depends on value_type)
+        description:
+          type: string
+          description: Human-readable description
+        category:
+          type: string
+          description: Category (calculation, pension, etc.)
+        updated_at:
+          type: string
+          format: date-time
+    Tax2ndflBracket:
+      type: object
+      description: Налоговая ставка 2НДФЛ (прогрессивная шкала налогообложения)
+      properties:
+        id:
+          type: integer
+          description: ID налоговой ставки
+        income_from:
+          type: number
+          format: double
+          description: Доход в год от (руб.)
+          example: 0
+        income_to:
+          type: number
+          format: double
+          description: Доход до, включая (руб.)
+          example: 5000000
+        rate:
+          type: number
+          format: double
+          description: Ставка налога (%)
+          example: 13.0
+        order_index:
+          type: integer
+          description: Порядок сортировки
+          example: 1
+        created_at:
+          type: string
+          format: date-time
+          description: Дата создания
+        updated_at:
+          type: string
+          format: date-time
+          description: Дата обновления
+    Tax2ndflBracketCreate:
+      type: object
+      required:
+        - income_from
+        - income_to
+        - rate
+      properties:
+        income_from:
+          type: number
+          format: double
+          minimum: 0
+          description: Доход в год от (руб.)
+        income_to:
+          type: number
+          format: double
+          minimum: 0
+          description: Доход до, включая (руб.)
+        rate:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+          description: Ставка налога (%)
+        order_index:
+          type: integer
+          minimum: 0
+          description: Порядок сортировки
+    Tax2ndflBracketUpdate:
+      type: object
+      properties:
+        income_from:
+          type: number
+          format: double
+          minimum: 0
+          description: Доход в год от (руб.)
+        income_to:
+          type: number
+          format: double
+          minimum: 0
+          description: Доход до, включая (руб.)
+        rate:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+          description: Ставка налога (%)
+        order_index:
+          type: integer
+          minimum: 0
+          description: Порядок сортировки
+    Tax2ndflBracketsBulkCreate:
+      type: object
+      required:
+        - brackets
+      properties:
+        brackets:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Tax2ndflBracketCreate'
+          description: Массив налоговых ставок для создания
+    PdsCofinSettings:
+      type: object
+      description: Настройки софинансирования ПДС
+      properties:
+        id:
+          type: integer
+          description: ID записи
+        max_state_cofin_amount_per_year:
+          type: integer
+          description: Максимальная сумма господдержки в год (₽)
+          example: 36000
+        min_contribution_for_support_per_year:
+          type: integer
+          description: Минимальный годовой взнос для участия в софинансировании (₽)
+          example: 2000
+        income_basis:
+          type: string
+          enum: [gross_before_ndfl, net_after_ndfl]
+          description: Основа для расчета дохода (gross_before_ndfl - до НДФЛ, net_after_ndfl - после НДФЛ)
+          example: gross_before_ndfl
+        created_at:
+          type: string
+          format: date-time
+          description: Дата создания
+        updated_at:
+          type: string
+          format: date-time
+          description: Дата обновления
+    PdsCofinSettingsUpdate:
+      type: object
+      description: Обновление настроек софинансирования ПДС
+      properties:
+        max_state_cofin_amount_per_year:
+          type: integer
+          minimum: 0
+          description: Максимальная сумма господдержки в год (₽)
+        min_contribution_for_support_per_year:
+          type: integer
+          minimum: 0
+          description: Минимальный годовой взнос для участия в софинансировании (₽)
+        income_basis:
+          type: string
+          enum: [gross_before_ndfl, net_after_ndfl]
+          description: Основа для расчета дохода
+    PdsCofinIncomeBracket:
+      type: object
+      description: Диапазон доходов для софинансирования ПДС
+      properties:
+        id:
+          type: integer
+          description: ID диапазона
+        income_from:
+          type: integer
+          description: Доход от (₽/мес), включительно
+          example: 0
+        income_to:
+          type: integer
+          nullable: true
+          description: Доход до (₽/мес), NULL = нет верхней границы
+          example: 80000
+        ratio_numerator:
+          type: integer
+          description: Числитель соотношения (обычно 1)
+          example: 1
+        ratio_denominator:
+          type: integer
+          description: Знаменатель соотношения (1, 2, 4)
+          example: 1
+        created_at:
+          type: string
+          format: date-time
+          description: Дата создания
+        updated_at:
+          type: string
+          format: date-time
+          description: Дата обновления
+    PdsCofinIncomeBracketCreate:
+      type: object
+      required:
+        - income_from
+        - ratio_numerator
+        - ratio_denominator
+      properties:
+        income_from:
+          type: integer
+          minimum: 0
+          description: Доход от (₽/мес), включительно
+        income_to:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: Доход до (₽/мес), NULL = нет верхней границы
+        ratio_numerator:
+          type: integer
+          minimum: 1
+          description: Числитель соотношения
+        ratio_denominator:
+          type: integer
+          minimum: 1
+          description: Знаменатель соотношения
+    PdsCofinIncomeBracketUpdate:
+      type: object
+      properties:
+        income_from:
+          type: integer
+          minimum: 0
+          description: Доход от (₽/мес), включительно
+        income_to:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: Доход до (₽/мес), NULL = нет верхней границы
+        ratio_numerator:
+          type: integer
+          minimum: 1
+          description: Числитель соотношения
+        ratio_denominator:
+          type: integer
+          minimum: 1
+          description: Знаменатель соотношения
+    PdsCofinCalculationRequest:
+      type: object
+      required:
+        - yearly_contribution
+        - avg_monthly_income
+      properties:
+        yearly_contribution:
+          type: integer
+          minimum: 0
+          description: Годовой взнос (₽)
+          example: 50000
+        avg_monthly_income:
+          type: integer
+          minimum: 0
+          description: Среднемесячный доход ДО НДФЛ (₽/мес)
+          example: 100000
+    PdsCofinCalculationResponse:
+      type: object
+      properties:
+        bracket_id:
+          type: integer
+          nullable: true
+          description: ID найденного диапазона доходов
+        cofin_coef:
+          type: number
+          format: double
+          description: Коэффициент софинансирования (k = numerator/denominator)
+          example: 1.0
+        state_cofin_amount:
+          type: integer
+          description: Фактическая сумма господдержки с учетом лимита (₽)
+          example: 36000
+        yearly_contribution:
+          type: integer
+          description: Годовой взнос (₽)
+        avg_monthly_income:
+          type: integer
+          description: Среднемесячный доход ДО НДФЛ (₽/мес)
+        message:
+          type: string
+          description: Сообщение (если взнос меньше минимального)
+    PassiveIncomeYieldLine:
+      type: object
+      description: Линия доходности для пассивного дохода
+      required:
+        - min_term_months
+        - max_term_months
+        - min_amount
+        - max_amount
+        - yield_percent
+      properties:
+        min_term_months:
+          type: number
+          format: double
+          minimum: 0
+          description: Минимальный срок в месяцах (включительно)
+          example: 0
+        max_term_months:
+          type: number
+          format: double
+          minimum: 0
+          description: Максимальный срок в месяцах (включительно)
+          example: 60
+        min_amount:
+          type: number
+          format: double
+          minimum: 0
+          description: Минимальная сумма (₽), включительно
+          example: 0
+        max_amount:
+          type: number
+          format: double
+          minimum: 0
+          description: Максимальная сумма (₽), включительно
+          example: 1000000000000
+        yield_percent:
+          type: number
+          format: double
+          minimum: 0
+          description: Доходность в процентах годовых (%)
+          example: 14.0
+    PassiveIncomeYieldSettings:
+      type: object
+      description: Настройки линий доходности для пассивного дохода
+      properties:
+        lines:
+          type: array
+          description: Массив линий доходности
+          items:
+            $ref: '#/components/schemas/PassiveIncomeYieldLine'
+        updated_at:
+          type: string
+          format: date-time
+          description: Дата последнего обновления
+    PassiveIncomeYieldUpdate:
+      type: object
+      description: Обновление линий доходности для пассивного дохода
+      required:
+        - lines
+      properties:
+        lines:
+          type: array
+          minItems: 1
+          description: Массив линий доходности
+          items:
+            $ref: '#/components/schemas/PassiveIncomeYieldLine'
+    AiAssistant:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        context_template:
+          type: string
+        model:
+          type: string
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    AiAssistantCreate:
+      type: object
+      required:
+        - name
+        - slug
+        - context_template
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        context_template:
+          type: string
+        model:
+          type: string
+        is_active:
+          type: boolean
+    AiAssistantUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        context_template:
+          type: string
+        model:
+          type: string
+        is_active:
+          type: boolean
+    
+    Agent:
+      type: object
+      properties:
+        id:
+          type: integer
+        uuid:
+          type: string
+          format: uuid
+        first_name:
+          type: string
+        last_name:
+          type: string
+        middle_name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        website_url:
+          type: string
+        telegram_bot:
+          type: string
+        telegram_channel:
+          type: string
+        telegram_channel_id:
+          type: string
+        is_active:
+          type: boolean
+        region:
+          type: string
+        city:
+          type: string
+        position_title:
+          type: string
+        specialization:
+          type: string
+        experience_years:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AgentCreate:
+      type: object
+      required:
+        - first_name
+        - last_name
+        - email
+        - password
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        middle_name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        phone:
+          type: string
+        telegram_bot:
+          type: string
+        telegram_channel:
+          type: string
+        telegram_channel_id:
+          type: string
+        is_active:
+          type: boolean
+          default: true
+        region:
+          type: string
+        city:
+          type: string
+        position_title:
+          type: string
+        specialization:
+          type: string
+        experience_years:
+          type: integer
+
+    AgentUpdate:
+      type: object
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        middle_name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        phone:
+          type: string
+        telegram_bot:
+          type: string
+        telegram_channel:
+          type: string
+        telegram_channel_id:
+          type: string
+        is_active:
+          type: boolean
+        region:
+          type: string
+        city:
+          type: string
+        position_title:
+          type: string
+        specialization:
+          type: string
+        experience_years:
+          type: integer
+
+security:
+  - bearerAuth: []
+  - apiKeyAuth: []
+
+tags:
+  - name: Authentication
+  - name: Products
+  - name: Portfolios
+  - name: Clients
+  - name: AiAssistants
+    description: Management of AI Assistants (Admin only)
+  - name: Agents
+    description: Management of Agents (Consultants)
+
+
+paths:
+  /auth/login:
+    post:
+      summary: Login and get JWT token
+      tags:
+        - Authentication
+      security: []  # No auth required for login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: JWT token
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      email:
+                        type: string
+                      name:
+                        type: string
+                      role:
+                        type: string
+                      agentId:
+                        type: integer
+        '401':
+          description: Invalid credentials
+
+  /auth/register:
+    post:
+      summary: Register new agent user
+      tags:
+        - Authentication
+      security: []  # No auth required for registration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - name
+                - agentId
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                  minLength: 6
+                name:
+                  type: string
+                agentId:
+                  type: integer
+      responses:
+        '201':
+          description: User created
+        '400':
+          description: User already exists
+
+  /auth/me:
+    get:
+      summary: Get current user info
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: User info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  email:
+                    type: string
+                  role:
+                    type: string
+                  agentId:
+                    type: integer
+
+  /pfp/products:
+    get:
+      summary: List products
+      parameters:
+        - in: query
+          name: includeDefaults
+          schema:
+            type: boolean
+        - in: query
+          name: product_type
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+    post:
+      summary: Create product
+      description: |
+        Создает новый продукт. 
+        **Важно для фронтенда:** Поле `product_type` должно быть выпадающим списком,
+        заполняемым из GET /api/pfp/product-types
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          description: Validation error (например, неверный product_type)
+          
+  /pfp/products/{id}:
+    get:
+      summary: Get product by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+    put:
+      summary: Update product
+      description: |
+        Обновляет существующий продукт.
+        **Важно для фронтенда:** Поле `product_type` должно быть выпадающим списком,
+        заполняемым из GET /api/pfp/product-types
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductCreate'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          description: Validation error (например, неверный product_type)
+        '404':
+          description: Product not found
+    delete:
+      summary: Delete product
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Deleted
+          
+  /pfp/products/{id}/clone:
+    post:
+      summary: Clone default product
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Cloned
+
+  /pfp/product-types:
+    get:
+      summary: Получить все типы продуктов
+      tags:
+        - Products
+      description: Возвращает список всех типов продуктов для выпадающего списка на фронтенде
+      parameters:
+        - in: query
+          name: is_active
+          schema:
+            type: boolean
+          description: Фильтр по активности (true - только активные, false - все)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProductType'
+    post:
+      summary: Создать новый тип продукта (admin only)
+      tags:
+        - Products
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductTypeCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductType'
+        '400':
+          description: Validation error or code already exists
+        '403':
+          description: Forbidden (admin only)
+
+  /pfp/product-types/{id}:
+    get:
+      summary: Получить тип продукта по ID
+      tags:
+        - Products
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductType'
+        '404':
+          description: Product type not found
+    put:
+      summary: Обновить тип продукта (admin only)
+      tags:
+        - Products
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductTypeUpdate'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductType'
+        '400':
+          description: Validation error or code already exists
+        '403':
+          description: Forbidden (admin only)
+        '404':
+          description: Product type not found
+    delete:
+      summary: Удалить тип продукта (admin only)
+      tags:
+        - Products
+      description: Удаляет тип продукта. Нельзя удалить тип, который используется в продуктах.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Deleted
+        '400':
+          description: Cannot delete - type is used by products
+        '403':
+          description: Forbidden (admin only)
+        '404':
+          description: Product type not found
+
+  /pfp/portfolios:
+    get:
+      summary: List portfolios
+      parameters:
+        - in: query
+          name: amount_from
+          schema:
+            type: number
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create portfolio
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Portfolio'
+      responses:
+        '201':
+          description: Created
+          
+  /pfp/portfolios/{id}:
+    get:
+      summary: Get portfolio
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+    put:
+      summary: Update portfolio
+      description: |
+        Обновляет существующий портфель. Все поля опциональны (частичное обновление).
+        
+        **Важно для фронтенда:**
+        - Поддерживаются оба формата для риск-профилей:
+          - `riskProfiles` (camelCase, рекомендуется) - соответствует формату ответа API
+          - `risk_profiles` (snake_case) - для обратной совместимости
+        - Можно отправлять данные как есть из GET-ответа: лишние поля (id, portfolio_risk_profile_id) 
+          в инструментах автоматически отфильтруются бэкендом
+        - Формат инструментов: массив `instruments` с полями `product_id`, `bucket_type`, `share_percent`, `order_index`
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortfolioUpdate'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Portfolio'
+        '400':
+          description: Validation error
+        '403':
+          description: Access denied
+        '404':
+          description: Portfolio not found
+    delete:
+      summary: Delete portfolio
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Deleted
+          
+  /pfp/portfolios/{id}/clone:
+    post:
+      summary: Clone default portfolio
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Cloned
+
+  /pfp/settings:
+    get:
+      summary: List all system settings
+      tags:
+        - Settings
+      parameters:
+        - in: query
+          name: category
+          schema:
+            type: string
+          description: Filter by category (calculation, pension, etc.)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SystemSetting'
+    post:
+      summary: Create new setting (admin only)
+      tags:
+        - Settings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - key
+                - value
+              properties:
+                key:
+                  type: string
+                value:
+                  oneOf:
+                    - type: string
+                    - type: number
+                    - type: object
+                description:
+                  type: string
+                category:
+                  type: string
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemSetting'
+        '403':
+          description: Forbidden (admin only)
+
+  /pfp/settings/{key}:
+    get:
+      summary: Get setting by key
+      tags:
+        - Settings
+      parameters:
+        - in: path
+          name: key
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemSetting'
+        '404':
+          description: Setting not found
+    put:
+      summary: Update setting value (admin only)
+      tags:
+        - Settings
+      parameters:
+        - in: path
+          name: key
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - value
+              properties:
+                value:
+                  oneOf:
+                    - type: string
+                    - type: number
+                    - type: object
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemSetting'
+        '403':
+          description: Forbidden (admin only)
+        '404':
+          description: Setting not found
+    delete:
+      summary: Delete setting (admin only)
+      tags:
+        - Settings
+      parameters:
+        - in: path
+          name: key
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deleted
+        '403':
+          description: Forbidden (admin only)
+        '404':
+          description: Setting not found
+
+  /pfp/settings/tax-2ndfl/brackets:
+    get:
+      summary: Получить все налоговые ставки 2НДФЛ
+      tags:
+        - Settings
+      description: Возвращает все налоговые ставки, отсортированные по порядку
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tax2ndflBracket'
+    post:
+      summary: Создать новую налоговую ставку (admin only)
+      tags:
+        - Settings
+      description: |
+        **Важно для фронтенда:** Поле `description` было удалено из API. 
+        Необходимо убрать поле "Описание" из формы создания налоговой ставки в админке.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Tax2ndflBracketCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tax2ndflBracket'
+        '400':
+          description: Validation error or overlapping brackets
+        '403':
+          description: Forbidden (admin only)
+
+  /pfp/settings/tax-2ndfl/brackets/bulk:
+    post:
+      summary: Создать несколько налоговых ставок за раз (admin only)
+      tags:
+        - Settings
+      description: Позволяет создать несколько налоговых ставок одновременно. Проверяет отсутствие пересечений между всеми ставками.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Tax2ndflBracketsBulkCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tax2ndflBracket'
+        '400':
+          description: Validation error or overlapping brackets
+        '403':
+          description: Forbidden (admin only)
+
+  /pfp/settings/tax-2ndfl/brackets/by-income/{income}:
+    get:
+      summary: Найти налоговую ставку для конкретного дохода
+      tags:
+        - Settings
+      parameters:
+        - in: path
+          name: income
+          required: true
+          schema:
+            type: number
+            format: double
+          description: Годовой доход (руб.)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tax2ndflBracket'
+        '404':
+          description: Tax bracket not found for this income
+
+  /pfp/settings/tax-2ndfl/brackets/{id}:
+    get:
+      summary: Получить налоговую ставку по ID
+      tags:
+        - Settings
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tax2ndflBracket'
+        '404':
+          description: Tax bracket not found
+    put:
+      summary: Обновить налоговую ставку (admin only)
+      tags:
+        - Settings
+      description: |
+        **Важно для фронтенда:** Поле `description` было удалено из API. 
+        Необходимо убрать поле "Описание" из формы редактирования налоговой ставки в админке.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Tax2ndflBracketUpdate'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tax2ndflBracket'
+        '400':
+          description: Validation error or overlapping brackets
+        '403':
+          description: Forbidden (admin only)
+        '404':
+          description: Tax bracket not found
+    delete:
+      summary: Удалить налоговую ставку (admin only)
+      tags:
+        - Settings
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Deleted
+        '403':
+          description: Forbidden (admin only)
+        '404':
+          description: Tax bracket not found
+
+  /pfp/settings/pds/cofin-settings:
+    get:
+      summary: Получить настройки софинансирования ПДС
+      tags:
+        - Settings
+      description: Возвращает глобальные параметры софинансирования ПДС
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PdsCofinSettings'
+        '404':
+          description: PDS cofinancing settings not found
+    patch:
+      summary: Обновить настройки софинансирования ПДС (admin only)
+      tags:
+        - Settings
+      description: Обновляет глобальные параметры софинансирования ПДС
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PdsCofinSettingsUpdate'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PdsCofinSettings'
+        '400':
+          description: Validation error
+        '403':
+          description: Forbidden (admin only)
+        '404':
+          description: PDS cofinancing settings not found
+
+  /pfp/settings/pds/cofin-income-brackets:
+    get:
+      summary: Получить все диапазоны доходов для софинансирования ПДС
+      tags:
+        - Settings
+      description: Возвращает все диапазоны доходов, отсортированные по income_from
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PdsCofinIncomeBracket'
+    post:
+      summary: Создать новый диапазон доходов (admin only)
+      tags:
+        - Settings
+      description: Создает новый диапазон доходов для софинансирования ПДС. Проверяет отсутствие пересечений с существующими диапазонами.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PdsCofinIncomeBracketCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PdsCofinIncomeBracket'
+        '400':
+          description: Validation error or overlapping brackets
+        '403':
+          description: Forbidden (admin only)
+
+  /pfp/settings/pds/cofin-income-brackets/{id}:
+    get:
+      summary: Получить диапазон доходов по ID
+      tags:
+        - Settings
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PdsCofinIncomeBracket'
+        '404':
+          description: PDS cofinancing income bracket not found
+    patch:
+      summary: Обновить диапазон доходов (admin only)
+      tags:
+        - Settings
+      description: Обновляет диапазон доходов для софинансирования ПДС. Проверяет отсутствие пересечений с другими диапазонами.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PdsCofinIncomeBracketUpdate'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PdsCofinIncomeBracket'
+        '400':
+          description: Validation error or overlapping brackets
+        '403':
+          description: Forbidden (admin only)
+        '404':
+          description: PDS cofinancing income bracket not found
+    delete:
+      summary: Удалить диапазон доходов (admin only)
+      tags:
+        - Settings
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Deleted
+        '403':
+          description: Forbidden (admin only)
+        '404':
+          description: PDS cofinancing income bracket not found
+
+  /pfp/settings/passive-income/yield:
+    get:
+      summary: Получить линии доходности для пассивного дохода
+      tags:
+        - Settings
+      description: Возвращает все линии доходности для целей типа "Пассивный доход"
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassiveIncomeYieldSettings'
+        '404':
+          description: Passive income yield settings not found
+    put:
+      summary: Обновить линии доходности для пассивного дохода (admin only)
+      tags:
+        - Settings
+      description: Обновляет линии доходности для целей типа "Пассивный доход". Полностью заменяет существующие линии новым массивом.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PassiveIncomeYieldUpdate'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PassiveIncomeYieldSettings'
+        '400':
+          description: Validation error
+        '403':
+          description: Forbidden (admin only)
+        '404':
+          description: Passive income yield settings not found
+  /admin/ai-assistants:
+    get:
+      summary: List all AI assistants
+      tags:
+        - AiAssistants
+      responses:
+        '200':
+          description: List of assistants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AiAssistant'
+    post:
+      summary: Create new AI assistant
+      tags:
+        - AiAssistants
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiAssistantCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiAssistant'
+
+  /admin/ai-assistants/{id}:
+    put:
+      summary: Update AI assistant
+      tags:
+        - AiAssistants
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiAssistantUpdate'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiAssistant'
+    delete:
+      summary: Delete AI assistant
+      tags:
+        - AiAssistants
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+      responses:
+        '204':
+          description: Deleted
+
+  /pfp/agents:
+    get:
+      summary: List all agents
+      tags:
+        - Agents
+      parameters:
+        - in: query
+          name: is_active
+          schema:
+            type: boolean
+        - in: query
+          name: updated_since
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Agent'
+    post:
+      summary: Create new agent
+      tags:
+        - Agents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+
+  /pfp/agents/{id}:
+    get:
+      summary: Get agent by ID
+      tags:
+        - Agents
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+    patch:
+      summary: Update agent
+      tags:
+        - Agents
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentUpdate'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+  /admin/constructor/bots:
+    get:
+      summary: List all AI bots (Admin)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of bots
+  /admin/constructor/templates:
+    get:
+      summary: List CJM templates (Admin)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of templates
+    post:
+      summary: Create CJM template (Admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                command: { type: string }
+                classifier: { type: string }
+                response: { type: string }
+                section: { type: string }
+      responses:
+        '200':
+          description: Created
+  /admin/constructor/brain-contexts:
+    get:
+      summary: List all brain contexts (Admin)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of brain contexts
+    post:
+      summary: Create a new brain context (Admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, content]
+              properties:
+                title: { type: string }
+                content: { type: string }
+                is_active: { type: boolean }
+                priority: { type: integer }
+      responses:
+        '200':
+          description: Created
+  /admin/constructor/brain-contexts/{id}:
+    put:
+      summary: Update a brain context (Admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                content: { type: string }
+                is_active: { type: boolean }
+                priority: { type: integer }
+      responses:
+        '200':
+          description: Updated
+    delete:
+      summary: Delete a brain context (Admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Deleted
