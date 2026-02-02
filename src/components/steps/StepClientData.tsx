@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { User, Phone, Fingerprint } from 'lucide-react';
+import { User, Phone } from 'lucide-react';
 import type { CJMData } from '../CJMFlow';
 
 interface StepClientDataProps {
@@ -61,23 +61,6 @@ const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }
                     </div>
                 </div>
 
-                <div className="input-group">
-                    <label className="label">ID (UUID)</label>
-                    <div style={{ position: 'relative' }}>
-                        <Fingerprint size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                        <input
-                            type="text"
-                            value={data.uuid || ''}
-                            readOnly
-                            style={{
-                                paddingLeft: '40px',
-                                background: 'rgba(255,255,255,0.05)',
-                                color: 'var(--text-muted)',
-                                cursor: 'default'
-                            }}
-                        />
-                    </div>
-                </div>
             </div>
 
             <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '32px 0' }}></div>

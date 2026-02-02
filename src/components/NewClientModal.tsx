@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Phone, Fingerprint } from 'lucide-react';
+import { X, User, Phone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import StatusDropdown from './StatusDropdown';
 import type { ClientStatus } from '../types/client';
@@ -164,23 +164,6 @@ const NewClientModal: React.FC<NewClientModalProps> = ({ isOpen, onClose, onSubm
                                     </div>
                                 </div>
 
-                                <div className="input-group">
-                                    <label className="label">ID (UUID)</label>
-                                    <div style={{ position: 'relative' }}>
-                                        <Fingerprint size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                                        <input
-                                            type="text"
-                                            value={uuid}
-                                            readOnly
-                                            style={{
-                                                paddingLeft: '40px',
-                                                background: 'rgba(255,255,255,0.05)',
-                                                color: 'var(--text-muted)',
-                                                cursor: 'default'
-                                            }}
-                                        />
-                                    </div>
-                                </div>
 
                                 <div className="input-group">
                                     <label className="label">Статус продажи</label>
