@@ -61,32 +61,66 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
 
         try {
             const result = await agentConstructorApi.getClients(page);
-            const newClients = result.data;
-            setPagination({ page: result.pagination.page, totalPages: result.pagination.totalPages });
+            console.log('AiAgent: API result:', result);
 
-            // При первой загрузке заменяем, при подгрузке - добавляем
+            let newClients: AgentClient[] = [];
+            let totalPages = 1;
+            let currentPage = page;
+
+            // Гибкая проверка формата: массив или объект с полем data/clients
+            if (Array.isArray(result)) {
+                newClients = result;
+            } else if (result && typeof result === 'object') {
+                newClients = result.data || result.clients || (Array.isArray(result) ? result : []);
+                const pagination = result.pagination || result.meta;
+                totalPages = pagination?.totalPages || 1;
+                currentPage = pagination?.page || page;
+            }
+
+            console.log('AiAgent: Processed clients:', newClients.length);
+            setPagination({ page: currentPage, totalPages });
+
+            if (newClients.length === 0 && page === 1) {
+                setClients([]);
+                return;
+            }
+
             setClients(prev => {
-                const combined = page === 1 ? newClients : [...prev, ...newClients];
-                // Сортировка по времени последнего сообщения
-                return combined.sort((a, b) =>
-                    new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
-                );
+                const base = page === 1 ? [] : prev;
+                // Объединяем, фильтруем пустые и убираем дубликаты по ID
+                const combined = [...base];
+                newClients.forEach(nc => {
+                    if (nc && nc.id && !combined.find(c => c.id === nc.id)) {
+                        combined.push(nc);
+                    }
+                });
+
+                // Безопасная сортировка (защита от Invalid Date)
+                return combined.sort((a, b) => {
+                    const timeA = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+                    const timeB = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+                    const valA = isNaN(timeA) ? 0 : timeA;
+                    const valB = isNaN(timeB) ? 0 : timeB;
+                    return valB - valA;
+                });
             });
 
-            // Автоматический выбор первого клиента при первой загрузке
+            // Автоматический выбор клиента
             if (page === 1 && newClients.length > 0 && !selectedClient) {
                 setSelectedClient(newClients[0]);
             }
         } catch (error) {
-            console.error('Failed to load clients:', error);
+            console.error('AiAgent: Failed to load clients:', error);
         } finally {
             setIsLoading(false);
             setIsLoadingMore(false);
         }
     };
 
-    const formatToMSK = (dateStr: string) => {
+    const formatToMSK = (dateStr?: string) => {
+        if (!dateStr) return '';
         const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return '';
         // Добавляем 3 часа для МСК (если дата приходит в UTC)
         // Если дата уже в МСК или содержит Z, JS Date поймет смещение.
         // Чтобы гарантировать +3 от UTC:
