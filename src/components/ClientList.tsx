@@ -18,7 +18,7 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
     const [total, setTotal] = useState(0);
-    const [limit] = useState(10);
+    const [limit] = useState(50);
 
     // Debounce search
     useEffect(() => {
