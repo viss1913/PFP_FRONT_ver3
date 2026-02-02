@@ -18,8 +18,8 @@ export interface AgentClient {
 
 export interface AgentMessage {
     id: number;
-    sender_type: 'user' | 'bot' | 'agent';
-    text: string;
+    user_message: string;
+    assistant_message?: string;
     created_at: string;
     photo?: string;
     video?: string;

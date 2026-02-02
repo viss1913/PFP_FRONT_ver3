@@ -323,38 +323,61 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
 
                         <div style={{ flex: 1, overflowY: 'auto', padding: '24px', background: '#fcfcfc', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                             {messages.map(msg => (
-                                <div
-                                    key={msg.id}
-                                    style={{
-                                        maxWidth: '70%',
-                                        alignSelf: msg.sender_type === 'user' ? 'flex-start' : 'flex-end',
-                                        padding: '12px 16px',
-                                        borderRadius: '16px',
-                                        fontSize: '14px',
-                                        lineHeight: 1.5,
-                                        background: msg.sender_type === 'user' ? '#fff' : (msg.sender_type === 'bot' ? '#e0f2fe' : 'linear-gradient(135deg, #D946EF, #8B5CF6)'),
-                                        color: (msg.sender_type === 'user' || msg.sender_type === 'bot') ? '#333' : '#fff',
-                                        boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
-                                        border: msg.sender_type === 'user' ? '1px solid #f0f0f0' : (msg.sender_type === 'bot' ? '1px solid #bae6fd' : 'none')
-                                    }}
-                                >
-                                    {msg.sender_type === 'bot' && (
-                                        <div style={{ marginBottom: '4px' }}>
-                                            <a
-                                                href={botConfig.link}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                style={{ color: '#0ea5e9', fontWeight: 600, fontSize: '12px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                            >
-                                                {botConfig.name || 'Bot'} <ExternalLink size={10} />
-                                            </a>
+                                <React.Fragment key={msg.id}>
+                                    {/* User Message */}
+                                    <div
+                                        style={{
+                                            maxWidth: '70%',
+                                            alignSelf: 'flex-start',
+                                            padding: '12px 16px',
+                                            borderRadius: '16px',
+                                            fontSize: '14px',
+                                            lineHeight: 1.5,
+                                            background: '#fff',
+                                            color: '#333',
+                                            boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
+                                            border: '1px solid #f0f0f0'
+                                        }}
+                                    >
+                                        <div>{msg.user_message}</div>
+                                        <div style={{ fontSize: '10px', marginTop: '6px', opacity: 0.7, textAlign: 'right' }}>
+                                            {formatToMSK(msg.created_at).split(' ')[1]}
+                                        </div>
+                                    </div>
+
+                                    {/* Assistant Message */}
+                                    {msg.assistant_message && (
+                                        <div
+                                            style={{
+                                                maxWidth: '70%',
+                                                alignSelf: 'flex-end',
+                                                padding: '12px 16px',
+                                                borderRadius: '16px',
+                                                fontSize: '14px',
+                                                lineHeight: 1.5,
+                                                background: '#e0f2fe',
+                                                color: '#333',
+                                                boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
+                                                border: '1px solid #bae6fd'
+                                            }}
+                                        >
+                                            <div style={{ marginBottom: '4px' }}>
+                                                <a
+                                                    href={botConfig.link}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    style={{ color: '#0ea5e9', fontWeight: 600, fontSize: '12px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                                >
+                                                    {botConfig.name || 'Bot'} <ExternalLink size={10} />
+                                                </a>
+                                            </div>
+                                            <div>{msg.assistant_message}</div>
+                                            <div style={{ fontSize: '10px', marginTop: '6px', opacity: 0.7, textAlign: 'right' }}>
+                                                {formatToMSK(msg.created_at).split(' ')[1]}
+                                            </div>
                                         </div>
                                     )}
-                                    <div>{msg.text}</div>
-                                    <div style={{ fontSize: '10px', marginTop: '6px', opacity: 0.7, textAlign: 'right' }}>
-                                        {formatToMSK(msg.created_at).split(' ')[1]}
-                                    </div>
-                                </div>
+                                </React.Fragment>
                             ))}
                         </div>
 
