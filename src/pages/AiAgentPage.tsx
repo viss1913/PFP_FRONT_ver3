@@ -71,8 +71,9 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
             if (Array.isArray(result)) {
                 newClients = result;
             } else if (result && typeof result === 'object') {
-                newClients = result.data || result.clients || (Array.isArray(result) ? result : []);
-                const pagination = result.pagination || result.meta;
+                const res = result as any;
+                newClients = res.data || res.clients || [];
+                const pagination = res.pagination || res.meta;
                 totalPages = pagination?.totalPages || 1;
                 currentPage = pagination?.page || page;
             }
