@@ -23,8 +23,19 @@ export const agentConstructorApi = {
     },
 
     // Клиенты
-    getClients: async (): Promise<AgentClient[]> => {
-        const response = await axios.get(`${API_BASE}/clients`, { headers: getHeaders() });
+    getClients: async (page = 1, limit = 50): Promise<{
+        data: AgentClient[];
+        pagination: {
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+    }> => {
+        const response = await axios.get(`${API_BASE}/clients`, {
+            params: { page, limit },
+            headers: getHeaders()
+        });
         return response.data;
     },
 

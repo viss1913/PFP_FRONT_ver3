@@ -22,6 +22,8 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
     const [messages, setMessages] = useState<AgentMessage[]>([]);
     const [messageText, setMessageText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
     const [isSaving, setIsSaving] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
 
@@ -53,21 +55,33 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
         }
     };
 
-    const loadClients = async () => {
-        try {
-            const data = await agentConstructorApi.getClients();
-            // Сортировка по времени последнего сообщения (новые сверху)
-            const sortedData = data.sort((a, b) =>
-                new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
-            );
-            setClients(sortedData);
+    const loadClients = async (page = 1) => {
+        if (page === 1) setIsLoading(true);
+        else setIsLoadingMore(true);
 
-            // Автоматический выбор первого (последнего по времени) клиента, если еще не выбран
-            if (sortedData.length > 0 && !selectedClient) {
-                setSelectedClient(sortedData[0]);
+        try {
+            const result = await agentConstructorApi.getClients(page);
+            const newClients = result.data;
+            setPagination({ page: result.pagination.page, totalPages: result.pagination.totalPages });
+
+            // При первой загрузке заменяем, при подгрузке - добавляем
+            setClients(prev => {
+                const combined = page === 1 ? newClients : [...prev, ...newClients];
+                // Сортировка по времени последнего сообщения
+                return combined.sort((a, b) =>
+                    new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+                );
+            });
+
+            // Автоматический выбор первого клиента при первой загрузке
+            if (page === 1 && newClients.length > 0 && !selectedClient) {
+                setSelectedClient(newClients[0]);
             }
         } catch (error) {
             console.error('Failed to load clients:', error);
+        } finally {
+            setIsLoading(false);
+            setIsLoadingMore(false);
         }
     };
 
@@ -296,6 +310,31 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
                                 </div>
                             </div>
                         ))
+                    )}
+
+                    {pagination.page < pagination.totalPages && (
+                        <button
+                            onClick={() => loadClients(pagination.page + 1)}
+                            disabled={isLoadingMore}
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                background: 'transparent',
+                                border: '1px dashed #ddd',
+                                borderRadius: '12px',
+                                color: '#666',
+                                fontSize: '13px',
+                                cursor: 'pointer',
+                                marginTop: '8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px'
+                            }}
+                        >
+                            {isLoadingMore ? <RefreshCw className="animate-spin" size={14} /> : <RefreshCw size={14} />}
+                            Показать еще
+                        </button>
                     )}
                 </div>
             </div>
