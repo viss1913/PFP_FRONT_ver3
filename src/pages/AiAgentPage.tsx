@@ -56,10 +56,36 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
     const loadClients = async () => {
         try {
             const data = await agentConstructorApi.getClients();
-            setClients(data);
+            // Сортировка по времени последнего сообщения (новые сверху)
+            const sortedData = data.sort((a, b) =>
+                new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+            );
+            setClients(sortedData);
+
+            // Автоматический выбор первого (последнего по времени) клиента, если еще не выбран
+            if (sortedData.length > 0 && !selectedClient) {
+                setSelectedClient(sortedData[0]);
+            }
         } catch (error) {
             console.error('Failed to load clients:', error);
         }
+    };
+
+    const formatToMSK = (dateStr: string) => {
+        const date = new Date(dateStr);
+        // Добавляем 3 часа для МСК (если дата приходит в UTC)
+        // Если дата уже в МСК или содержит Z, JS Date поймет смещение.
+        // Чтобы гарантировать +3 от UTC:
+        const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+        const mskDate = new Date(utc + (3600000 * 3));
+
+        return mskDate.toLocaleString('ru-RU', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
     };
 
     const loadHistory = async (clientId: number) => {
@@ -246,16 +272,27 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
                                     borderRadius: '16px',
                                     cursor: 'pointer',
                                     background: selectedClient?.id === client.id ? '#fdf4ff' : 'transparent',
+                                    border: selectedClient?.id === client.id ? '1px solid #D946EF' : '1px solid transparent',
                                     transition: 'all 0.2s',
                                     marginBottom: '8px'
                                 }}
                             >
-                                <div style={{ fontWeight: 600, marginBottom: '4px' }}>{client.name}</div>
-                                <div style={{ fontSize: '12px', color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {client.last_message_text || 'Нет сообщений'}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                                    <a
+                                        href={`https://t.me/${client.nickname}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        style={{ fontWeight: 600, color: '#D946EF', textDecoration: 'none' }}
+                                    >
+                                        @{client.nickname}
+                                    </a>
                                 </div>
-                                <div style={{ fontSize: '10px', color: '#999', marginTop: '8px' }}>
-                                    {client.last_message_at ? new Date(client.last_message_at).toLocaleString() : ''}
+                                <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px', lineHeight: '1.4', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                    {client.last_message || 'Нет сообщений'}
+                                </div>
+                                <div style={{ fontSize: '11px', color: '#999', display: 'flex', justifyContent: 'flex-end' }}>
+                                    {client.last_message_at ? formatToMSK(client.last_message_at) : ''}
                                 </div>
                             </div>
                         ))
@@ -279,8 +316,8 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
                                 <Users size={20} color="#666" />
                             </div>
                             <div>
-                                <div style={{ fontWeight: 600 }}>{selectedClient.name}</div>
-                                <div style={{ fontSize: '12px', color: '#666' }}>@{selectedClient.username || 'unknown'}</div>
+                                <div style={{ fontWeight: 600 }}>@{selectedClient.nickname}</div>
+                                <div style={{ fontSize: '12px', color: '#666' }}>ID: {selectedClient.user_id}</div>
                             </div>
                         </div>
 
@@ -295,15 +332,27 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
                                         borderRadius: '16px',
                                         fontSize: '14px',
                                         lineHeight: 1.5,
-                                        background: msg.sender_type === 'user' ? '#fff' : 'linear-gradient(135deg, #D946EF, #8B5CF6)',
-                                        color: msg.sender_type === 'user' ? '#333' : '#fff',
+                                        background: msg.sender_type === 'user' ? '#fff' : (msg.sender_type === 'bot' ? '#e0f2fe' : 'linear-gradient(135deg, #D946EF, #8B5CF6)'),
+                                        color: (msg.sender_type === 'user' || msg.sender_type === 'bot') ? '#333' : '#fff',
                                         boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
-                                        border: msg.sender_type === 'user' ? '1px solid #f0f0f0' : 'none'
+                                        border: msg.sender_type === 'user' ? '1px solid #f0f0f0' : (msg.sender_type === 'bot' ? '1px solid #bae6fd' : 'none')
                                     }}
                                 >
+                                    {msg.sender_type === 'bot' && (
+                                        <div style={{ marginBottom: '4px' }}>
+                                            <a
+                                                href={botConfig.link}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                style={{ color: '#0ea5e9', fontWeight: 600, fontSize: '12px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                            >
+                                                {botConfig.name || 'Bot'} <ExternalLink size={10} />
+                                            </a>
+                                        </div>
+                                    )}
                                     <div>{msg.text}</div>
                                     <div style={{ fontSize: '10px', marginTop: '6px', opacity: 0.7, textAlign: 'right' }}>
-                                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        {formatToMSK(msg.created_at).split(' ')[1]}
                                     </div>
                                 </div>
                             ))}

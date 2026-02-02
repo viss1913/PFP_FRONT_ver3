@@ -8,10 +8,12 @@ export interface AgentBotConfig {
 
 export interface AgentClient {
     id: number;
-    name: string;
-    username?: string;
+    nickname: string;
+    user_id: string;
     last_message_at: string;
-    last_message_text?: string;
+    last_message?: string;
+    bot_id?: number;
+    current_stage?: string;
 }
 
 export interface AgentMessage {
