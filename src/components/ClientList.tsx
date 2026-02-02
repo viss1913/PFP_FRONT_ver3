@@ -19,6 +19,7 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
     const [page, setPage] = useState(1);
     const [total, setTotal] = useState(0);
     const [limit] = useState(50);
+    const [activeDropdownId, setActiveDropdownId] = useState<number | null>(null);
 
     // Debounce search
     useEffect(() => {
@@ -125,7 +126,9 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
                                 transition: 'transform 0.2s',
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                position: 'relative',
+                                zIndex: activeDropdownId === client.id ? 100 : 1
                             }}
                             onClick={() => onSelectClient(client)}
                         >
@@ -167,6 +170,7 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
                                     <StatusDropdown
                                         clientId={client.id}
                                         currentStatus={client.crm_status || 'THINKING'}
+                                        onOpenChange={(isOpen) => setActiveDropdownId(isOpen ? client.id : null)}
                                     />
                                 </div>
                                 <div style={{ textAlign: 'right', minWidth: '100px' }}>

@@ -7,6 +7,7 @@ interface StatusDropdownProps {
     clientId?: number;
     currentStatus?: ClientStatus;
     onStatusChange?: (newStatus: ClientStatus) => void;
+    onOpenChange?: (isOpen: boolean) => void;
 }
 
 const STATUS_CONFIG: Record<ClientStatus, { label: string; color: string; icon: React.ReactNode }> = {
@@ -16,8 +17,14 @@ const STATUS_CONFIG: Record<ClientStatus, { label: string; color: string; icon: 
     'RENEWAL': { label: 'Продление', color: '#3B82F6', icon: <RefreshCw size={16} /> }
 };
 
-const StatusDropdown: React.FC<StatusDropdownProps> = ({ clientId, currentStatus = 'THINKING', onStatusChange }) => {
+const StatusDropdown: React.FC<StatusDropdownProps> = ({ clientId, currentStatus = 'THINKING', onStatusChange, onOpenChange }) => {
     const [isOpen, setIsOpen] = useState(false);
+
+    const toggleOpen = () => {
+        const nextState = !isOpen;
+        setIsOpen(nextState);
+        if (onOpenChange) onOpenChange(nextState);
+    };
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<ClientStatus>(currentStatus);
 
@@ -43,6 +50,7 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({ clientId, currentStatus
         } finally {
             setLoading(false);
             setIsOpen(false);
+            if (onOpenChange) onOpenChange(false);
         }
     };
 
@@ -53,7 +61,7 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({ clientId, currentStatus
             <button
                 onClick={(e) => {
                     e.stopPropagation();
-                    setIsOpen(!isOpen);
+                    toggleOpen();
                 }}
                 disabled={loading}
                 style={{
