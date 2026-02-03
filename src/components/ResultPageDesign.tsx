@@ -220,15 +220,15 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     const initialForm: EditFormState = {
       name: goal.name,
       // Fallback chain: specific details -> summary -> top level legacy -> default
-      target_amount: details.target_amount || summary.target_amount || summary.target_amount_initial || goal.targetAmount || 0,
-      term_months: details.term_months || summary.target_months || goal.termMonths || 0,
-      initial_capital: summary.initial_capital || goal.initialCapital || 0,
-      monthly_replenishment: summary.monthly_replenishment || 0,
+      target_amount: details.target_amount ?? summary.target_amount ?? summary.target_amount_initial ?? goal.targetAmount ?? 0,
+      term_months: details.term_months ?? summary.target_months ?? goal.termMonths ?? 0,
+      initial_capital: summary.initial_capital ?? goal.initialCapital ?? 0,
+      monthly_replenishment: summary.monthly_replenishment ?? 0,
 
-      ops_capital: details.ops_capital || goal.originalData?.ops_capital || 0,
-      ipk_current: details.state_pension?.ipk_current || details.ipk_current || goal.originalData?.ipk_current || summary.ipk_current || 0,
-      risk_profile: details.risk_profile || summary.risk_profile || goal.originalData?.risk_profile || 'BALANCED',
-      inflation_rate: details.inflation_rate || goal.originalData?.inflation_rate || summary.inflation_rate || 0,
+      ops_capital: details.ops_capital ?? goal.originalData?.ops_capital ?? 0,
+      ipk_current: details.state_pension?.ipk_current ?? details.ipk_current ?? goal.originalData?.ipk_current ?? summary.ipk_current ?? 0,
+      risk_profile: details.risk_profile ?? summary.risk_profile ?? goal.originalData?.risk_profile ?? 'BALANCED',
+      inflation_rate: details.inflation_rate ?? goal.originalData?.inflation_rate ?? summary.inflation_rate ?? 0,
     };
 
     setEditForm(initialForm);
@@ -931,27 +931,16 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                       max={field.max || 10000000}
                       step={field.step || 1}
                       onChange={(val: number) => {
-                        // Mutually Exclusive Logic for Direct/Reverse Modes
-                        const updates: any = { [field.key]: val };
+                        setEditForm(prev => {
+                          const updates: any = { [field.key]: val };
 
-                        // If user changes target_amount -> reset monthly_replenishment (Reverse Mode)
-                        if (field.key === 'target_amount') {
-                          updates['monthly_replenishment'] = 0;
-                        }
+                          // If user changes target_amount -> reset monthly_replenishment (Reverse Mode)
+                          if (field.key === 'target_amount') {
+                            updates['monthly_replenishment'] = 0;
+                          }
 
-                        // If user changes monthly_replenishment -> reset target_amount (Direct Mode)
-                        // Note: For Pension/Passive/Purchase, the API ignores target_amount in Direct mode, 
-                        // but visually it might be confusing if we don't handle it.
-                        // However, strictly adhering to the prompt: "Трогаете 'Взнос' — считаем 'что получится'".
-                        // We can keep target_amount as is (it becomes just a reference/gap comparator), OR we can visually disable it.
-                        // Let's NOT zero out target_amount, as the user might want to compare against it.
-                        // But we definitely need to ensure one slider affects the mode.
-
-                        // WAIT! The requirement says:
-                        // "Трогаете 'Желаемую сумму' — сбрасываем взнос" -> implemented above.
-                        // "Трогаете 'Взнос' — считаем 'что получится'" -> implies we just send val > 0.
-
-                        setEditForm({ ...editForm, ...updates });
+                          return { ...prev, ...updates };
+                        });
                       }}
                       format={field.type === 'currency' ? formatCurrency : (field.type === 'percent' ? (val: number) => `${val}%` : undefined)}
                     />
