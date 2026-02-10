@@ -238,33 +238,47 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   };
 
   const onSubmitEdit = () => {
-    console.log('onSubmitEdit called', { onRecalculate, editingGoal });
+    console.log('onSubmitEdit (v2) called', { onRecalculate, editingGoal });
     if (!onRecalculate || !editingGoal) return;
 
-    // PARTIAL UPDATE Logic
-    // We send only the modified goal in the goals array.
+    // 1. Get original fields from goal's originalData (input parameters)
+    const originalFields = editingGoal.originalData?.goal_input || {};
+
+    // 2. Build payload with ONLY changed fields
     const goalPayload: any = {
-      id: editingGoal.id,
-      goal_type_id: editingGoal.goalTypeId,
-      ...editForm,
+      goal_id: editingGoal.id
     };
 
-    // Calculate original monthly replenishment to detect if user changed it
+    let hasChanges = false;
+    Object.keys(editForm).forEach(key => {
+      const val = (editForm as any)[key];
+      const origVal = originalFields[key];
+
+      // Compare values to detect change (simple comparison for numbers/strings)
+      if (val !== origVal) {
+        goalPayload[key] = val;
+        hasChanges = true;
+      }
+    });
+
+    if (!hasChanges) {
+      console.log('No changes detected in goal form');
+      setEditingGoal(null);
+      return;
+    }
+
+    // Special logic for monthly_replenishment (if it was calculated but now user touched it)
     const summary = editingGoal.originalData?.summary || {};
-    const originalReplenishment = summary.monthly_replenishment || 0;
+    const originalCalculatedReplenishment = summary.monthly_replenishment || 0;
 
-    // Check if user actually CHANGED the monthly_replenishment
-    // If it matches the original calculated value, we assume user didn't touch it -> treated as Auto/Reverse (0)
-    if ((editForm.monthly_replenishment || 0) === originalReplenishment && (editForm.monthly_replenishment || 0) > 0) {
-      goalPayload.monthly_replenishment = 0;
+    // If user set monthly_replenishment to something other than what was calculated
+    if (goalPayload.monthly_replenishment !== undefined && goalPayload.monthly_replenishment === originalCalculatedReplenishment) {
+      // If it matches exactly what was calculated, maybe user didn't mean to "fix" it?
+      // But in v2, the backend expects ONLY what needs to be updated.
     }
 
-    // If Direct Mode (monthly_replenishment > 0 after check), do not send target_amount to avoid confusing the backend
-    if (goalPayload.monthly_replenishment && goalPayload.monthly_replenishment > 0) {
-      delete goalPayload.target_amount;
-    }
-
-    onRecalculate({ goals: [goalPayload] });
+    // Important: send flat payload without { goals: [...] } wrapper per requirement
+    onRecalculate(goalPayload);
     setEditingGoal(null);
   };
 
