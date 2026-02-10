@@ -973,7 +973,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                   <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '16px 0' }}></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '8px' }}>
                     <span style={{ opacity: 0.7 }}>Стартовый капитал</span>
-                    <span style={{ fontWeight: '600' }}>{formatCurrency(editingGoal.initialCapital)}</span>
+                    <span style={{ fontWeight: '600' }}>{formatCurrency(editForm.initial_capital ?? editingGoal.initialCapital)}</span>
                   </div>
                   {editingGoal.yieldPercent !== undefined && editingGoal.yieldPercent > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>

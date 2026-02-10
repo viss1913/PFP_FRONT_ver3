@@ -114,17 +114,28 @@ function App() {
 
     const handleRecalculate = async (payload: any) => {
         console.log('handleRecalculate called with payload:', payload);
-        console.log('Current selectedClient:', selectedClient);
 
-        if (!selectedClient) {
-            console.error('No selected client! Cannot recalculate.');
-            alert('Ошибка: Клиент не выбран. Невозможно выполнить пересчет.');
+        // Robust clientId resolution
+        const clientId = selectedClient?.id || calculationResult?.client_id || calculationResult?.id || calculationResult?.summary?.client_id;
+
+        console.log('Current selectedClient:', selectedClient);
+        console.log('CalculationResult clientId:', calculationResult?.client_id);
+
+        if (!clientId) {
+            console.error('No selected client or clientId found! Cannot recalculate.', { selectedClient, calculationResult });
+            alert('Ошибка: Клиент не выбран (ID не найден).');
             return;
         }
+
+        // If we have clientId but no selectedClient, try to recover it silently
+        if (!selectedClient && clientId) {
+            clientApi.getClient(clientId).then(setSelectedClient).catch(console.error);
+        }
+
         setLoadingPlan(true);
         try {
-            console.log(`Sending recalculate request to /client/${selectedClient.id}/recalculate`);
-            const result = await clientApi.recalculate(selectedClient.id, payload);
+            console.log(`Sending recalculate request to /client/${clientId}/recalculate`);
+            const result = await clientApi.recalculate(clientId, payload);
             console.log('Recalculate success:', result);
 
             setCalculationResult(result);
