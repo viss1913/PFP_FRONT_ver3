@@ -216,22 +216,23 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   const handleEditGoal = (goal: GoalResult) => {
     setEditingGoal(goal);
 
-    // Pull fields from originalData to support smart merging
+    // CRITICAL: Pull fields from goal_input (user inputs) FIRST, fallback to results
+    const input = goal.originalData?.goal_input || {};
     const summary = goal.originalData?.summary || {};
     const details = goal.originalData?.details || {};
 
     const initialForm: EditFormState = {
       name: goal.name,
-      // Fallback chain: specific details -> summary -> top level legacy -> default
-      target_amount: details.target_amount ?? summary.target_amount ?? summary.target_amount_initial ?? goal.targetAmount ?? 0,
-      term_months: details.term_months ?? summary.target_months ?? goal.termMonths ?? 0,
-      initial_capital: summary.initial_capital ?? goal.initialCapital ?? 0,
-      monthly_replenishment: summary.monthly_replenishment ?? 0,
+      // Priority: User Input -> Calculated Result -> Legacy Field -> Default
+      target_amount: input.target_amount ?? details.target_amount ?? summary.target_amount ?? goal.targetAmount ?? 0,
+      term_months: input.term_months ?? details.term_months ?? summary.target_months ?? goal.termMonths ?? 0,
+      initial_capital: input.initial_capital ?? summary.initial_capital ?? goal.initialCapital ?? 0,
+      monthly_replenishment: input.monthly_replenishment ?? summary.monthly_replenishment ?? 0,
 
-      ops_capital: details.ops_capital ?? goal.originalData?.ops_capital ?? 0,
-      ipk_current: details.state_pension?.ipk_current ?? details.ipk_current ?? goal.originalData?.ipk_current ?? summary.ipk_current ?? 0,
-      risk_profile: details.risk_profile ?? summary.risk_profile ?? goal.originalData?.risk_profile ?? 'BALANCED',
-      inflation_rate: details.inflation_rate ?? goal.originalData?.inflation_rate ?? summary.inflation_rate ?? 0,
+      ops_capital: input.ops_capital ?? details.ops_capital ?? goal.originalData?.ops_capital ?? 0,
+      ipk_current: input.ipk_current ?? details.state_pension?.ipk_current ?? details.ipk_current ?? goal.originalData?.ipk_current ?? 0,
+      risk_profile: input.risk_profile ?? details.risk_profile ?? summary.risk_profile ?? 'BALANCED',
+      inflation_rate: input.inflation_rate ?? details.inflation_rate ?? goal.originalData?.inflation_rate ?? 0,
     };
 
     setEditForm(initialForm);
@@ -943,16 +944,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                       max={field.max || 10000000}
                       step={field.step || 1}
                       onChange={(val: number) => {
-                        setEditForm(prev => {
-                          const updates: any = { [field.key]: val };
-
-                          // If user changes target_amount -> reset monthly_replenishment (Reverse Mode)
-                          if (field.key === 'target_amount') {
-                            updates['monthly_replenishment'] = 0;
-                          }
-
-                          return { ...prev, ...updates };
-                        });
+                        setEditForm(prev => ({ ...prev, [field.key]: val }));
                       }}
                       format={field.type === 'currency' ? formatCurrency : (field.type === 'percent' ? (val: number) => `${val}%` : undefined)}
                     />
