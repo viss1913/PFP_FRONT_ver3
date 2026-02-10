@@ -23,15 +23,7 @@ export const agentConstructorApi = {
     },
 
     // Клиенты
-    getClients: async (page = 1, limit = 50): Promise<{
-        data: AgentClient[];
-        pagination: {
-            total: number;
-            page: number;
-            limit: number;
-            totalPages: number;
-        };
-    }> => {
+    getClients: async (page = 1, limit = 50): Promise<any> => {
         const response = await axios.get(`${API_BASE}/clients`, {
             params: { page, limit },
             headers: getHeaders()

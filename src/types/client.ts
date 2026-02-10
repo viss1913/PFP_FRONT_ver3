@@ -4,7 +4,7 @@ export interface Client {
     last_name: string; // Required in API, but might be empty if we only have FIO string
     middle_name?: string;
     birth_date?: string;
-    sex?: 'male' | 'female';
+    gender?: 'male' | 'female';
     phone?: string;
     email?: string;
     avg_monthly_income?: number;
@@ -95,7 +95,7 @@ export interface CalculationGoal {
 
 export interface CalculationClientData {
     birth_date?: string;
-    sex?: string;
+    gender?: string;
     avg_monthly_income?: number;
     total_liquid_capital?: number;
     // Add other fields from ClientData schema if needed

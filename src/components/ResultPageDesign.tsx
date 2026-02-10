@@ -265,23 +265,15 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     setEditingGoal(null);
   };
 
-  // Access data from the nested 'calculation' object if it exists. 
-  // We need to handle potential double nesting: calculationData.calculation.calculation
-  let calcRoot = calculationData || {};
-  if (calcRoot.calculation) {
-    calcRoot = calcRoot.calculation;
-    if (calcRoot.calculation) {
-      calcRoot = calcRoot.calculation;
-    }
-  }
-
+  // Access data directly from the root structure: { client_id, summary, goals }
+  const calcRoot = calculationData || {};
   const calculatedGoals = calcRoot.goals || [];
 
   // Extract Allocations
-  // New structure: calculationData.calculation.calculation.summary.consolidated_portfolio
+  // New structure: calculationData.summary.consolidated_portfolio
   const consolidatedPortfolio = calcRoot?.summary?.consolidated_portfolio;
 
-  const assetsAllocation = consolidatedPortfolio?.assets_allocation || calcRoot?.assets_allocation || [];
+  const assetsAllocation = consolidatedPortfolio?.assets_allocation || [];
 
   // Normalization for Cash Flow: convert annual to monthly
   const rawCashFlow = consolidatedPortfolio?.cash_flow_allocation || calcRoot?.cash_flow_allocation || [];

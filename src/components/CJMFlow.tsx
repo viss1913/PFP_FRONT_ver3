@@ -186,7 +186,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                 goals: goalsPayload,
                 client: {
                     birth_date: new Date(new Date().getFullYear() - data.age, 0, 1).toISOString().split('T')[0],
-                    sex: data.gender,
+                    gender: data.gender,
                     avg_monthly_income: data.avgMonthlyIncome,
                     total_liquid_capital: assetsInitial,
                     // New fields
@@ -260,7 +260,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     // Map API client to CJMData
                     setData(prev => ({
                         ...prev,
-                        gender: client.sex || 'male',
+                        gender: client.gender || 'male',
                         age: client.birth_date ? new Date().getFullYear() - new Date(client.birth_date).getFullYear() : 35,
                         fio: `${client.first_name || ''} ${client.last_name || ''} ${client.middle_name || ''}`.trim(),
                         phone: client.phone,

@@ -62,13 +62,7 @@ function App() {
                 console.error('Failed to fetch client after creation:', err);
             }
 
-            if (result.calculation) {
-                // Check for nested calculation structure as seen in verify script
-                const finalCalc = result.calculation.calculation || result.calculation;
-                setCalculationResult(finalCalc);
-            } else {
-                setCalculationResult(result);
-            }
+            setCalculationResult(result);
         }
         // Fallback or legacy structures
         else if (result?.client) {
@@ -99,9 +93,7 @@ function App() {
 
             if (fullClient.goals_summary) {
                 // If client has a saved plan, show it
-                // Handle nested structure if necessary
-                const finalCalc = fullClient.goals_summary.calculation || fullClient.goals_summary;
-                setCalculationResult(finalCalc);
+                setCalculationResult(fullClient.goals_summary);
                 setCurrentPage('result');
             } else {
                 // Otherwise open CJM flow for editing/creation
@@ -132,9 +124,7 @@ function App() {
             const result = await clientApi.recalculate(selectedClient.id, payload);
             console.log('Recalculate success:', result);
 
-            // Handle nested calculation result
-            const finalCalc = result?.calculation?.calculation || result?.calculation || result;
-            setCalculationResult(finalCalc);
+            setCalculationResult(result);
         } catch (error) {
             console.error('Recalculation failed:', error);
             alert('Не удалось произвести пересчет. Проверьте данные.');
@@ -151,9 +141,7 @@ function App() {
             const result = await clientApi.addGoal(selectedClient.id, goal);
             console.log('addGoal success:', result);
 
-            // Handle nested calculation result
-            const finalCalc = result?.calculation?.calculation || result?.calculation || result;
-            setCalculationResult(finalCalc);
+            setCalculationResult(result);
 
             // After adding a goal, refresh client info
             const updatedClient = await clientApi.getClient(selectedClient.id);
@@ -177,9 +165,7 @@ function App() {
             const result = await clientApi.deleteGoal(selectedClient.id, goalId);
             console.log('deleteGoal success:', result);
 
-            // Handle nested calculation result
-            const finalCalc = result?.calculation?.calculation || result?.calculation || result;
-            setCalculationResult(finalCalc);
+            setCalculationResult(result);
 
             // Refresh client info
             const updatedClient = await clientApi.getClient(selectedClient.id);
