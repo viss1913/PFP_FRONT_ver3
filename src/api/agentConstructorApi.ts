@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { AgentBotConfig, AgentClient, AgentMessage } from '../types/agent';
+import type { AgentBotConfig, AgentMessage } from '../types/agent';
 
 const API_BASE = '/api/pfp/constructor';
 
