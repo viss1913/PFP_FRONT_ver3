@@ -56,6 +56,9 @@ interface GoalResult {
   portfolio_structure?: any;
   originalData?: any; // Full goal result from backend
   targetMonthlyIncome?: number;
+  yieldPercent?: number;
+  initialInstruments?: any[];
+  monthlyInstruments?: any[];
 }
 
 const GOAL_TYPE_CONFIGS: Record<number, GoalTypeConfig> = {
@@ -432,6 +435,9 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
       risks: details?.risks || [],
       assets_allocation: summary?.assets_allocation || details?.portfolio?.instruments || [],
       portfolio_structure: goalResult?.portfolio_structure || summary?.portfolio_structure,
+      yieldPercent: goalResult.accumulation_yield_percent || details?.accumulation_yield_percent || 0,
+      initialInstruments: details?.initial_instruments || [],
+      monthlyInstruments: details?.monthly_instruments || [],
       originalData: goalResult
     };
   });
@@ -959,43 +965,78 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                     <div style={{ fontSize: '14px', opacity: 0.9 }}>/ мес</div>
                   </div>
                   <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '16px 0' }}></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '8px' }}>
                     <span style={{ opacity: 0.7 }}>Стартовый капитал</span>
                     <span style={{ fontWeight: '600' }}>{formatCurrency(editingGoal.initialCapital)}</span>
                   </div>
+                  {editingGoal.yieldPercent !== undefined && editingGoal.yieldPercent > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                      <span style={{ opacity: 0.7 }}>Ожидаемая доходность</span>
+                      <span style={{ fontWeight: '600', color: '#34D399' }}>{editingGoal.yieldPercent}% год.</span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Goal Portfolio Distribution */}
-                {((editingGoal.portfolio_structure?.initial_instruments?.length || 0) > 0 || (editingGoal.assets_allocation?.length || 0) > 0) ? (
+                {/* Goal Portfolio Distribution (New Detailed View) */}
+                {(editingGoal.initialInstruments?.length || 0) > 0 || (editingGoal.monthlyInstruments?.length || 0) > 0 ? (
                   <div style={{ marginBottom: '32px' }}>
                     <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '16px', color: '#111827', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <div style={{ width: '4px', height: '18px', background: 'var(--primary)', borderRadius: '2px' }}></div>
-                      Портфель цели
+                      Предлагаемый портфель
                     </h3>
-                    <div style={{ background: '#F9FAFB', borderRadius: '24px', padding: '24px', border: '1px solid #F3F4F6' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {(editingGoal.portfolio_structure?.initial_instruments || editingGoal.assets_allocation || []).map((item: any, idx: number) => (
-                          <div key={idx}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', fontSize: '14px' }}>
-                              <span style={{ fontWeight: '500', color: '#374151', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                {item.name}
-                                {item.yield !== undefined && (
-                                  <span style={{ fontSize: '11px', padding: '2px 6px', background: '#ECFDF5', color: '#059669', borderRadius: '4px', fontWeight: '600' }}>
-                                    +{item.yield}%
-                                  </span>
-                                )}
-                              </span>
-                              <span style={{ fontWeight: '700', color: '#111827' }}>{item.share}%</span>
-                            </div>
-                            <div style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', overflow: 'hidden' }}>
-                              <div style={{ width: `${item.share}%`, height: '100%', background: 'var(--primary)', borderRadius: '3px' }}></div>
-                            </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      {/* Initial Portfolio */}
+                      {(editingGoal.initialInstruments?.length || 0) > 0 && (
+                        <div style={{ background: '#F9FAFB', borderRadius: '20px', padding: '20px', border: '1px solid #F3F4F6' }}>
+                          <div style={{ fontSize: '12px', fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.05em' }}>
+                            Стартовый портфель
                           </div>
-                        ))}
-                      </div>
-                      <div style={{ marginTop: '20px', padding: '12px', background: '#fff', borderRadius: '12px', fontSize: '13px', color: '#6B7280', textAlign: 'center', border: '1px solid #F3F4F6' }}>
-                        Фактический капитал: <span style={{ color: '#111827', fontWeight: '600' }}>{formatCurrency(editingGoal.initialCapital)}</span>
-                      </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {editingGoal.initialInstruments?.map((item: any, idx: number) => (
+                              <div key={idx}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                                  <div style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>{item.name}</div>
+                                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#111827' }}>{item.share}%</div>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                  <div style={{ fontSize: '12px', color: '#6B7280' }}>{formatCurrency(item.amount)}</div>
+                                  {item.yield && <div style={{ fontSize: '11px', color: '#059669' }}>+{item.yield}%</div>}
+                                </div>
+                                <div style={{ width: '100%', height: '4px', background: '#E5E7EB', borderRadius: '2px', overflow: 'hidden' }}>
+                                  <div style={{ width: `${item.share}%`, height: '100%', background: 'var(--primary)', borderRadius: '2px' }}></div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Monthly Portfolio */}
+                      {(editingGoal.monthlyInstruments?.length || 0) > 0 && (
+                        <div style={{ background: '#F9FAFB', borderRadius: '20px', padding: '20px', border: '1px solid #F3F4F6' }}>
+                          <div style={{ fontSize: '12px', fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.05em' }}>
+                            Ежемесячный портфель
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {editingGoal.monthlyInstruments?.map((item: any, idx: number) => (
+                              <div key={idx}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                                  <div style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>{item.name}</div>
+                                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#111827' }}>{item.share}%</div>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                  <div style={{ fontSize: '12px', color: '#6B7280' }}>{formatCurrency(item.amount)} / мес</div>
+                                  {item.yield && <div style={{ fontSize: '11px', color: '#059669' }}>+{item.yield}%</div>}
+                                </div>
+                                <div style={{ width: '100%', height: '4px', background: '#E5E7EB', borderRadius: '2px', overflow: 'hidden' }}>
+                                  <div style={{ width: `${item.share}%`, height: '100%', background: 'var(--secondary)', borderRadius: '2px' }}></div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : editingGoal.goalTypeId !== 5 && (

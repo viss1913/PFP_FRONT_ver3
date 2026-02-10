@@ -46,20 +46,23 @@ function App() {
     const handleCalculationComplete = async (result: any) => {
         console.log('Calculation Complete. Result:', result);
 
-        // Handle FirstRun response structure: { client_id, calculation }
-        if (result?.client_id) {
-            console.log('Got client_id from firstRun:', result.client_id);
+        // Handle FirstRun response structure: { client_id, summary, goals }
+        const clientId = result?.client_id || result?.id || result?.summary?.client_id;
+
+        if (clientId) {
+            console.log('Resolved clientId for recalculation:', clientId);
             try {
-                const fullClient = await clientApi.getClient(result.client_id);
-                console.log('Fetched full client after firstRun:', fullClient);
-                // CRITICAL: Ensure ID is preserved if API doesn't return it in fullClient object
+                const fullClient = await clientApi.getClient(clientId);
+                console.log('Fetched full client after calculation:', fullClient);
+                // CRITICAL: Ensure ID is preserved
                 if (!fullClient.id) {
-                    console.log('API response missing client.id, using client_id from firstRun:', result.client_id);
-                    fullClient.id = result.client_id;
+                    fullClient.id = clientId;
                 }
                 setSelectedClient(fullClient);
             } catch (err) {
-                console.error('Failed to fetch client after creation:', err);
+                console.error('Failed to fetch client after calculation:', err);
+                // Fallback: at least set a minimal client object with ID
+                setSelectedClient(prev => prev || { id: clientId } as any);
             }
 
             setCalculationResult(result);
