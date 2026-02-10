@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
-import { Plus, Trash2, Wallet } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import type { CJMData } from '../CJMFlow';
-import type { Asset, AssetType } from '../../types/client';
+import type { Asset } from '../../types/client';
 
 interface StepAssetsProps {
     data: CJMData;
@@ -10,83 +9,37 @@ interface StepAssetsProps {
     onPrev: () => void;
 }
 
-const ASSET_TYPES: { type: AssetType; label: string }[] = [
-    { type: 'DEPOSIT', label: 'Вклад' },
-    { type: 'CASH', label: 'Наличные' },
-    { type: 'BROKERAGE', label: 'Брокерский счет' },
-    { type: 'PDS', label: 'ПДС' },
-    { type: 'NSJ', label: 'НСЖ' },
-    { type: 'IIS', label: 'ИИС' },
-    { type: 'REAL_ESTATE', label: 'Недвижимость' },
-    { type: 'CRYPTO', label: 'Криптовалюта' },
-    { type: 'OTHER', label: 'Другое' },
-];
-
 const StepAssets: React.FC<StepAssetsProps> = ({ data, setData, onNext, onPrev }) => {
-    const [isAdding, setIsAdding] = useState(false);
-    const [newAsset, setNewAsset] = useState<Partial<Asset>>({
-        type: 'DEPOSIT',
-        name: '',
-        current_value: 0,
-        currency: 'RUB'
-    });
+    // Initialize with existing cash value or 0
+    const [value, setValue] = useState<number>(0);
 
-    const assets = data.assets || [];
-    const totalAssets = assets.reduce((sum, a) => sum + (a.current_value || 0), 0);
+    // Sync local state with data on mount
+    useEffect(() => {
+        const existingCash = data.assets?.find(a => a.type === 'CASH')?.current_value || 0;
+        setValue(existingCash);
+    }, []); // Run once on mount to get initial value from data
 
     const formatNumber = (val: number) => new Intl.NumberFormat('ru-RU').format(val);
 
-    // Sync logic: Only run once or conditionally
-    React.useEffect(() => {
-        const investGoal = data.goals?.find(g => g.goal_type_id === 3);
-        if (investGoal && investGoal.initial_capital && investGoal.initial_capital > 0) {
-            // Check if we already have 'Cash' from this goal or similar
-            const hasCash = assets.some(a => a.type === 'CASH');
-            if (!hasCash) {
-                const cashAsset: Asset = {
-                    type: 'CASH',
-                    name: 'Наличные (из цели)',
-                    current_value: investGoal.initial_capital,
-                    currency: 'RUB'
-                };
-                setData(prev => ({
-                    ...prev,
-                    assets: [...(prev.assets || []), cashAsset]
-                }));
-            }
-        }
-    }, []); // Run on mount
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const rawValue = e.target.value.replace(/\D/g, '');
+        const numValue = Number(rawValue);
 
-    const handleAdd = () => {
-        if (!newAsset.current_value || !newAsset.type) return;
+        setValue(numValue);
 
-        const assetTypeLabel = ASSET_TYPES.find(t => t.type === newAsset.type)?.label || newAsset.type;
-
-        const assetToAdd: Asset = {
-            type: newAsset.type as AssetType,
-            name: assetTypeLabel || 'Актив',
-            current_value: Number(newAsset.current_value),
+        // Update global state immediately
+        // We replace the entire assets array with a single CASH asset as requested
+        const newAsset: Asset = {
+            type: 'CASH',
+            name: 'Наличные',
+            current_value: numValue,
             currency: 'RUB'
         };
 
         setData(prev => ({
             ...prev,
-            assets: [...(prev.assets || []), assetToAdd]
+            assets: [newAsset]
         }));
-        setNewAsset({ type: 'DEPOSIT', name: '', current_value: 0, currency: 'RUB' });
-        setIsAdding(false);
-    };
-
-    const handleRemove = (index: number) => {
-        setData(prev => ({
-            ...prev,
-            assets: prev.assets?.filter((_, i) => i !== index)
-        }));
-    };
-
-    const handleNumberInput = (val: string) => {
-        const numeric = val.replace(/\D/g, '');
-        setNewAsset({ ...newAsset, current_value: Number(numeric) });
     };
 
     return (
@@ -96,144 +49,44 @@ const StepAssets: React.FC<StepAssetsProps> = ({ data, setData, onNext, onPrev }
                 <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
                     Укажите, что у вас уже есть. Это сформирует ваш стартовый капитал.
                 </p>
-                <div style={{
-                    marginTop: '16px',
-                    padding: '16px',
-                    background: 'rgba(255, 199, 80, 0.1)',
-                    borderRadius: '12px',
-                    display: 'inline-block'
-                }}>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Итого активов</div>
-                    <div style={{ fontSize: '24px', fontWeight: '700', color: 'var(--primary)' }}>
-                        {totalAssets.toLocaleString('ru-RU')} ₽
-                    </div>
-                </div>
             </div>
 
-            <div className="assets-list" style={{ marginBottom: '24px' }}>
-                {assets.map((asset, index) => (
-                    <div key={index} style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '16px',
-                        background: 'rgba(255,255,255,0.05)',
-                        borderRadius: '12px',
-                        marginBottom: '8px'
-                    }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <div style={{
-                                width: '32px', height: '32px',
-                                background: 'rgba(255,255,255,0.1)',
-                                borderRadius: '8px',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center'
-                            }}>
-                                <Wallet size={16} />
-                            </div>
-                            <div>
-                                <div style={{ fontSize: '14px', fontWeight: '600' }}>{asset.name}</div>
-                                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                                    {ASSET_TYPES.find(t => t.type === asset.type)?.label}
-                                </div>
-                            </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                            <span style={{ fontWeight: '600' }}>{asset.current_value.toLocaleString('ru-RU')} ₽</span>
-                            <button
-                                onClick={() => handleRemove(index)}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ff4d4d', padding: '4px' }}
-                            >
-                                <Trash2 size={16} />
-                            </button>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            {isAdding ? (
-                <div style={{
-                    padding: '24px',
-                    background: 'var(--card-bg)',
-                    backdropFilter: 'blur(20px)',
-                    borderRadius: '20px',
-                    marginBottom: '24px',
-                    border: '1px solid var(--border-color)',
-                    boxShadow: 'var(--shadow-soft)'
-                }}>
-                    <h3 style={{ fontSize: '20px', marginBottom: '20px', fontWeight: '700', color: 'var(--text-main)' }}>Добавить актив</h3>
-
-                    <div className="input-group">
-                        <label className="label">Тип актива</label>
-                        <select
-                            value={newAsset.type}
-                            onChange={(e) => setNewAsset({ ...newAsset, type: e.target.value as AssetType })}
-                            style={{
-                                width: '100%',
-                                padding: '16px 20px',
-                                background: 'rgba(255, 255, 255, 0.8)',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: '16px',
-                                color: 'var(--text-main)',
-                                fontSize: '16px',
-                                outline: 'none',
-                                transition: 'all 0.2s ease',
-                                backdropFilter: 'blur(10px)'
-                            }}
-                        >
-                            {ASSET_TYPES.map(t => (
-                                <option key={t.type} value={t.type} style={{ background: 'var(--card-bg)', color: 'var(--text-main)' }}>{t.label}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="input-group">
-                        <label className="label">Сумма (₽)</label>
-                        <input
-                            type="text"
-                            value={formatNumber(newAsset.current_value || 0)}
-                            onChange={(e) => handleNumberInput(e.target.value)}
-                            placeholder="0"
-                        />
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                        <button
-                            className="btn-primary"
-                            onClick={handleAdd}
-                            disabled={!newAsset.current_value}
-                        >
-                            Добавить
-                        </button>
-                        <button
-                            className="btn-secondary"
-                            onClick={() => setIsAdding(false)}
-                        >
-                            Отмена
-                        </button>
-                    </div>
+            <div style={{
+                padding: '32px',
+                background: 'var(--card-bg)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: '24px',
+                marginBottom: '32px',
+                border: '1px solid var(--border-color)',
+                boxShadow: 'var(--shadow-soft)',
+                maxWidth: '500px',
+                margin: '0 auto 32px auto' // Center the card
+            }}>
+                <div className="input-group">
+                    <label className="label" style={{ display: 'block', marginBottom: '12px', fontSize: '16px', color: 'var(--text-muted)', textAlign: 'center' }}>
+                        Первоначальный капитал
+                    </label>
+                    <input
+                        type="text"
+                        value={formatNumber(value)}
+                        onChange={handleChange}
+                        placeholder="0"
+                        style={{
+                            width: '100%',
+                            padding: '24px',
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '20px',
+                            color: 'var(--primary)', // Highlight the money value
+                            fontSize: '32px',
+                            fontWeight: '700',
+                            outline: 'none',
+                            transition: 'all 0.2s ease',
+                            textAlign: 'center'
+                        }}
+                    />
                 </div>
-            ) : (
-                <button
-                    onClick={() => setIsAdding(true)}
-                    style={{
-                        width: '100%',
-                        padding: '16px',
-                        borderRadius: '16px',
-                        border: '2px dashed rgba(255,255,255,0.2)',
-                        background: 'none',
-                        color: 'var(--text-muted)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        marginBottom: '32px'
-                    }}
-                >
-                    <Plus size={20} />
-                    Добавить актив
-                </button>
-            )}
+            </div>
 
             <div style={{ display: 'flex', gap: '16px' }}>
                 <button className="btn-secondary" onClick={onPrev} style={{ flex: 1 }}>
