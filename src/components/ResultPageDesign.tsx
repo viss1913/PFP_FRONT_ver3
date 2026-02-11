@@ -5,6 +5,16 @@ import { PortfolioDistribution } from './PortfolioDistribution';
 import { formatMonthsToDate } from '../utils/dateUtils';
 import AddGoalModal from './AddGoalModal';
 
+// Specialized Recalculate Forms
+import PensionForm from './recalculate-forms/PensionForm';
+import PassiveIncomeForm from './recalculate-forms/PassiveIncomeForm';
+import InvestmentForm from './recalculate-forms/InvestmentForm';
+import PurchaseForm from './recalculate-forms/PurchaseForm';
+import LifeInsuranceForm from './recalculate-forms/LifeInsuranceForm';
+import FinReserveForm from './recalculate-forms/FinReserveForm';
+import RentForm from './recalculate-forms/RentForm';
+import type { BaseFormProps } from './recalculate-forms/SharedFields';
+
 interface ResultPageDesignProps {
   calculationData: any;
   client?: any;
@@ -16,173 +26,6 @@ interface ResultPageDesignProps {
   isCalculating?: boolean;
 }
 
-interface GoalField {
-  key: string;
-  label: string;
-  min?: number;
-  max?: number;
-  step?: number;
-  type: 'currency' | 'percent' | 'number' | 'select';
-  options?: string[];
-}
-
-interface GoalTypeConfig {
-  fields: GoalField[];
-}
-
-export interface GoalCardSlot {
-  label: string;
-  value: string;
-}
-
-interface GoalResult {
-  id: number;
-  name: string;
-  // Fields for editing (keep existing logic for simple access in edit form)
-  targetAmount: number;
-  initialCapital: number;
-  monthlyPayment: number;
-  termMonths: number;
-
-  goalType?: string;
-  goalTypeId?: number;
-
-  // New: Standardized display slots
-  displaySlots: GoalCardSlot[];
-
-  // Specific fields for specialized cards (legacy or specific use)
-  totalPremium?: number; // unified premium
-  risks?: any[];
-  assets_allocation?: any[];
-  portfolio_structure?: any;
-  originalData?: any; // Full goal result from backend
-  targetMonthlyIncome?: number;
-  yieldPercent?: number;
-  initialInstruments?: any[];
-  monthlyInstruments?: any[];
-}
-
-const GOAL_TYPE_CONFIGS: Record<number, GoalTypeConfig> = {
-  1: { // PENSION
-    fields: [
-      { key: 'target_amount', label: 'Желаемый доход (р/мес)', min: 20000, max: 1000000, step: 5000, type: 'currency' },
-      { key: 'initial_capital', label: 'Первоначальный капитал', min: 0, max: 50000000, step: 100000, type: 'currency' },
-      { key: 'ops_capital', label: 'Капитал в ОПС (накопительная)', min: 0, max: 5000000, step: 10000, type: 'currency' },
-      { key: 'ipk_current', label: 'Текущие баллы ИПК (СФР)', min: 0, max: 300, step: 1, type: 'number' },
-      { key: 'inflation_rate', label: 'Инфляция (%)', min: 0, max: 20, step: 0.5, type: 'percent' },
-      { key: 'monthly_replenishment', label: 'Ваш взнос (Прямой расчет)', min: 0, max: 500000, step: 1000, type: 'currency' },
-      { key: 'risk_profile', label: 'Риск-профиль', type: 'select', options: ['CONSERVATIVE', 'BALANCED', 'AGGRESSIVE'] },
-    ]
-  },
-  2: { // PASSIVE_INCOME
-    fields: [
-      { key: 'target_amount', label: 'Желаемый доход', min: 10000, max: 2000000, step: 5000, type: 'currency' },
-      { key: 'monthly_replenishment', label: 'Ваш взнос (Прямой расчет)', min: 0, max: 1000000, step: 5000, type: 'currency' },
-      { key: 'term_months', label: 'Срок накопления (мес)', min: 12, max: 600, step: 12, type: 'number' },
-      { key: 'initial_capital', label: 'Стартовый капитал', min: 0, max: 100000000, step: 500000, type: 'currency' },
-      { key: 'risk_profile', label: 'Риск-профиль', type: 'select', options: ['CONSERVATIVE', 'BALANCED', 'AGGRESSIVE'] },
-    ]
-  },
-  5: { // LIFE
-    fields: [
-      { key: 'target_amount', label: 'Страховая сумма', min: 500000, max: 100000000, step: 500000, type: 'currency' },
-      { key: 'term_months', label: 'Срок программы (мес)', min: 60, max: 480, step: 12, type: 'number' },
-    ]
-  },
-  4: { // OTHER
-    fields: [
-      { key: 'target_amount', label: 'Стоимость покупки', min: 100000, max: 200000000, step: 500000, type: 'currency' },
-      { key: 'term_months', label: 'Срок до покупки (мес)', min: 1, max: 360, step: 1, type: 'number' },
-      { key: 'initial_capital', label: 'Стартовый капитал', min: 0, max: 50000000, step: 100000, type: 'currency' },
-      { key: 'monthly_replenishment', label: 'Ваш взнос (Прямой расчет)', min: 0, max: 1000000, step: 5000, type: 'currency' },
-      { key: 'inflation_rate', label: 'Инфляция объекта (%)', min: 0, max: 30, step: 1, type: 'percent' },
-      { key: 'risk_profile', label: 'Риск-профиль', type: 'select', options: ['CONSERVATIVE', 'BALANCED', 'AGGRESSIVE'] },
-    ]
-  },
-  3: { // INVESTMENT
-    fields: [
-      { key: 'term_months', label: 'Срок инвестирования (мес)', min: 12, max: 600, step: 12, type: 'number' },
-      { key: 'initial_capital', label: 'Стартовый капитал', min: 0, max: 100000000, step: 1000000, type: 'currency' },
-      { key: 'monthly_replenishment', label: 'Ежем. пополнение', min: 0, max: 5000000, step: 5000, type: 'currency' },
-      { key: 'risk_profile', label: 'Риск-профиль', type: 'select', options: ['CONSERVATIVE', 'BALANCED', 'AGGRESSIVE'] },
-    ]
-  },
-  7: { // FIN_RESERVE
-    fields: [
-      { key: 'initial_capital', label: 'Стартовый капитал', min: 0, max: 100000000, step: 50000, type: 'currency' },
-      { key: 'monthly_replenishment', label: 'Ежем. пополнение', min: 0, max: 5000000, step: 5000, type: 'currency' },
-      { key: 'term_months', label: 'Срок накопления (мес)', min: 1, max: 120, step: 1, type: 'number' },
-    ]
-  },
-  8: { // RENT
-    fields: [
-      { key: 'initial_capital', label: 'Стартовый капитал', min: 0, max: 100000000, step: 50000, type: 'currency' },
-      { key: 'risk_profile', label: 'Риск-профиль', type: 'select', options: ['CONSERVATIVE', 'BALANCED', 'AGGRESSIVE'] },
-    ]
-  }
-};
-
-interface SliderFieldProps {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (val: number) => void;
-  format?: (val: number) => string;
-}
-
-const SliderField: React.FC<SliderFieldProps> = ({ label, value, min, max, step, onChange, format }: SliderFieldProps) => {
-  return (
-    <div style={{ marginBottom: '24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-        <label style={{ fontSize: '14px', fontWeight: '600', color: '#666' }}>{label}</label>
-        <span style={{ fontSize: '16px', fontWeight: '700', color: 'var(--primary)' }}>
-          {format ? format(value) : value}
-        </span>
-      </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        style={{
-          width: '100%',
-          height: '6px',
-          background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${(value - min) / (max - min) * 100}%, #eee ${(value - min) / (max - min) * 100}%, #eee 100%)`,
-          borderRadius: '3px',
-          appearance: 'none',
-          outline: 'none',
-          cursor: 'pointer'
-        }}
-        className="custom-slider"
-      />
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '12px', color: '#999' }}>
-        <span>{format ? format(min) : min}</span>
-        <span>{format ? format(max) : max}</span>
-      </div>
-      <style>{`
-        .custom-slider::-webkit-slider-thumb {
-          appearance: none;
-          width: 20px;
-          height: 20px;
-          background: #fff;
-          border: 3px solid var(--primary);
-          border-radius: 50%;
-          cursor: pointer;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-          transition: transform 0.1s;
-        }
-        .custom-slider::-webkit-slider-thumb:hover {
-          transform: scale(1.1);
-        }
-      `}</style>
-    </div>
-  );
-};
-
 interface EditFormState {
   name: string;
   target_amount: number;
@@ -190,6 +33,7 @@ interface EditFormState {
   initial_capital: number;
   ops_capital?: number;
   ipk_current?: number;
+  desired_monthly_income?: number;
   risk_profile?: string;
   inflation_rate?: number;
   monthly_replenishment?: number;
@@ -228,6 +72,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
       name: goal.name,
       // Priority: User Input -> Calculated Result -> Legacy Field -> Default
       target_amount: input.target_amount ?? details.target_amount ?? summary.target_amount ?? goal.targetAmount ?? 0,
+      desired_monthly_income: input.desired_monthly_income ?? details.target_amount ?? summary.target_amount ?? 0,
       term_months: input.term_months ?? details.term_months ?? summary.target_months ?? goal.termMonths ?? 0,
       initial_capital: input.initial_capital ?? summary.initial_capital ?? goal.initialCapital ?? 0,
       monthly_replenishment: input.monthly_replenishment ?? summary.monthly_replenishment ?? 0,
@@ -478,6 +323,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
         const newSnapshot: EditFormState = {
           name: updatedGoal.name,
           target_amount: input.target_amount ?? details.target_amount ?? summary.target_amount ?? updatedGoal.targetAmount ?? 0,
+          desired_monthly_income: input.desired_monthly_income ?? details.target_amount ?? summary.target_amount ?? 0,
           term_months: input.term_months ?? details.term_months ?? summary.target_months ?? updatedGoal.termMonths ?? 0,
           initial_capital: input.initial_capital ?? summary.initial_capital ?? updatedGoal.initialCapital ?? 0,
           monthly_replenishment: input.monthly_replenishment ?? summary.monthly_replenishment ?? 0,
@@ -513,12 +359,13 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
       const normalizedVal = val ?? (typeof snapVal === 'number' ? 0 : '');
       const normalizedSnap = snapVal ?? (typeof val === 'number' ? 0 : '');
 
+      // Increased threshold to avoid jitter in financial calculations (e.g. 11920.37 vs 11920)
       const isChanged = typeof normalizedVal === 'number' && typeof normalizedSnap === 'number'
-        ? Math.abs(normalizedVal - normalizedSnap) > 0.1 // Using slightly larger threshold for safety
+        ? Math.abs(normalizedVal - normalizedSnap) > 1
         : String(normalizedVal) !== String(normalizedSnap);
 
       if (isChanged) {
-        console.log(`Change detected in field "${key}":`, { from: snapVal, to: val });
+        console.warn(`[AutoRecalc] DEVIATION in field "${key}":`, { from: snapVal, to: val });
         hasChanges = true;
       }
     });
@@ -526,7 +373,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     if (!hasChanges) return;
 
     const timer = setTimeout(() => {
-      console.log('Debounce completed! Auto-recalculating...');
+      console.log('Debounce completed! Auto-recalculating field changes...');
       onSubmitEdit();
     }, 1000);
 
@@ -973,59 +820,26 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
               {/* Left Column: Form */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
 
-                {/* Dynamic Fields from Config */}
-                {(GOAL_TYPE_CONFIGS[editingGoal.goalTypeId || 0]?.fields || [
-                  { key: 'target_amount', label: 'Целевая сумма', min: 100000, max: 100000000, step: 100000, type: 'currency' },
-                  { key: 'term_months', label: 'Срок (мес)', min: 1, max: 600, step: 1, type: 'number' },
-                  { key: 'initial_capital', label: 'Стартовый капитал', min: 0, max: 50000000, step: 100000, type: 'currency' },
-                ]).map((field: GoalField) => {
-                  if (field.type === 'select') {
-                    return (
-                      <div key={field.key} style={{ marginBottom: '24px' }}>
-                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#666' }}>
-                          {field.label}
-                        </label>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          {(field.options || []).map((opt: string) => (
-                            <button
-                              key={opt}
-                              onClick={() => setEditForm({ ...editForm, [field.key]: opt })}
-                              style={{
-                                flex: 1,
-                                padding: '12px',
-                                borderRadius: '12px',
-                                border: '2px solid',
-                                borderColor: editForm[field.key] === opt ? 'var(--primary)' : '#eee',
-                                background: editForm[field.key] === opt ? 'var(--primary-light)' : '#fff',
-                                color: editForm[field.key] === opt ? 'var(--primary)' : '#666',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                fontSize: '13px'
-                              }}
-                            >
-                              {opt}
-                            </button>
-                          ))}
-                        </div>
+                {/* Goal Selection Specific Form Component */}
+                {(() => {
+                  const props: BaseFormProps = { editForm, setEditForm, formatCurrency };
+                  const typeId = editingGoal.goalTypeId || 0;
+
+                  switch (typeId) {
+                    case 1: return <PensionForm {...props} />;
+                    case 2: return <PassiveIncomeForm {...props} />;
+                    case 3: return <InvestmentForm {...props} />;
+                    case 4: return <PurchaseForm {...props} />;
+                    case 5: return <LifeInsuranceForm {...props} />;
+                    case 7: return <FinReserveForm {...props} />;
+                    case 8: return <RentForm {...props} />;
+                    default: return (
+                      <div style={{ color: '#666', fontStyle: 'italic' }}>
+                        Форма редактирования для данного типа цели будет добавлена в ближайшее время.
                       </div>
                     );
                   }
-                  return (
-                    <SliderField
-                      key={field.key}
-                      label={field.label}
-                      value={editForm[field.key] || 0}
-                      min={field.min || 0}
-                      max={field.max || 10000000}
-                      step={field.step || 1}
-                      onChange={(val: number) => {
-                        setEditForm(prev => ({ ...prev, [field.key]: val }));
-                      }}
-                      format={field.type === 'currency' ? formatCurrency : (field.type === 'percent' ? (val: number) => `${val}%` : undefined)}
-                    />
-                  );
-                })}
+                })()}
               </div>
 
               {/* Right Column: Visualization & Risks */}

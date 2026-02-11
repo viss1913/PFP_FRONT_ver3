@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import './App.css'
 import LoginPage from './components/LoginPage'
 import CJMFlow from './components/CJMFlow'
@@ -113,7 +113,7 @@ function App() {
         }
     }
 
-    const handleRecalculate = async (payload: any) => {
+    const handleRecalculate = useCallback(async (payload: any) => {
         console.log('handleRecalculate called with payload:', payload);
 
         // Robust clientId resolution
@@ -153,7 +153,7 @@ function App() {
         } finally {
             setLoadingPlan(false);
         }
-    }
+    }, [selectedClient, calculationResult]);
 
     const handleAddGoal = async (goal: any) => {
         if (!selectedClient) return;
