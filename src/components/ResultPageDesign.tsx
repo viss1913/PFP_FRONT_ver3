@@ -15,6 +15,38 @@ import FinReserveForm from './recalculate-forms/FinReserveForm';
 import RentForm from './recalculate-forms/RentForm';
 import type { BaseFormProps } from './recalculate-forms/SharedFields';
 
+export interface GoalCardSlot {
+  label: string;
+  value: string;
+}
+
+interface GoalResult {
+  id: number;
+  name: string;
+  // Fields for editing (keep existing logic for simple access in edit form)
+  targetAmount: number;
+  initialCapital: number;
+  monthlyPayment: number;
+  termMonths: number;
+
+  goalType?: string;
+  goalTypeId?: number;
+
+  // New: Standardized display slots
+  displaySlots: GoalCardSlot[];
+
+  // Specific fields for specialized cards (legacy or specific use)
+  totalPremium?: number; // unified premium
+  risks?: any[];
+  assets_allocation?: any[];
+  portfolio_structure?: any;
+  originalData?: any; // Full goal result from backend
+  targetMonthlyIncome?: number;
+  yieldPercent?: number;
+  initialInstruments?: any[];
+  monthlyInstruments?: any[];
+}
+
 interface ResultPageDesignProps {
   calculationData: any;
   client?: any;
@@ -575,7 +607,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', position: 'relative', zIndex: 1 }}>
-                    {goal.displaySlots.map((slot, idx) => (
+                    {goal.displaySlots.map((slot: GoalCardSlot, idx: number) => (
                       <div key={idx}>
                         <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>{slot.label}</div>
                         <div style={{ fontSize: '18px', fontWeight: '700' }}>{slot.value}</div>
