@@ -212,6 +212,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     term_months: 0,
     initial_capital: 0
   });
+  const [snapshotForm, setSnapshotForm] = React.useState<EditFormState | null>(null);
 
   const handleEditGoal = (goal: GoalResult) => {
     setEditingGoal(goal);
@@ -236,6 +237,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     };
 
     setEditForm(initialForm);
+    setSnapshotForm(initialForm);
   };
 
   const onSubmitEdit = () => {
@@ -253,17 +255,21 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     let hasChanges = false;
     Object.keys(editForm).forEach(key => {
       const val = (editForm as any)[key];
-      const origVal = originalFields[key];
+      const snapVal = snapshotForm ? (snapshotForm as any)[key] : undefined;
 
-      // Compare values to detect change (simple comparison for numbers/strings)
-      if (val !== origVal) {
+      // Robust comparison (ignore small differences in floats, compare as strings/numbers)
+      const isChanged = typeof val === 'number' && typeof snapVal === 'number'
+        ? Math.abs(val - snapVal) > 0.01
+        : String(val) !== String(snapVal);
+
+      if (isChanged) {
         goalPayload[key] = val;
         hasChanges = true;
       }
     });
 
     if (!hasChanges) {
-      console.log('No changes detected in goal form');
+      console.log('No changes detected compared to snapshot');
       setEditingGoal(null);
       return;
     }
@@ -465,10 +471,31 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
         console.log('Syncing editingGoal with new calculationData', updatedGoal);
         setEditingGoal(updatedGoal);
 
-        // Optional: Update editForm to reflect any backend-calculated values (like monthly_replenishment)
-        // only if they were changed by the backend and not manually fixed by user?
-        // Actually, let's keep user inputs as they are, but if the backend returned a new monthly_replenishment,
-        // it's already shown in the right column visualization.
+        // Update snapshot to the newest stable state from backend
+        const input = updatedGoal.originalData?.goal_input || {};
+        const summary = updatedGoal.originalData?.summary || {};
+        const details = updatedGoal.originalData?.details || {};
+
+        const newSnapshot: EditFormState = {
+          name: updatedGoal.name,
+          target_amount: input.target_amount ?? details.target_amount ?? summary.target_amount ?? updatedGoal.targetAmount ?? 0,
+          term_months: input.term_months ?? details.term_months ?? summary.target_months ?? updatedGoal.termMonths ?? 0,
+          initial_capital: input.initial_capital ?? summary.initial_capital ?? updatedGoal.initialCapital ?? 0,
+          monthly_replenishment: input.monthly_replenishment ?? summary.monthly_replenishment ?? 0,
+          ops_capital: input.ops_capital ?? details.ops_capital ?? updatedGoal.originalData?.ops_capital ?? 0,
+          ipk_current: input.ipk_current ?? details.state_pension?.ipk_current ?? details.ipk_current ?? updatedGoal.originalData?.ipk_current ?? 0,
+          risk_profile: input.risk_profile ?? details.risk_profile ?? summary.risk_profile ?? 'BALANCED',
+          inflation_rate: input.inflation_rate ?? details.inflation_rate ?? updatedGoal.originalData?.inflation_rate ?? 0,
+        };
+
+        setSnapshotForm(newSnapshot);
+
+        // Sync calculated fields (like monthly_replenishment) INTO the form
+        // so if the user hasn't touched them, they stay updated with server results
+        setEditForm(prev => ({
+          ...prev,
+          monthly_replenishment: newSnapshot.monthly_replenishment
+        }));
       }
     }
   }, [calculationData]);
