@@ -304,6 +304,7 @@ function App() {
                         onRecalculate={handleRecalculate}
                         onAddGoal={handleAddGoal}
                         onDeleteGoal={handleDeleteGoal}
+                        isCalculating={loadingPlan}
                     />
                 </div>
             )}

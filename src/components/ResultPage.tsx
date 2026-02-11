@@ -12,9 +12,10 @@ interface ResultPageProps {
     onRecalculate?: (payload: any) => void;
     onAddGoal?: (goal: any) => void;
     onDeleteGoal?: (goalId: number) => void;
+    isCalculating?: boolean;
 }
 
-const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onRecalculate, onAddGoal, onDeleteGoal }) => {
+const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onRecalculate, onAddGoal, onDeleteGoal, isCalculating }) => {
     const [messages, setMessages] = useState<AiMessage[]>([]);
     const [isTyping, setIsTyping] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
@@ -94,6 +95,7 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
                     }
                 }}
                 onRecalculate={onRecalculate}
+                isCalculating={isCalculating}
             />
             <ChatWidget
                 messages={messages}

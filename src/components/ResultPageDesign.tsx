@@ -13,6 +13,7 @@ interface ResultPageDesignProps {
   onGoToReport?: () => void;
   onRecalculate?: (payload: any) => void;
   onRestart?: () => void;
+  isCalculating?: boolean;
 }
 
 interface GoalField {
@@ -203,6 +204,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   onGoToReport,
   onRecalculate,
   onRestart,
+  isCalculating,
 }: ResultPageDesignProps) => {
   const [editingGoal, setEditingGoal] = React.useState<GoalResult | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = React.useState(false);
@@ -499,28 +501,37 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
 
   // Debounced Auto-Recalculate
   React.useEffect(() => {
-    if (!editingGoal || !onRecalculate) return;
+    if (!editingGoal || !onRecalculate || isCalculating) return;
 
     // Check if there are changes before setting timer
     let hasChanges = false;
     Object.keys(editForm).forEach(key => {
       const val = (editForm as any)[key];
       const snapVal = snapshotForm ? (snapshotForm as any)[key] : undefined;
-      const isChanged = typeof val === 'number' && typeof snapVal === 'number'
-        ? Math.abs(val - snapVal) > 0.01
-        : String(val) !== String(snapVal);
-      if (isChanged) hasChanges = true;
+
+      // Handle null/undefined values by using default 0/"" for comparison
+      const normalizedVal = val ?? (typeof snapVal === 'number' ? 0 : '');
+      const normalizedSnap = snapVal ?? (typeof val === 'number' ? 0 : '');
+
+      const isChanged = typeof normalizedVal === 'number' && typeof normalizedSnap === 'number'
+        ? Math.abs(normalizedVal - normalizedSnap) > 0.1 // Using slightly larger threshold for safety
+        : String(normalizedVal) !== String(normalizedSnap);
+
+      if (isChanged) {
+        console.log(`Change detected in field "${key}":`, { from: snapVal, to: val });
+        hasChanges = true;
+      }
     });
 
     if (!hasChanges) return;
 
     const timer = setTimeout(() => {
-      console.log('Auto-recalculating due to form changes...');
+      console.log('Debounce completed! Auto-recalculating...');
       onSubmitEdit();
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [editForm, onRecalculate]);
+  }, [editForm, snapshotForm, onRecalculate, isCalculating]);
 
 
 
