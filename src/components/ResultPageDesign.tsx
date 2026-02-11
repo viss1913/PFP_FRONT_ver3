@@ -244,9 +244,6 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     console.log('onSubmitEdit (v2) called', { onRecalculate, editingGoal });
     if (!onRecalculate || !editingGoal) return;
 
-    // 1. Get original fields from goal's originalData (input parameters)
-    const originalFields = editingGoal.originalData?.goal_input || {};
-
     // 2. Build payload with ONLY changed fields
     const goalPayload: any = {
       goal_id: editingGoal.id
@@ -499,6 +496,31 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
       }
     }
   }, [calculationData]);
+
+  // Debounced Auto-Recalculate
+  React.useEffect(() => {
+    if (!editingGoal || !onRecalculate) return;
+
+    // Check if there are changes before setting timer
+    let hasChanges = false;
+    Object.keys(editForm).forEach(key => {
+      const val = (editForm as any)[key];
+      const snapVal = snapshotForm ? (snapshotForm as any)[key] : undefined;
+      const isChanged = typeof val === 'number' && typeof snapVal === 'number'
+        ? Math.abs(val - snapVal) > 0.01
+        : String(val) !== String(snapVal);
+      if (isChanged) hasChanges = true;
+    });
+
+    if (!hasChanges) return;
+
+    const timer = setTimeout(() => {
+      console.log('Auto-recalculating due to form changes...');
+      onSubmitEdit();
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [editForm, onRecalculate]);
 
 
 
@@ -1128,7 +1150,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                   boxShadow: '0 4px 12px rgba(194, 24, 91, 0.3)'
                 }}
               >
-                Сохранить и пересчитать
+                Сохранение...
               </button>
             </div>
           </div>
