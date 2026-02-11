@@ -47,6 +47,7 @@ function App() {
         console.log('Calculation Complete. Result:', result);
 
         // Handle FirstRun response structure: { client_id, summary, goals }
+        // NEW: client_id is now natively at the root
         const clientId = result?.client_id || result?.id || result?.summary?.client_id;
 
         if (clientId) {
@@ -124,7 +125,7 @@ function App() {
         if (!clientId) {
             console.error('No selected client or clientId found! Cannot recalculate.', { selectedClient, calculationResult });
             alert('Ошибка: Клиент не выбран (ID не найден).');
-            return;
+            return null;
         }
 
         // If we have clientId but no selectedClient, try to recover it silently
@@ -135,13 +136,20 @@ function App() {
         setLoadingPlan(true);
         try {
             console.log(`Sending recalculate request to /client/${clientId}/recalculate`);
-            const result = await clientApi.recalculate(clientId, payload);
+            // NEW: Adding client_id to the payload as requested
+            const finalPayload = {
+                ...payload,
+                client_id: clientId
+            };
+            const result = await clientApi.recalculate(clientId, finalPayload);
             console.log('Recalculate success:', result);
 
             setCalculationResult(result);
+            return result;
         } catch (error) {
             console.error('Recalculation failed:', error);
             alert('Не удалось произвести пересчет. Проверьте данные.');
+            return null;
         } finally {
             setLoadingPlan(false);
         }

@@ -280,7 +280,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
 
     // Important: send flat payload without { goals: [...] } wrapper per requirement
     onRecalculate(goalPayload);
-    setEditingGoal(null);
+    // REMOVED: setEditingGoal(null); // Don't close the window
   };
 
   // Access data directly from the root structure: { client_id, summary, goals }
@@ -432,8 +432,8 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     }
 
     const mappedName = mappedGoal?.name;
-    // Prio: 1. Name from Client (User input) 2. Name from Calculation Result (if backend passes it) 3. Default Title by Type 4. Fallback
-    const displayName = mappedName || goalResult.name || goalResult.goal_name || defaultTitle || 'Цель';
+    // Prio: 1. Name from Client (User input) 2. Name from Calculation Result (goal_name is now first in API) 3. Default Title by Type 4. Fallback
+    const displayName = mappedName || goalResult.goal_name || goalResult.name || defaultTitle || 'Цель';
 
     return {
       id: goalResult?.goal_id || 0,
@@ -456,6 +456,22 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
       originalData: goalResult
     };
   });
+
+  // Sync editingGoal with calculationData when it updates
+  React.useEffect(() => {
+    if (editingGoal) {
+      const updatedGoal = goalCards.find(g => g.id === editingGoal.id);
+      if (updatedGoal) {
+        console.log('Syncing editingGoal with new calculationData', updatedGoal);
+        setEditingGoal(updatedGoal);
+
+        // Optional: Update editForm to reflect any backend-calculated values (like monthly_replenishment)
+        // only if they were changed by the backend and not manually fixed by user?
+        // Actually, let's keep user inputs as they are, but if the backend returned a new monthly_replenishment,
+        // it's already shown in the right column visualization.
+      }
+    }
+  }, [calculationData]);
 
 
 
