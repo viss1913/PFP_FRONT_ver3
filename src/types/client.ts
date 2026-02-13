@@ -98,6 +98,7 @@ export interface CalculationClientData {
     gender?: string;
     avg_monthly_income?: number;
     total_liquid_capital?: number;
+    project_id?: number;
     // Add other fields from ClientData schema if needed
 }
 
