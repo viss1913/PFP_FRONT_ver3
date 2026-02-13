@@ -10,10 +10,30 @@ const api = axios.create({
     },
 });
 
-// Add request interceptor to inject the token
+// Helper to get project_id from localStorage
+const getProjectId = (): number => {
+    try {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+            const user = JSON.parse(userStr);
+            return user.projectId || user.project_id || 1;
+        }
+    } catch (e) {
+        console.error('Error parsing user from localStorage', e);
+    }
+    return 1; // Default fallback
+};
+
+const PROJECT_KEY = 'pk_proj_0e9fdde1e8cd961121906f04507af06e4afec281a58012c4';
+
+// Add request interceptor to inject the token and project key
 api.interceptors.request.use((config) => {
     const token = localStorage.getItem('token');
     console.log('API Request Interceptor:', config.url);
+
+    // Dynamic Multi-tenancy headers
+    config.headers['X-Project-Key'] = PROJECT_KEY;
+
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
         console.log('Token attached to header:', token.substring(0, 10) + '...');
@@ -50,19 +70,38 @@ export const clientApi = {
 
     // Existing calculation logic refactored
     calculate: async (payload: CalculatePayload): Promise<any> => {
-        const response = await api.post('/client/calculate', payload);
+        const enrichedPayload = {
+            ...payload,
+            client: {
+                ...payload.client,
+                project_id: payload.client?.project_id || getProjectId()
+            }
+        };
+        const response = await api.post('/client/calculate', enrichedPayload);
         return response.data;
     },
 
     // Create/Update First Run (create new client with full plan)
     firstRun: async (payload: any): Promise<any> => {
-        const response = await api.post('/client/first-run', payload);
+        const enrichedPayload = {
+            ...payload,
+            client: {
+                ...payload.client,
+                project_id: payload.client?.project_id || getProjectId()
+            }
+        };
+        const response = await api.post('/client/first-run', enrichedPayload);
         return response.data;
     },
 
     // Recalculate plan with updated parameters
     recalculate: async (id: number, payload: any): Promise<any> => {
-        const response = await api.post(`/client/${id}/recalculate`, payload);
+        const enrichedPayload = {
+            ...payload,
+            client_id: payload.client_id || id,
+            project_id: payload.project_id || getProjectId()
+        };
+        const response = await api.post(`/client/${id}/recalculate`, enrichedPayload);
         return response.data;
     },
 

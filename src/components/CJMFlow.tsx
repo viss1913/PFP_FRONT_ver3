@@ -137,6 +137,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                 const payload: any = {
                     goal_type_id: g.goal_type_id,
                     name: g.name,
+                    project_id: data.client?.project_id || 1, // Explicit project_id from data if available
                     risk_profile: (g.risk_profile || data.riskProfile || 'BALANCED') as "CONSERVATIVE" | "BALANCED" | "AGGRESSIVE",
                     inflation_rate: g.inflation_rate || 10
                 };
