@@ -13,7 +13,7 @@ const getHeaders = () => {
 
 export const agentConstructorApi = {
     // Настройки бота
-    getBotConfig: async (): Promise<AgentBotConfig> => {
+    getBotConfigs: async (): Promise<AgentBotConfig[]> => {
         const response = await axios.get(`${API_BASE}/bot`, { headers: getHeaders() });
         return response.data;
     },
@@ -23,9 +23,9 @@ export const agentConstructorApi = {
     },
 
     // Клиенты
-    getClients: async (page = 1, limit = 50): Promise<any> => {
+    getClients: async (page = 1, limit = 50, botId?: number): Promise<any> => {
         const response = await axios.get(`${API_BASE}/clients`, {
-            params: { page, limit },
+            params: { page, limit, bot_id: botId },
             headers: getHeaders()
         });
         return response.data;

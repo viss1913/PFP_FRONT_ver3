@@ -10,10 +10,13 @@ interface AiAgentPageProps {
 
 const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
     const [activeTab, setActiveTab] = useState<'settings' | 'dialogs'>('settings');
+    const [botConfigs, setBotConfigs] = useState<AgentBotConfig[]>([]);
+    const [selectedBotType, setSelectedBotType] = useState<'telegram' | 'max'>('telegram');
     const [botConfig, setBotConfig] = useState<AgentBotConfig>({
         name: '',
         link: '',
         token: '',
+        bot_type: 'telegram',
         communication_style: '',
         base_brain_context: ''
     });
@@ -33,9 +36,10 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
 
     useEffect(() => {
         if (activeTab === 'dialogs') {
+            setSelectedClient(null); // Сбрасываем при переключении мессенджера
             loadClients();
         }
-    }, [activeTab]);
+    }, [activeTab, selectedBotType]);
 
     useEffect(() => {
         if (selectedClient) {
@@ -46,39 +50,73 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
     const loadInitialData = async () => {
         setIsLoading(true);
         try {
-            const config = await agentConstructorApi.getBotConfig();
-            setBotConfig(config);
+            const configs = await agentConstructorApi.getBotConfigs();
+            setBotConfigs(configs);
+
+            // Найти бота выбранного типа
+            const currentBot = configs.find(b => b.bot_type === selectedBotType);
+            if (currentBot) {
+                setBotConfig(currentBot);
+            } else {
+                // Если бота нет, создаем "пустой" шаблон для формы
+                setBotConfig({
+                    name: '',
+                    link: '',
+                    token: '',
+                    bot_type: selectedBotType,
+                    communication_style: '',
+                    base_brain_context: '',
+                    webhook_secret: ''
+                });
+            }
         } catch (error) {
-            console.error('Failed to load bot config:', error);
+            console.error('Failed to load bot configs:', error);
         } finally {
             setIsLoading(false);
         }
     };
+
+    // При смене типа бота подгружаем его настройки из уже скачанного списка
+    useEffect(() => {
+        const currentBot = botConfigs.find(b => b.bot_type === selectedBotType);
+        if (currentBot) {
+            setBotConfig(currentBot);
+        } else {
+            setBotConfig({
+                name: '',
+                link: '',
+                token: '',
+                bot_type: selectedBotType,
+                communication_style: '',
+                base_brain_context: '',
+                webhook_secret: ''
+            });
+        }
+    }, [selectedBotType, botConfigs]);
 
     const loadClients = async (page = 1) => {
         if (page === 1) setIsLoading(true);
         else setIsLoadingMore(true);
 
         try {
-            const result = await agentConstructorApi.getClients(page);
+            const activeBotId = botConfigs.find(b => b.bot_type === selectedBotType)?.id;
+            const result = await agentConstructorApi.getClients(page, 50, activeBotId);
             console.log('AiAgent: API result:', result);
 
             let newClients: AgentClient[] = [];
             let totalPages = 1;
             let currentPage = page;
 
-            // Гибкая проверка формата: массив или объект с полем data/clients
             if (Array.isArray(result)) {
                 newClients = result;
             } else if (result && typeof result === 'object') {
                 const res = result as any;
                 newClients = res.data || res.clients || [];
-                const pagination = res.pagination || res.meta;
-                totalPages = pagination?.totalPages || 1;
-                currentPage = pagination?.page || page;
+                const paginationAttr = res.pagination || res.meta;
+                totalPages = paginationAttr?.totalPages || 1;
+                currentPage = paginationAttr?.page || page;
             }
 
-            console.log('AiAgent: Processed clients:', newClients.length);
             setPagination({ page: currentPage, totalPages });
 
             if (newClients.length === 0 && page === 1) {
@@ -88,7 +126,6 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
 
             setClients(prev => {
                 const base = page === 1 ? [] : prev;
-                // Объединяем, фильтруем пустые и убираем дубликаты по ID
                 const combined = [...base];
                 newClients.forEach(nc => {
                     if (nc && nc.id && !combined.find(c => c.id === nc.id)) {
@@ -96,17 +133,13 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
                     }
                 });
 
-                // Безопасная сортировка (защита от Invalid Date)
                 return combined.sort((a, b) => {
                     const timeA = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
                     const timeB = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
-                    const valA = isNaN(timeA) ? 0 : timeA;
-                    const valB = isNaN(timeB) ? 0 : timeB;
-                    return valB - valA;
+                    return (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA);
                 });
             });
 
-            // Автоматический выбор клиента
             if (page === 1 && newClients.length > 0 && !selectedClient) {
                 setSelectedClient(newClients[0]);
             }
@@ -151,6 +184,10 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
         setIsSaving(true);
         try {
             await agentConstructorApi.saveBotConfig(botConfig);
+            // Обновить все конфиги после сохранения
+            const updatedConfigs = await agentConstructorApi.getBotConfigs();
+            setBotConfigs(updatedConfigs);
+
             setShowSuccess(true);
             setTimeout(() => setShowSuccess(false), 3000);
         } catch (error) {
@@ -187,8 +224,63 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
             maxWidth: '800px',
             margin: '0 auto'
         }}>
+            {/* Messenger Switcher */}
+            <div style={{
+                display: 'flex',
+                background: '#f8f9fa',
+                padding: '4px',
+                borderRadius: '12px',
+                gap: '4px',
+                marginBottom: '32px'
+            }}>
+                <button
+                    onClick={() => setSelectedBotType('telegram')}
+                    style={{
+                        flex: 1,
+                        padding: '12px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        background: selectedBotType === 'telegram' ? '#fff' : 'transparent',
+                        color: selectedBotType === 'telegram' ? '#0088cc' : '#666',
+                        boxShadow: selectedBotType === 'telegram' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px'
+                    }}
+                >
+                    <Send size={18} /> Telegram
+                </button>
+                <button
+                    onClick={() => setSelectedBotType('max')}
+                    style={{
+                        flex: 1,
+                        padding: '12px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        background: selectedBotType === 'max' ? '#fff' : 'transparent',
+                        color: selectedBotType === 'max' ? '#8B5CF6' : '#666',
+                        boxShadow: selectedBotType === 'max' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px'
+                    }}
+                >
+                    <MessageSquare size={18} /> MAX Messenger
+                </button>
+            </div>
+
             <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <Bot color="#D946EF" /> Настройка персонального ассистента
+                <Bot color="#D946EF" /> Настройка {selectedBotType === 'telegram' ? 'Telegram' : 'MAX'} ассистента
             </h2>
 
             <form onSubmit={handleSaveConfig} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -204,16 +296,18 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
                         />
                     </div>
                     <div className="input-field">
-                        <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: '#666' }}>Ссылка на бота (TLG)</label>
+                        <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: '#666' }}>
+                            {selectedBotType === 'telegram' ? 'Ссылка на бота (TLG)' : 'Домен/ID в MAX'}
+                        </label>
                         <div style={{ position: 'relative' }}>
                             <input
                                 type="text"
                                 value={botConfig.link}
                                 onChange={e => setBotConfig({ ...botConfig, link: e.target.value })}
-                                placeholder="https://t.me/your_bot"
+                                placeholder={selectedBotType === 'telegram' ? "https://t.me/your_bot" : "ID вашего бота"}
                                 style={inputStyle}
                             />
-                            {botConfig.link && (
+                            {botConfig.link && selectedBotType === 'telegram' && (
                                 <a href={botConfig.link} target="_blank" rel="noopener noreferrer" style={{
                                     position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#D946EF'
                                 }}>
@@ -225,15 +319,59 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
                 </div>
 
                 <div className="input-field">
-                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: '#666' }}>Telegram Token (из @BotFather)</label>
+                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: '#666' }}>
+                        {selectedBotType === 'telegram' ? 'Telegram Token (из @BotFather)' : 'MAX API Token'}
+                    </label>
                     <input
                         type="password"
                         value={botConfig.token}
                         onChange={e => setBotConfig({ ...botConfig, token: e.target.value })}
-                        placeholder="7123456789:ABCDEF..."
+                        placeholder={selectedBotType === 'telegram' ? "7123456789:ABCDEF..." : "Ваш API ключ из MAX Partner"}
                         style={inputStyle}
                     />
                 </div>
+
+                {selectedBotType === 'max' && (
+                    <>
+                        <div className="input-field">
+                            <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: '#666' }}>Webhook Secret (для защиты)</label>
+                            <input
+                                type="text"
+                                value={botConfig.webhook_secret || ''}
+                                onChange={e => setBotConfig({ ...botConfig, webhook_secret: e.target.value })}
+                                placeholder="Введите любую строку для защиты вебхука"
+                                style={inputStyle}
+                            />
+                        </div>
+                        {botConfig.id && (
+                            <div className="input-field">
+                                <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: '#666' }}>Webhook URL (прописать в MAX)</label>
+                                <div style={{
+                                    ...inputStyle,
+                                    background: '#f1f5f9',
+                                    color: '#64748b',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}>
+                                    <span style={{ fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {`https://${window.location.host}/api/pfp/constructor/webhook/max/${botConfig.id}`}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(`https://${window.location.host}/api/pfp/constructor/webhook/max/${botConfig.id}`);
+                                            alert('URL скопирован');
+                                        }}
+                                        style={{ border: 'none', background: 'none', color: '#8B5CF6', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                                    >
+                                        Копировать
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </>
+                )}
 
                 <div className="input-field">
                     <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: '#666' }}>Стилистика общения</label>
@@ -306,7 +444,49 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
                 boxShadow: '0 4px 20px rgba(0,0,0,0.02)'
             }}>
                 <div style={{ padding: '20px', borderBottom: '1px solid #f0f0f0' }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: 600, margin: 0 }}>Список клиентов</h3>
+                    <h3 style={{ fontSize: '16px', fontWeight: 600, margin: '0 0 16px 0' }}>Список клиентов</h3>
+                    <div style={{
+                        display: 'flex',
+                        background: '#f8f9fa',
+                        padding: '3px',
+                        borderRadius: '10px',
+                        gap: '3px'
+                    }}>
+                        <button
+                            onClick={() => setSelectedBotType('telegram')}
+                            style={{
+                                flex: 1,
+                                padding: '8px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                background: selectedBotType === 'telegram' ? '#fff' : 'transparent',
+                                color: selectedBotType === 'telegram' ? '#0088cc' : '#666',
+                                boxShadow: selectedBotType === 'telegram' ? '0 1px 4px rgba(0,0,0,0.05)' : 'none'
+                            }}
+                        >
+                            Telegram
+                        </button>
+                        <button
+                            onClick={() => setSelectedBotType('max')}
+                            style={{
+                                flex: 1,
+                                padding: '8px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                background: selectedBotType === 'max' ? '#fff' : 'transparent',
+                                color: selectedBotType === 'max' ? '#8B5CF6' : '#666',
+                                boxShadow: selectedBotType === 'max' ? '0 1px 4px rgba(0,0,0,0.05)' : 'none'
+                            }}
+                        >
+                            MAX
+                        </button>
+                    </div>
                 </div>
                 <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
                     {clients.length === 0 ? (
@@ -326,16 +506,22 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
                                     marginBottom: '8px'
                                 }}
                             >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                                    <a
-                                        href={`https://t.me/${client.nickname}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        onClick={(e) => e.stopPropagation()}
-                                        style={{ fontWeight: 600, color: '#D946EF', textDecoration: 'none' }}
-                                    >
-                                        @{client.nickname}
-                                    </a>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {client.bot_type === 'max' ? (
+                                            <MessageSquare size={14} color="#8B5CF6" />
+                                        ) : (
+                                            <Send size={14} color="#0088cc" />
+                                        )}
+                                        <span style={{ fontWeight: 600, color: '#333' }}>
+                                            {client.nickname ? `@${client.nickname}` : `ID: ${client.user_id}`}
+                                        </span>
+                                    </div>
+                                    {client.bot_name && (
+                                        <span style={{ fontSize: '10px', color: '#999', background: '#f5f5f5', padding: '2px 6px', borderRadius: '4px' }}>
+                                            {client.bot_name}
+                                        </span>
+                                    )}
                                 </div>
                                 <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px', lineHeight: '1.4', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                                     {client.last_message || 'Нет сообщений'}
@@ -385,14 +571,30 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
             }}>
                 {selectedClient ? (
                     <>
-                        <div style={{ padding: '20px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Users size={20} color="#666" />
+                        <div style={{ padding: '20px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    {selectedClient.bot_type === 'max' ? <MessageSquare color="#8B5CF6" size={20} /> : <Send color="#0088cc" size={20} />}
+                                </div>
+                                <div>
+                                    <div style={{ fontWeight: 600 }}>
+                                        {selectedClient.nickname ? `@${selectedClient.nickname}` : `User ID: ${selectedClient.user_id}`}
+                                    </div>
+                                    <div style={{ fontSize: '12px', color: '#666' }}>
+                                        {selectedClient.bot_name || (selectedClient.bot_type === 'max' ? 'MAX' : 'Telegram')}
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <div style={{ fontWeight: 600 }}>@{selectedClient.nickname}</div>
-                                <div style={{ fontSize: '12px', color: '#666' }}>ID: {selectedClient.user_id}</div>
-                            </div>
+                            {selectedClient.bot_type === 'telegram' && selectedClient.nickname && (
+                                <a
+                                    href={`https://t.me/${selectedClient.nickname}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ color: '#0088cc', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}
+                                >
+                                    Открыть в TG <ExternalLink size={14} />
+                                </a>
+                            )}
                         </div>
 
                         <div style={{ flex: 1, overflowY: 'auto', padding: '24px', background: '#fcfcfc', display: 'flex', flexDirection: 'column', gap: '16px' }}>
