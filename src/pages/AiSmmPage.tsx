@@ -3,8 +3,10 @@ import Header from '../components/Header';
 import { smmApi, type SmmPost, type SmmAgentProfile } from '../api/smmApi';
 import { Send, Image as ImageIcon, History, SendHorizontal, LayoutDashboard } from 'lucide-react';
 
+type NavPage = 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings';
+
 interface AiSmmPageProps {
-    onNavigate: (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products' | 'smm') => void;
+    onNavigate: (page: NavPage) => void;
 }
 
 const AiSmmPage: React.FC<AiSmmPageProps> = ({ onNavigate }) => {
@@ -101,7 +103,8 @@ const AiSmmPage: React.FC<AiSmmPageProps> = ({ onNavigate }) => {
 
     return (
         <div style={{ minHeight: '100vh', background: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
-            <Header activePage="smm" onNavigate={onNavigate} />
+            {/* Страница пока не используется в навигации, поэтому подсвечиваем CRM как основную */}
+            <Header activePage="crm" onNavigate={onNavigate} />
 
             <main style={{
                 flex: 1,
