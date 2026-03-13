@@ -1,22 +1,24 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import Header from './Header';
 import ClientList from './ClientList';
 
 import type { Client } from '../types/client';
-import { ChatWidget } from './ai/ChatWidget';
+import { ChatWindow } from './ai/ChatWindow';
 import { aiService } from '../services/aiService';
 import type { AiMessage, AiAssistant } from '../types/ai';
-import { useState } from 'react';
+
+type NavPage = 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings';
 
 interface AiCrmPageProps {
     onSelectClient: (client: Client) => void;
     onNewClient: () => void;
-    onNavigate: (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products' | 'smm') => void;
+    onNavigate: (page: NavPage) => void;
 }
 
 const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNavigate }) => {
     const [messages, setMessages] = useState<AiMessage[]>([]);
     const [isTyping, setIsTyping] = useState(false);
+    const [isChatOpen, setIsChatOpen] = useState(false);
 
     const [activeAssistant, setActiveAssistant] = useState<AiAssistant | null>(null);
 
@@ -33,7 +35,7 @@ const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNa
                     setActiveAssistant(crmAssistant);
                 }
 
-                // NEW: Load History (which now includes Auto-Briefing from backend)
+                // Load History (which now includes Auto-Briefing from backend)
                 if (crmAssistant) {
                     const history = await aiService.getHistory(crmAssistant.id);
                     // Map history to local state if needed, or set directly
@@ -57,6 +59,15 @@ const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNa
         };
         loadAssistant();
     }, []);
+
+    const summaryText = useMemo(() => {
+        const lastAssistantMessage = [...messages].reverse().find((m) => m.role === 'assistant');
+        const base =
+            lastAssistantMessage?.content ||
+            'Ваш ИИ‑ассистент готовит сводку по клиентам и подскажет, с кем лучше поработать сегодня.';
+        const limit = 220;
+        return base.length > limit ? base.slice(0, limit).trimEnd() + '…' : base;
+    }, [messages]);
 
     const handleSendMessage = async (text: string) => {
         if (!activeAssistant) {
@@ -110,62 +121,194 @@ const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNa
         <div style={{ minHeight: '100vh', background: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
             <Header activePage="crm" onNavigate={onNavigate} />
 
-            <main style={{
-                flex: 1,
-                display: 'grid',
-                gridTemplateColumns: 'minmax(300px, 400px) 1fr',
-                gap: '24px',
-                padding: '24px',
-                maxWidth: '1600px',
-                margin: '0 auto',
-                width: '100%',
-                boxSizing: 'border-box'
-            }}>
-                {/* Left Column: AI Chat Placeholder */}
-                <div style={{
-                    background: '#fff',
-                    borderRadius: '24px',
-                    // padding: '24px', // ChatWidget has its own padding/layout
-                    display: 'flex',
-                    flexDirection: 'column',
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
-                    height: 'calc(100vh - 112px)',
-                    position: 'sticky',
-                    top: '88px',
-                    overflow: 'hidden' // Ensure rounded corners clip content
-                }}>
-                    <div style={{
-                        padding: '16px 24px',
-                        borderBottom: '1px solid #eee',
-                        fontWeight: 'bold',
-                        fontSize: '18px'
-                    }}>
-                        AI CRM Ассистент
+            <main
+                style={{
+                    flex: 1,
+                    padding: '24px',
+                    maxWidth: '1600px',
+                    margin: '0 auto',
+                    width: '100%',
+                    boxSizing: 'border-box',
+                }}
+            >
+                {/* AI Summary Bar */}
+                <div
+                    onClick={() => setIsChatOpen(true)}
+                    style={{
+                        marginBottom: '24px',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '16px',
+                        padding: '18px 24px',
+                        borderRadius: '24px',
+                        background: 'linear-gradient(135deg, #fdf4ff, #eff6ff)',
+                        boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
+                        cursor: 'pointer',
+                    }}
+                >
+                    <div
+                        style={{
+                            width: '44px',
+                            height: '44px',
+                            borderRadius: '16px',
+                            background: 'linear-gradient(135deg, #D946EF, #8B5CF6)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#fff',
+                            fontWeight: 700,
+                            fontSize: '18px',
+                            flexShrink: 0,
+                        }}
+                    >
+                        AI
                     </div>
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
-                        <ChatWidget
-                            messages={messages}
-                            onSendMessage={handleSendMessage}
-                            isTyping={isTyping}
-                            embedded={true}
-                        />
+                    <div style={{ flex: 1 }}>
+                        <div
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                marginBottom: '4px',
+                            }}
+                        >
+                            <span style={{ fontWeight: 600, fontSize: '15px', color: '#111' }}>AI CRM ассистент</span>
+                            <span
+                                style={{
+                                    fontSize: '11px',
+                                    padding: '2px 8px',
+                                    borderRadius: '999px',
+                                    background: '#dcfce7',
+                                    color: '#16a34a',
+                                    fontWeight: 600,
+                                    textTransform: 'uppercase',
+                                }}
+                            >
+                                Online
+                            </span>
+                        </div>
+                        <p
+                            style={{
+                                margin: 0,
+                                fontSize: '14px',
+                                color: '#4b5563',
+                            }}
+                        >
+                            {summaryText}
+                        </p>
+                        <button
+                            type="button"
+                            style={{
+                                marginTop: '8px',
+                                padding: '6px 0',
+                                background: 'none',
+                                border: 'none',
+                                color: '#D946EF',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                textDecoration: 'underline',
+                                textDecorationStyle: 'dotted',
+                            }}
+                        >
+                            Открыть чат с ассистентом
+                        </button>
                     </div>
                 </div>
 
-                {/* Right Column: Client List */}
-                <div style={{
-                    background: '#fff',
-                    borderRadius: '24px',
-                    padding: '32px',
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.02)'
-                }}>
-                    <ClientList
-                        onSelectClient={onSelectClient}
-                        onNewClient={onNewClient}
-                        embedded={true}
-                    />
+                {/* Client List */}
+                <div
+                    style={{
+                        background: '#fff',
+                        borderRadius: '24px',
+                        padding: '32px',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
+                    }}
+                >
+                    <ClientList onSelectClient={onSelectClient} onNewClient={onNewClient} embedded={true} />
                 </div>
             </main>
+
+            {/* Chat Modal */}
+            {isChatOpen && (
+                <div
+                    onClick={() => setIsChatOpen(false)}
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        background: 'rgba(15,23,42,0.45)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1200,
+                        padding: '16px',
+                    }}
+                >
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            width: 'min(720px, 100%)',
+                            height: 'min(520px, 90vh)',
+                            background: '#fff',
+                            borderRadius: '24px',
+                            boxShadow: '0 24px 80px rgba(15,23,42,0.35)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            overflow: 'hidden',
+                        }}
+                    >
+                        <div
+                            style={{
+                                padding: '16px 20px',
+                                borderBottom: '1px solid #e5e7eb',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ fontWeight: 600, fontSize: '16px' }}>AI CRM ассистент</span>
+                                <span
+                                    style={{
+                                        fontSize: '11px',
+                                        padding: '2px 8px',
+                                        borderRadius: '999px',
+                                        background: '#dcfce7',
+                                        color: '#16a34a',
+                                        fontWeight: 600,
+                                        textTransform: 'uppercase',
+                                    }}
+                                >
+                                    Online
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsChatOpen(false)}
+                                style={{
+                                    border: 'none',
+                                    background: 'transparent',
+                                    cursor: 'pointer',
+                                    fontSize: '20px',
+                                    lineHeight: 1,
+                                    color: '#6b7280',
+                                }}
+                            >
+                                ×
+                            </button>
+                        </div>
+                        <div style={{ flex: 1, minHeight: 0 }}>
+                            <ChatWindow
+                                messages={messages}
+                                onSendMessage={handleSendMessage}
+                                isTyping={isTyping}
+                                embedded={true}
+                                placeholder="Спросите AI CRM ассистента…"
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

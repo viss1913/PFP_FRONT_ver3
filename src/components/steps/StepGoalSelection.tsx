@@ -1,10 +1,11 @@
 
 
 import React, { useState } from 'react';
-import { X, ArrowRight, User, ChevronLeft } from 'lucide-react';
+import { X, ArrowRight, ChevronLeft } from 'lucide-react';
 import type { CJMData } from '../CJMFlow';
 import type { ClientGoal } from '../../types/client';
 import { GOAL_GALLERY_ITEMS } from '../../utils/GoalImages';
+import avatarImage from '../../assets/avatar_full.png';
 
 interface StepGoalSelectionProps {
     data: CJMData;
@@ -130,50 +131,45 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
 
             <div className="goalsContainer">
                 {/* Header Section: Spanning full width */}
-                <div style={{ gridColumn: '1 / -1', marginBottom: '20px' }}>
+                <div style={{ gridColumn: '1 / -1', marginBottom: '40px' }}>
                     <div style={{
                         display: 'flex',
                         flexDirection: 'row',
-                        alignItems: 'flex-start',
-                        justifyContent: 'space-between',
-                        gap: '40px'
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '32px'
                     }}>
-                        {/* Left: Avatar & Intro */}
-                        <div style={{ flex: '0 0 300px' }}>
-                            <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
-                                <div style={{
-                                    width: '48px', height: '48px',
-                                    borderRadius: '50%', background: '#F3F4F6',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                }}>
-                                    <User size={24} color="#374151" />
-                                </div>
-                                <div>
-                                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>Ваш AI Ассистент</h3>
-                                    <p style={{ margin: 0, fontSize: '14px', color: '#6B7280' }}>Финансовый советник</p>
-                                </div>
-                            </div>
-                            <div style={{
-                                background: '#fff',
-                                borderRadius: '16px', // Rounded bubble
-                                borderTopLeftRadius: '4px',
-                                padding: '24px',
-                                fontSize: '15px',
-                                lineHeight: '1.6',
-                                color: '#374151',
-                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
-                                position: 'relative'
-                            }}>
-                                Привет! 👋 <br />
-                                Давай определим твои финансовые цели. Выбери из списка то, что для тебя важно.
-                            </div>
+                        {/* Avatar Image */}
+                        <div style={{
+                            width: '120px',
+                            height: '120px',
+                            minWidth: '120px',
+                            borderRadius: '24px',
+                            overflow: 'hidden',
+                            boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+                            background: '#fff'
+                        }}>
+                            <img
+                                src={avatarImage}
+                                alt="AI Assistant"
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
                         </div>
 
-                        {/* Right: Title & Context */}
-                        <div style={{ flex: 1, paddingTop: '10px' }}>
-                            <h2 style={{ fontSize: '48px', fontWeight: '800', margin: '0 0 24px 0', lineHeight: 1.1 }}>
-                                Чего вы <br />хотите достичь?
-                            </h2>
+                        {/* Speech Bubble */}
+                        <div style={{
+                            background: '#fff',
+                            borderRadius: '24px',
+                            borderTopLeftRadius: '4px',
+                            padding: '32px',
+                            fontSize: '18px',
+                            lineHeight: '1.5',
+                            color: '#1F2937',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                            maxWidth: '600px',
+                            fontWeight: '500'
+                        }}>
+                            Выберите вашу первую цель. Я бы порекомендовала начать с создания пассивного дохода в будущем. Потом сможете добавить любую другую.
                         </div>
                     </div>
                 </div>

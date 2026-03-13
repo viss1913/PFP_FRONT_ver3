@@ -1,13 +1,15 @@
 import React from 'react';
 import { User, ChevronDown } from 'lucide-react';
 
+type NavPage = 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings';
+
 interface HeaderProps {
-    activePage?: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products' | 'smm';
-    onNavigate?: (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products' | 'smm') => void;
+    activePage?: NavPage;
+    onNavigate?: (page: NavPage) => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ activePage = 'crm', onNavigate }) => {
-    const handleNavClick = (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products' | 'smm', e: React.MouseEvent) => {
+    const handleNavClick = (page: NavPage, e: React.MouseEvent) => {
         e.preventDefault();
         if (onNavigate) {
             onNavigate(page);
@@ -55,8 +57,14 @@ const Header: React.FC<HeaderProps> = ({ activePage = 'crm', onNavigate }) => {
                 <a href="#" onClick={(e) => handleNavClick('crm', e)} style={getLinkStyle('crm')}>
                     AI CRM
                 </a>
-                <a href="#" onClick={(e) => handleNavClick('smm', e)} style={getLinkStyle('smm')}>
-                    AI SMM
+                <a href="#" onClick={(e) => handleNavClick('news', e)} style={getLinkStyle('news')}>
+                    Новости
+                </a>
+                <a href="#" onClick={(e) => handleNavClick('macro', e)} style={getLinkStyle('macro')}>
+                    Макростатистика
+                </a>
+                <a href="#" onClick={(e) => handleNavClick('settings', e)} style={getLinkStyle('settings')}>
+                    Настройки
                 </a>
                 <a href="#" onClick={(e) => handleNavClick('pfp', e)} style={getLinkStyle('pfp')}>
                     ПФП
@@ -66,9 +74,6 @@ const Header: React.FC<HeaderProps> = ({ activePage = 'crm', onNavigate }) => {
                 </a>
                 <a href="#" onClick={(e) => handleNavClick('ai-agent', e)} style={getLinkStyle('ai-agent')}>
                     AI-агент
-                </a>
-                <a href="#" onClick={(e) => handleNavClick('products', e)} style={getLinkStyle('products')}>
-                    Продукты
                 </a>
             </nav>
 

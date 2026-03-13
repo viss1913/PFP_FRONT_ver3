@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { CJMData } from '../CJMFlow';
 import type { Asset } from '../../types/client';
+import avatarImage from '../../assets/avatar_full.png';
 
 interface StepAssetsProps {
     data: CJMData;
@@ -44,11 +45,47 @@ const StepAssets: React.FC<StepAssetsProps> = ({ data, setData, onNext, onPrev }
 
     return (
         <div>
-            <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-                <h1 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '8px' }}>Ваши Активы</h1>
-                <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
-                    Укажите, что у вас уже есть. Это сформирует ваш стартовый капитал.
-                </p>
+            {/* Header with Avatar */}
+            <div style={{
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '32px',
+                marginBottom: '40px'
+            }}>
+                {/* Avatar Image */}
+                <div style={{
+                    width: '120px',
+                    height: '120px',
+                    minWidth: '120px',
+                    borderRadius: '24px',
+                    overflow: 'hidden',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+                    background: '#fff'
+                }}>
+                    <img
+                        src={avatarImage}
+                        alt="AI Assistant"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                </div>
+
+                {/* Speech Bubble */}
+                <div style={{
+                    background: '#fff',
+                    borderRadius: '24px',
+                    borderTopLeftRadius: '4px',
+                    padding: '32px',
+                    fontSize: '18px',
+                    lineHeight: '1.5',
+                    color: '#1F2937',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                    maxWidth: '600px',
+                    fontWeight: '500'
+                }}>
+                    Отлично. с целями понятно. А какой у вас сейчас текущий капитал уже есть?
+                </div>
             </div>
 
             <div style={{

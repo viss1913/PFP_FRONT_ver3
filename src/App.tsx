@@ -7,13 +7,27 @@ import ResultPageTest from './components/ResultPageTest'
 import AiCrmPage from './components/AiCrmPage'
 import Header from './components/Header'
 import AiAssistantPage from './pages/AiAssistantPage'
-import AiSmmPage from './pages/AiSmmPage'
 import AiAgentPage from './pages/AiAgentPage'
 import ReportPreviewPage from './components/ReportPreviewPage'
 import type { Client } from './types/client'
 import { clientApi } from './api/clientApi'
+import NewsPage from './pages/NewsPage'
+import MacroStatsPage from './pages/MacroStatsPage'
+import SettingsPage from './pages/SettingsPage'
 
-type Page = 'login' | 'list' | 'cjm' | 'edit' | 'result' | 'test' | 'ai-assistant' | 'report-preview' | 'smm' | 'ai-agent'
+type Page =
+    | 'login'
+    | 'list'
+    | 'cjm'
+    | 'edit'
+    | 'result'
+    | 'test'
+    | 'ai-assistant'
+    | 'report-preview'
+    | 'ai-agent'
+    | 'news'
+    | 'macro'
+    | 'settings'
 
 function App() {
     // Для тестирования: устанавливаем 'test' чтобы сразу видеть страницу результатов
@@ -30,11 +44,13 @@ function App() {
         }
     }, []);
 
-    const handleNavigate = (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products' | 'smm') => {
+    const handleNavigate = (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings') => {
         console.log('Navigating to:', page);
         if (page === 'ai-assistant') setCurrentPage('ai-assistant');
-        else if (page === 'smm') setCurrentPage('smm');
         else if (page === 'ai-agent') setCurrentPage('ai-agent');
+        else if (page === 'news') setCurrentPage('news');
+        else if (page === 'macro') setCurrentPage('macro');
+        else if (page === 'settings') setCurrentPage('settings');
         else if (page === 'crm' || page === 'pfp') setCurrentPage('list');
         // Handle other pages if they have dedicated views
     };
@@ -213,12 +229,20 @@ function App() {
                 <AiAssistantPage onNavigate={handleNavigate} />
             )}
 
-            {currentPage === 'smm' && (
-                <AiSmmPage onNavigate={handleNavigate} />
-            )}
-
             {currentPage === 'ai-agent' && (
                 <AiAgentPage onNavigate={handleNavigate} />
+            )}
+
+            {currentPage === 'news' && (
+                <NewsPage onNavigate={handleNavigate} />
+            )}
+
+            {currentPage === 'macro' && (
+                <MacroStatsPage onNavigate={handleNavigate} />
+            )}
+
+            {currentPage === 'settings' && (
+                <SettingsPage onNavigate={handleNavigate} />
             )}
 
             {currentPage === 'list' && (

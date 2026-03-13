@@ -4,8 +4,10 @@ import { agentConstructorApi } from '../api/agentConstructorApi';
 import type { AgentBotConfig, AgentClient, AgentMessage } from '../types/agent';
 import { Settings, Users, MessageSquare, Send, Bot, ExternalLink, RefreshCw, CheckCircle2 } from 'lucide-react';
 
+type NavPage = 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings';
+
 interface AiAgentPageProps {
-    onNavigate: (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products' | 'smm') => void;
+    onNavigate: (page: NavPage) => void;
 }
 
 const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {

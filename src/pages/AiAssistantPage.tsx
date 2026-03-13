@@ -5,8 +5,10 @@ import { ChatWindow } from '../components/ai/ChatWindow';
 import { aiService } from '../services/aiService';
 import type { AiAssistant, AiMessage } from '../types/ai';
 
+type NavPage = 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings';
+
 interface AiAssistantPageProps {
-    onNavigate: (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'products' | 'smm') => void;
+    onNavigate: (page: NavPage) => void;
 }
 
 const AiAssistantPage: React.FC<AiAssistantPageProps> = ({ onNavigate }) => {

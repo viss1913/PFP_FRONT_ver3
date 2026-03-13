@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PiggyBank } from 'lucide-react';
+import avatarImage from '../../assets/avatar_full.png';
 import type { CJMData } from '../CJMFlow';
 
 interface StepFinReserveProps {
@@ -36,23 +36,47 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
 
     return (
         <div>
-            <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+            {/* Header with Avatar */}
+            <div style={{
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '32px',
+                marginBottom: '40px'
+            }}>
+                {/* Avatar Image */}
                 <div style={{
-                    width: '64px',
-                    height: '64px',
-                    borderRadius: '50%',
-                    background: 'var(--primary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 16px'
+                    width: '120px',
+                    height: '120px',
+                    minWidth: '120px',
+                    borderRadius: '24px',
+                    overflow: 'hidden',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+                    background: '#fff'
                 }}>
-                    <PiggyBank size={32} color="#000" />
+                    <img
+                        src={avatarImage}
+                        alt="AI Assistant"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
                 </div>
-                <h2 className="step-title">Финансовый резерв</h2>
-                <p style={{ color: 'var(--text-muted)', marginTop: '8px', fontSize: '18px' }}>
-                    Укажите параметры для цели "Финансовый резерв"
-                </p>
+
+                {/* Speech Bubble */}
+                <div style={{
+                    background: '#fff',
+                    borderRadius: '24px',
+                    borderTopLeftRadius: '4px',
+                    padding: '32px',
+                    fontSize: '18px',
+                    lineHeight: '1.5',
+                    color: '#1F2937',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                    maxWidth: '600px',
+                    fontWeight: '500'
+                }}>
+                    Часть капитала очень важно выделить на Финансовый резерв. Я подберу продукты. Рекомендую направить на финансовый резерев сейчас 200 тыс и пополнять его на 2 тыс.
+                </div>
             </div>
 
             {/* Total Capital Info */}

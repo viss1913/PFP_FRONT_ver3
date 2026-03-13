@@ -1,5 +1,6 @@
 import React from 'react';
-import { X, Plus, ArrowLeft, Trash2 } from 'lucide-react';
+import { X, Plus, ArrowLeft, Trash2, Send } from 'lucide-react';
+import avatarImage from '../assets/avatar_full.png';
 import { getGoalImage, GOAL_GALLERY_ITEMS } from '../utils/GoalImages';
 import { PortfolioDistribution } from './PortfolioDistribution';
 import { formatMonthsToDate } from '../utils/dateUtils';
@@ -455,25 +456,69 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
             padding: '24px',
             boxShadow: '0px 4px 6px -1px rgba(0, 0, 0, 0.05), 0px 2px 4px -1px rgba(0, 0, 0, 0.03)'
           }}>
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '32px' }}>
-              <div style={{ marginTop: '2px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', gap: '16px' }}>
+                <div style={{ flexShrink: 0 }}>
+                  <div style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    background: '#E5E7EB',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                  }}>
+                    <img src={avatarImage} alt="AI" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                </div>
                 <div style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  overflow: 'hidden',
-                  background: '#E5E7EB'
+                  background: '#F3F4F6',
+                  borderRadius: '16px',
+                  borderTopLeftRadius: '4px',
+                  padding: '16px',
+                  fontSize: '14px',
+                  lineHeight: '1.5',
+                  color: '#1F2937'
                 }}>
-                  {/* Placeholder for Avatar */}
-                  <img src="https://ui-avatars.com/api/?name=AI&background=random" alt="AI" style={{ width: '100%', height: '100%' }} />
+                  Я подготовила для вас финансовый план с учетом ваших целей и ресурсов. Может быть мы что-то поменяем?
                 </div>
               </div>
-              <div>
-                <p style={{ fontSize: '14px', lineHeight: '20px', color: '#374151', margin: 0 }}>
-                  Это ваш финансовый план.<br />
-                  Если что-то не понятно,<br />
-                  то спрашивайте — я вам помогу.
-                </p>
+
+              {/* Chat Input */}
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  placeholder="Напишите ваш вопрос..."
+                  style={{
+                    width: '100%',
+                    padding: '12px 48px 12px 16px',
+                    borderRadius: '12px',
+                    border: '1px solid #E5E7EB',
+                    fontSize: '14px',
+                    outline: 'none',
+                    transition: 'border-color 0.2s',
+                    background: '#FAFAFA'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#C2185B'}
+                  onBlur={(e) => e.target.style.borderColor = '#E5E7EB'}
+                />
+                <button
+                  style={{
+                    position: 'absolute',
+                    right: '8px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: '#C2185B',
+                    cursor: 'pointer',
+                    padding: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <Send size={18} />
+                </button>
               </div>
             </div>
 
@@ -482,7 +527,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                 Часто задаваемые вопросы
               </h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                {['Какие риски?', 'Какие риски?', 'Какие риски?', 'Какие риски?', 'Какие риски?'].map((q, i) => (
+                {['Что такое ПДС?', 'Какие гарантии?', 'Какие риски?', 'Как получить вычет?', 'С чего начать?'].map((q, i) => (
                   <button
                     key={i}
                     style={{
