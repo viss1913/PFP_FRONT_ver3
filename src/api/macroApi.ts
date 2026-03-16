@@ -71,9 +71,11 @@ export const macroApi = {
             { headers: getHeaders(), params }
         );
         if (!response.data.success) throw new Error('Macro history request failed');
-        return (response.data.data || []).map((p) => ({
-            ...p,
+        // Приводим value к числу и явно приводим результат к MacroHistoryPoint[]
+        const normalized = (response.data.data || []).map((p) => ({
+            ...(p as any),
             value: toNum(p.value),
-        }));
+        })) as MacroHistoryPoint[];
+        return normalized;
     },
 };

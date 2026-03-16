@@ -252,8 +252,8 @@ const MacroStatsPage: React.FC<MacroStatsPageProps> = ({ onNavigate }) => {
                                         />
                                         <Tooltip
                                             labelFormatter={(v) => formatDate(v)}
-                                            formatter={(value: number) => [
-                                                formatValue(Number(value), selectedMeta?.unit || ''),
+                                            formatter={(value: number | string | undefined) => [
+                                                formatValue(Number(value ?? 0), selectedMeta?.unit || ''),
                                                 selectedMeta?.name || selectedSlug,
                                             ]}
                                             contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb' }}

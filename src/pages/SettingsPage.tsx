@@ -15,7 +15,6 @@ import {
     type AiB2cStage,
     type AiB2cStageCreate,
     type InflationRateRange,
-    type InflationRateMatrix,
     type PassiveIncomeYieldLine,
 } from '../api/agentLkApi';
 
@@ -2545,7 +2544,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                 Нет инструментов. Нажмите «+ Добавить» — при создании портфеля пополнение по умолчанию совпадает с первоначальным капиталом.
                                                             </p>
                                                         ) : (
-                                                            currentInstruments.map(({ inv, originalIndex }, i) => (
+                                                            currentInstruments.map(({ inv, originalIndex }) => (
                                                                 <div key={originalIndex} style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px', flexWrap: 'wrap', padding: '12px', background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
                                                                     <select
                                                                         value={inv.product_id}
