@@ -431,7 +431,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         });
     };
 
-    /** Меняет долю одного инструмента и пересчитывает долю первого в бакете так, чтобы сумма = 100% */
+    /** Меняет долю одного инструмента и распределяет остаток пропорционально между остальными — все ползунки двигаются синхронно, без прыжков. */
     const updateInstrumentShareWithAutoBalance = (profileIndex: number, originalIndex: number, newValRaw: number) => {
         const newVal = Math.max(0, Math.min(100, Math.round(newValRaw / SLIDER_STEP) * SLIDER_STEP));
         setPortfolioForm((prev) => {
@@ -449,29 +449,32 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                 next.risk_profiles = next.risk_profiles.map((r, i) => (i === profileIndex ? prof : r));
                 return next;
             }
-            if (originalIndex === firstIdx) {
-                prof.instruments[firstIdx] = { ...prof.instruments[firstIdx], share_percent: newVal };
-                const otherSum = bucketEntries.slice(1).reduce((s, { inv }) => s + inv.share_percent, 0);
-                if (otherSum > 0) {
-                    const targetSum = 100 - newVal;
-                    bucketEntries.slice(1).forEach(({ idx }) => {
-                        const oldShare = prof.instruments[idx].share_percent;
-                        prof.instruments[idx] = {
-                            ...prof.instruments[idx],
-                            share_percent: Math.round((oldShare * targetSum) / otherSum / SLIDER_STEP) * SLIDER_STEP,
-                        };
-                    });
-                    const actualSum = bucketEntries.slice(1).reduce((s, { idx }) => s + prof.instruments[idx].share_percent, 0);
-                    prof.instruments[firstIdx] = { ...prof.instruments[firstIdx], share_percent: Math.max(0, Math.min(100, 100 - actualSum)) };
-                }
+            // Выставляем изменённый инструмент
+            prof.instruments[originalIndex] = { ...prof.instruments[originalIndex], share_percent: newVal };
+            const others = bucketEntries.filter((e) => e.idx !== originalIndex);
+            const targetForOthers = 100 - newVal;
+            const sumOthersOld = others.reduce((s, { inv }) => s + inv.share_percent, 0);
+            if (sumOthersOld > 0) {
+                // Распределяем targetForOthers пропорционально текущим долям остальных — плавно и синхронно
+                others.forEach(({ idx }) => {
+                    const oldShare = prof.instruments[idx].share_percent;
+                    const proportional = (oldShare / sumOthersOld) * targetForOthers;
+                    prof.instruments[idx] = {
+                        ...prof.instruments[idx],
+                        share_percent: Math.round(proportional / SLIDER_STEP) * SLIDER_STEP,
+                    };
+                });
+                const actualOthersSum = others.reduce((s, { idx }) => s + prof.instruments[idx].share_percent, 0);
+                const diff = targetForOthers - actualOthersSum;
+                // Ошибку округления компенсируем на первом в бакете (или на первом среди others)
+                const fixIdx = others[0]?.idx ?? firstIdx;
+                prof.instruments[fixIdx] = {
+                    ...prof.instruments[fixIdx],
+                    share_percent: Math.max(0, Math.min(100, prof.instruments[fixIdx].share_percent + diff)),
+                };
             } else {
-                prof.instruments[originalIndex] = { ...prof.instruments[originalIndex], share_percent: newVal };
-                const sumRest = bucketEntries.reduce(
-                    (acc, { idx }) => acc + (idx === originalIndex ? newVal : prof.instruments[idx].share_percent),
-                    0
-                );
-                const firstNewShare = Math.max(0, Math.min(100, 100 - sumRest));
-                prof.instruments[firstIdx] = { ...prof.instruments[firstIdx], share_percent: firstNewShare };
+                // Остальные были нули — отдаём всё первому в бакете
+                prof.instruments[firstIdx] = { ...prof.instruments[firstIdx], share_percent: Math.max(0, Math.min(100, targetForOthers)) };
             }
             next.risk_profiles = next.risk_profiles.map((r, i) => (i === profileIndex ? prof : r));
             return next;
