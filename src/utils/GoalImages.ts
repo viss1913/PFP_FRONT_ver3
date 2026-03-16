@@ -55,6 +55,12 @@ export const GOAL_GALLERY_ITEMS = [
     { id: 'other', typeId: GOAL_TYPE_OTHER, title: 'Другое', image: other, description: 'Своя цель' },
 ];
 
+/** Подпись типа цели по goal_type_id для списков и карточек */
+export const getGoalTypeLabel = (typeId: number): string => {
+    const item = GOAL_GALLERY_ITEMS.find((i) => i.typeId === typeId);
+    return item ? item.title : `Цель #${typeId}`;
+};
+
 export const getGoalImage = (goalName: string, typeId: number): string => {
     // Try to find exact match by title first
     const match = GOAL_GALLERY_ITEMS.find(i => i.title === goalName);

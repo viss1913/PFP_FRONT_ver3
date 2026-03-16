@@ -1,8 +1,8 @@
 import axios from 'axios';
 import type { AiAssistant, AiMessage, AiChatRequest } from '../types/ai';
+import { API_BASE_URL } from '../api/config';
 
-// Base URL for API
-const API_URL = '/api';
+const API_URL = `${API_BASE_URL}/api`;
 
 // Helper to get token (assuming it's stored in localStorage like in most apps, 
 // or you might use a context. For a simple service file, we'll try to get it directly)

@@ -1,7 +1,8 @@
 import axios from 'axios';
 import type { Client, ClientFilters, ClientListResponse, CalculatePayload } from '../types/client';
+import { API_BASE_WITH_API } from './config';
 
-const API_BASE_URL = 'https://pfpbackend-production.up.railway.app/api';
+const API_BASE_URL = API_BASE_WITH_API;
 
 const api = axios.create({
     baseURL: API_BASE_URL,
@@ -44,16 +45,29 @@ api.interceptors.request.use((config) => {
 });
 
 export const clientApi = {
-    // Get list of clients for the dashboard
+    // Get list of clients: GET /api/pfp/clients (пагинация или все: limit=0 / limit=all)
     getAgentClients: async (filters: ClientFilters = {}): Promise<ClientListResponse> => {
-        const params: any = {};
+        const params: Record<string, string | number> = {};
         if (filters.search) params.search = filters.search;
-        if (filters.page) params.page = filters.page;
-        if (filters.limit) params.limit = filters.limit;
-
-        // Note: Using /client/agent-clients per pfp-api.yaml
-        const response = await api.get('/client/agent-clients', { params });
-        return response.data;
+        if (filters.page != null) params.page = filters.page;
+        if (filters.limit !== undefined) {
+            params.limit = filters.limit === 'all' ? 'all' : filters.limit;
+        }
+        if (filters.sort) params.sort = filters.sort;
+        if (filters.order) params.order = filters.order;
+        const response = await api.get<ClientListResponse>('/pfp/clients', { params });
+        const data = response.data;
+        // Нормализуем под единый формат: pagination (бэк может отдавать meta)
+        if (data.data && !data.pagination && (data as any).meta) {
+            const meta = (data as any).meta;
+            (data as ClientListResponse).pagination = {
+                total: meta.total,
+                page: meta.page,
+                limit: meta.limit,
+                totalPages: Math.ceil(meta.total / (meta.limit || 50)) || 1,
+            };
+        }
+        return data;
     },
 
     // Get a specific client by ID

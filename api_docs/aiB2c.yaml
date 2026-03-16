@@ -1,0 +1,79 @@
+# Схемы для AI B2C (настройки ИИ в ЛК Агента и админке).
+# Подключается из agent_lk.yaml и при необходимости из админской спеки.
+
+openapi: 3.0.0
+info:
+  title: AI B2C Schemas
+  description: Компоненты для эндпоинтов /pfp/ai-b2c/* и /admin/ai-b2c/*
+  version: 1.0.0
+
+components:
+  schemas:
+    AiB2cBrainContextCreate:
+      type: object
+      required:
+        - title
+        - content
+      properties:
+        title:
+          type: string
+          description: Название контекста (мозга)
+        content:
+          type: string
+          description: Текст промпта/инструкции для ассистента
+        is_active:
+          type: boolean
+          default: true
+        priority:
+          type: number
+          default: 10
+          description: Порядок применения (чем выше — тем приоритетнее)
+
+    AiB2cBrainContextUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        is_active:
+          type: boolean
+        priority:
+          type: number
+
+    AiB2cStageCreate:
+      type: object
+      required:
+        - stage_key
+        - title
+        - content
+      properties:
+        stage_key:
+          type: string
+          description: Уникальный ключ сценария (напр. PFP1)
+        title:
+          type: string
+          description: Название сценария/этапа
+        content:
+          type: string
+          description: Описание и подсказки для ИИ
+        is_active:
+          type: boolean
+          default: true
+        priority:
+          type: number
+          default: 100
+
+    AiB2cStageUpdate:
+      type: object
+      properties:
+        stage_key:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+        is_active:
+          type: boolean
+        priority:
+          type: number

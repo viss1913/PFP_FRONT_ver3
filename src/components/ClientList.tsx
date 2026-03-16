@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, User, Calendar, Wallet, ChevronLeft, ChevronRight, Edit2 } from 'lucide-react';
+import { Search, Plus, User, Calendar, Wallet, ChevronLeft, ChevronRight, Edit2, TrendingUp, FileText } from 'lucide-react';
 import { clientApi } from '../api/clientApi';
 import type { Client } from '../types/client';
 import StatusDropdown from './StatusDropdown';
+import { getGoalTypeLabel } from '../utils/GoalImages';
 
 
 interface ClientListProps {
@@ -40,7 +41,9 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
                 setTotal(result.length);
             } else if (result.data) {
                 setClients(result.data);
-                setTotal(result.meta?.total || result.data.length);
+                const pagination = (result as any).pagination;
+                const meta = (result as any).meta;
+                setTotal(pagination?.total ?? meta?.total ?? result.data.length);
             } else {
                 setClients([]);
             }
@@ -66,6 +69,23 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
     const formatMoney = (amount?: number) => {
         if (amount === undefined || amount === null) return '0 ₽';
         return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(amount);
+    };
+
+    /** Ежемесячное пополнение: с корня клиента, из goals_summary или сумма по целям */
+    const getMonthlyReplenishment = (client: Client): number | undefined => {
+        if (client.total_monthly_replenishment != null && client.total_monthly_replenishment > 0) {
+            return client.total_monthly_replenishment;
+        }
+        const gs = client.goals_summary as any;
+        const fromSummary = gs?.summary?.consolidated_portfolio?.total_monthly_replenishment
+            ?? gs?.consolidated_portfolio?.total_monthly_replenishment;
+        if (fromSummary != null && fromSummary > 0) return fromSummary;
+        const fromGoalsSummary = Array.isArray(gs?.goals)
+            ? (gs.goals as any[]).reduce((s, g) => s + (Number(g?.summary?.monthly_replenishment) || 0), 0)
+            : 0;
+        if (fromGoalsSummary > 0) return fromGoalsSummary;
+        const fromGoals = (client.goals ?? []).reduce((s, g) => s + (Number(g.monthly_replenishment) || 0), 0);
+        return fromGoals > 0 ? fromGoals : undefined;
     };
 
     return (
@@ -132,7 +152,7 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
                             }}
                             onClick={() => onSelectClient(client)}
                         >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: 0 }}>
                                 <div style={{
                                     width: '48px',
                                     height: '48px',
@@ -143,28 +163,61 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     fontWeight: 'bold',
-                                    fontSize: '18px'
+                                    fontSize: '18px',
+                                    flexShrink: 0
                                 }}>
                                     {client.first_name ? client.first_name[0].toUpperCase() : <User size={24} />}
                                 </div>
-                                <div>
+                                <div style={{ minWidth: 0 }}>
                                     <h3 style={{ fontWeight: 600, marginBottom: '4px', fontSize: '18px' }}>
                                         {client.first_name} {client.last_name}
                                     </h3>
-                                    <div style={{ display: 'flex', gap: '12px', color: 'var(--text-muted)', fontSize: '14px' }}>
+                                    <div style={{ display: 'flex', gap: '12px', color: 'var(--text-muted)', fontSize: '14px', flexWrap: 'wrap' }}>
                                         <span>{client.phone}</span>
                                         <span>•</span>
                                         <span>ID: {client.id}</span>
                                     </div>
+                                    {client.goals && client.goals.length > 0 && (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                                            {[...new Set(client.goals.map((g) => g.goal_type_id))].map((typeId) => (
+                                                <span
+                                                    key={typeId}
+                                                    style={{
+                                                        fontSize: '11px',
+                                                        padding: '2px 8px',
+                                                        borderRadius: '6px',
+                                                        background: 'rgba(255, 199, 80, 0.15)',
+                                                        color: 'var(--primary)'
+                                                    }}
+                                                >
+                                                    {getGoalTypeLabel(typeId)}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
-                            <div style={{ display: 'flex', gap: '32px', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
                                 <div style={{ textAlign: 'right' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '13px', justifyContent: 'flex-end', marginBottom: '4px' }}>
                                         <Wallet size={14} /> Капитал
                                     </div>
-                                    <div style={{ fontWeight: 600, fontSize: '16px' }}>{formatMoney(client.net_worth)}</div>
+                                    <div style={{ fontWeight: 600, fontSize: '16px' }}>{formatMoney(client.total_liquid_capital ?? client.net_worth)}</div>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '13px', justifyContent: 'flex-end', marginBottom: '4px' }}>
+                                        <TrendingUp size={14} /> Пополн./мес
+                                    </div>
+                                    <div style={{ fontWeight: 600, fontSize: '14px' }}>
+                                        {(() => { const v = getMonthlyReplenishment(client); return v != null ? formatMoney(v) : '—'; })()}
+                                    </div>
+                                </div>
+                                <div style={{ textAlign: 'right', minWidth: '90px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '13px', justifyContent: 'flex-end', marginBottom: '4px' }}>
+                                        <FileText size={14} /> Последний ПФП
+                                    </div>
+                                    <div style={{ fontSize: '14px' }}>{formatDate(client.last_pfp_at)}</div>
                                 </div>
                                 <div>
                                     <StatusDropdown
@@ -173,7 +226,7 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
                                         onOpenChange={(isOpen) => setActiveDropdownId(isOpen ? client.id : null)}
                                     />
                                 </div>
-                                <div style={{ textAlign: 'right', minWidth: '100px' }}>
+                                <div style={{ textAlign: 'right', minWidth: '80px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '13px', justifyContent: 'flex-end', marginBottom: '4px' }}>
                                         <Calendar size={14} /> Создан
                                     </div>

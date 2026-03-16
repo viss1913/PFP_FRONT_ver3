@@ -2,21 +2,25 @@ import React, { useState } from 'react';
 import { LogIn, Mail, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import axios from 'axios';
+import { API_BASE_URL } from '../api/config';
 
 interface LoginPageProps {
     onLoginSuccess: () => void;
 }
 
+const defaultEmail = import.meta.env.VITE_LOGIN ?? 'testuser@example.com';
+const defaultPassword = import.meta.env.VITE_PASSWORD ?? 'Test1234';
+
 const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
-    const [email, setEmail] = useState('testuser@example.com');
-    const [password, setPassword] = useState('Test1234');
+    const [email, setEmail] = useState(defaultEmail);
+    const [password, setPassword] = useState(defaultPassword);
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         try {
-            const response = await axios.post('https://pfpbackend-production.up.railway.app/api/auth/login', {
+            const response = await axios.post(`${API_BASE_URL}/api/auth/login`, {
                 email,
                 password
             });

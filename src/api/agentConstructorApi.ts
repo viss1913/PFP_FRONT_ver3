@@ -1,7 +1,8 @@
 import axios from 'axios';
 import type { AgentBotConfig, AgentMessage } from '../types/agent';
+import { API_BASE_URL } from './config';
 
-const API_BASE = '/api/pfp/constructor';
+const API_BASE = `${API_BASE_URL}/api/pfp/constructor`;
 
 const getHeaders = () => {
     const token = localStorage.getItem('token');

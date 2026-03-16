@@ -24,9 +24,18 @@ export interface Client {
     assets_total?: number;
     liabilities_total?: number;
     net_worth?: number;
+    /** ликвидный капитал (для отображения как «Капитал») */
+    total_liquid_capital?: number;
+    /** пополнение в месяц по всем целям */
+    total_monthly_replenishment?: number;
     goals_summary?: any; // Contains the full calculation result
     created_at?: string;
     updated_at?: string;
+    /** дата последнего ПФП (расчёта) */
+    last_pfp_at?: string;
+
+    /** если в проекте «все агенты видят всех»: "B2C" или email/ФИО агента */
+    owner_label?: string;
 }
 
 export type AssetType = 'DEPOSIT' | 'CASH' | 'BROKERAGE' | 'IIS' | 'PDS' | 'NSJ' | 'REAL_ESTATE' | 'CRYPTO' | 'OTHER';
@@ -46,6 +55,8 @@ export interface Asset {
 export interface ClientGoal {
     id?: number;
     goal_type_id: number;
+    /** код типа цели с бэка (PENSION, PASSIVE_INCOME, …) для отображения */
+    goal_type?: string;
     name: string;
     target_amount?: number; // Desired amount
     desired_monthly_income?: number; // For Passive Income
@@ -61,7 +72,10 @@ export interface ClientGoal {
 export interface ClientFilters {
     search?: string;
     page?: number;
-    limit?: number;
+    /** размер страницы; 0 или 'all' = вернуть всех без пагинации */
+    limit?: number | 'all';
+    sort?: string;
+    order?: 'asc' | 'desc';
 }
 
 export type ClientStatus = 'THINKING' | 'BOUGHT' | 'REFUSED' | 'RENEWAL';
@@ -72,9 +86,17 @@ export interface ClientCrmUpdatePayload {
     notes?: string;
 }
 
+/** Ответ GET /api/pfp/clients */
 export interface ClientListResponse {
     data: Client[];
-    meta: {
+    pagination: {
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    };
+    /** для обратной совместимости, если бэк отдаёт meta */
+    meta?: {
         total: number;
         page: number;
         limit: number;
