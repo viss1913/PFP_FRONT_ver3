@@ -10,7 +10,6 @@ import {
     type PortfolioRiskProfile,
     type PortfolioInstrument,
     type PortfolioCreateUpdatePayload,
-    type AiB2cSettings,
     type AiB2cBrainContext,
     type AiB2cBrainContextCreate,
     type AiB2cStage,
@@ -155,12 +154,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                     agentLkApi.getStages(),
                 ]);
                 if (settings) {
-                    setAiB2cSettings(settings);
                     setAiB2cDisplayName(settings.display_name ?? '');
                     setAiB2cAvatarUrl(settings.avatar_url ?? '');
                     setAiB2cTagline(settings.tagline ?? '');
                 } else {
-                    setAiB2cSettings(null);
                     setAiB2cDisplayName('AI-ассистент');
                     setAiB2cAvatarUrl('');
                     setAiB2cTagline('');
@@ -260,8 +257,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     /** Для каждого риск-профиля: какой таб активен — Первоначальный капитал или Пополнение */
     const [activeBucketTabByProfile, setActiveBucketTabByProfile] = useState<Array<'INITIAL_CAPITAL' | 'TOP_UP'>>(['INITIAL_CAPITAL', 'INITIAL_CAPITAL', 'INITIAL_CAPITAL']);
 
-    // AI B2C: мозг и сценарии
-    const [aiB2cSettings, setAiB2cSettings] = useState<AiB2cSettings | null>(null);
+    // AI B2C: внешний вид + мозг и сценарии
     const [aiB2cDisplayName, setAiB2cDisplayName] = useState<string>('');
     const [aiB2cAvatarUrl, setAiB2cAvatarUrl] = useState<string>('');
     const [aiB2cTagline, setAiB2cTagline] = useState<string>('');
@@ -309,8 +305,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                 avatar_url: aiB2cAvatarUrl.trim() || null,
                 tagline: aiB2cTagline.trim() || null,
             };
-            const saved = await agentLkApi.putAiB2cSettings(payload);
-            setAiB2cSettings(saved);
+            await agentLkApi.putAiB2cSettings(payload);
         } catch (e) {
             console.error('Failed to save AI B2C settings:', e);
             setError('Не удалось сохранить настройки ассистента B2C.');
