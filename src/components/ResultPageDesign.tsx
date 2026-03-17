@@ -178,7 +178,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
 
   // Normalization for Cash Flow: convert annual to monthly
   const rawCashFlow = consolidatedPortfolio?.cash_flow_allocation || calcRoot?.cash_flow_allocation || [];
-  const cashFlowAllocation = rawCashFlow.map((item: { payment_frequency?: string; amount: number; name: string }) => {
+  let cashFlowAllocation = rawCashFlow.map((item: { payment_frequency?: string; amount: number; name: string }) => {
     if (item.payment_frequency === 'annual') {
       return {
         ...item,
@@ -188,6 +188,32 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     }
     return item;
   });
+
+  // Если с бэка не пришло распределение по пополнению,
+  // по умолчанию считаем его таким же, как по первоначальному капиталу.
+  if ((!cashFlowAllocation || cashFlowAllocation.length === 0) && assetsAllocation.length > 0) {
+    const totalInitial = consolidatedPortfolio?.total_initial_capital || assetsAllocation.reduce(
+      (sum: number, item: { amount: number }) => sum + (item.amount || 0),
+      0
+    );
+    const totalMonthly = consolidatedPortfolio?.total_monthly_replenishment || 0;
+
+    if (totalInitial > 0 && totalMonthly > 0) {
+      cashFlowAllocation = assetsAllocation.map((item: { name: string; amount: number; share?: number }) => {
+        const share = typeof item.share === 'number'
+          ? item.share / 100
+          : (item.amount || 0) / totalInitial;
+
+        const monthlyAmount = Math.round(totalMonthly * share);
+
+        return {
+          name: item.name,
+          amount: monthlyAmount,
+          share: typeof item.share === 'number' ? item.share : share * 100
+        };
+      });
+    }
+  }
 
   // Tax Benefits Summary (New logic)
   const taxBenefitsSummary = calcRoot?.summary?.tax_benefits_summary as {
