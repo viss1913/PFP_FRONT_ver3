@@ -10,6 +10,7 @@ import {
     type PortfolioRiskProfile,
     type PortfolioInstrument,
     type PortfolioCreateUpdatePayload,
+    type AiB2cSettings,
     type AiB2cBrainContext,
     type AiB2cBrainContextCreate,
     type AiB2cStage,
@@ -148,10 +149,22 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             try {
                 setAiB2cLoading(true);
                 setError(null);
-                const [ctx, st] = await Promise.all([
+                const [settings, ctx, st] = await Promise.all([
+                    agentLkApi.getAiB2cSettings(),
                     agentLkApi.getBrainContexts(),
                     agentLkApi.getStages(),
                 ]);
+                if (settings) {
+                    setAiB2cSettings(settings);
+                    setAiB2cDisplayName(settings.display_name ?? '');
+                    setAiB2cAvatarUrl(settings.avatar_url ?? '');
+                    setAiB2cTagline(settings.tagline ?? '');
+                } else {
+                    setAiB2cSettings(null);
+                    setAiB2cDisplayName('AI-ассистент');
+                    setAiB2cAvatarUrl('');
+                    setAiB2cTagline('');
+                }
                 setBrainContexts(ctx);
                 setStages(st);
             } catch (e) {
@@ -248,6 +261,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     const [activeBucketTabByProfile, setActiveBucketTabByProfile] = useState<Array<'INITIAL_CAPITAL' | 'TOP_UP'>>(['INITIAL_CAPITAL', 'INITIAL_CAPITAL', 'INITIAL_CAPITAL']);
 
     // AI B2C: мозг и сценарии
+    const [aiB2cSettings, setAiB2cSettings] = useState<AiB2cSettings | null>(null);
+    const [aiB2cDisplayName, setAiB2cDisplayName] = useState<string>('');
+    const [aiB2cAvatarUrl, setAiB2cAvatarUrl] = useState<string>('');
+    const [aiB2cTagline, setAiB2cTagline] = useState<string>('');
+    const [savingAiB2cSettings, setSavingAiB2cSettings] = useState(false);
+    const [uploadingAiB2cAvatar, setUploadingAiB2cAvatar] = useState(false);
     const [brainContexts, setBrainContexts] = useState<AiB2cBrainContext[] | null>(null);
     const [stages, setStages] = useState<AiB2cStage[] | null>(null);
     const [aiB2cLoading, setAiB2cLoading] = useState(false);
@@ -276,6 +295,54 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     });
     const [savingAiB2c, setSavingAiB2c] = useState(false);
     const [deletingAiB2cId, setDeletingAiB2cId] = useState<string | null>(null);
+
+    const saveAiB2cSettings = async () => {
+        if (!aiB2cDisplayName.trim()) {
+            setError('Введите имя ассистента для B2C.');
+            return;
+        }
+        try {
+            setSavingAiB2cSettings(true);
+            setError(null);
+            const payload = {
+                display_name: aiB2cDisplayName.trim(),
+                avatar_url: aiB2cAvatarUrl.trim() || null,
+                tagline: aiB2cTagline.trim() || null,
+            };
+            const saved = await agentLkApi.putAiB2cSettings(payload);
+            setAiB2cSettings(saved);
+        } catch (e) {
+            console.error('Failed to save AI B2C settings:', e);
+            setError('Не удалось сохранить настройки ассистента B2C.');
+        } finally {
+            setSavingAiB2cSettings(false);
+        }
+    };
+
+    const handleAiB2cAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+            setUploadingAiB2cAvatar(true);
+            setError(null);
+            const result = await agentLkApi.uploadAiB2cAvatar(file);
+            const finalUrl = (result as any)?.url ?? (result as any)?.avatar_url ?? '';
+            if (!finalUrl) {
+                setError('Бэкенд не вернул URL аватара.');
+                return;
+            }
+            setAiB2cAvatarUrl(finalUrl);
+        } catch (e) {
+            console.error('Failed to upload AI B2C avatar:', e);
+            setError('Не удалось загрузить аватар. Проверьте формат файла и попробуйте ещё раз.');
+        } finally {
+            setUploadingAiB2cAvatar(false);
+            // очищаем value, чтобы можно было выбрать тот же файл ещё раз
+            if (e.target) {
+                e.target.value = '';
+            }
+        }
+    };
 
     const resetProductForm = () => {
         setProductForm({
@@ -1122,6 +1189,179 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                 <p style={{ color: '#6b7280' }}>Загрузка…</p>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                                    {/* Внешний вид ассистента */}
+                                    <section
+                                        style={{
+                                            padding: '16px 18px',
+                                            borderRadius: '16px',
+                                            border: '1px solid #e5e7eb',
+                                            background: '#f9fafb',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '16px',
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
+                                            <div>
+                                                <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#111827', margin: 0, marginBottom: '4px' }}>
+                                                    Внешний вид ассистента
+                                                </h2>
+                                                <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
+                                                    Имя, аватар и зелёная подпись, которые увидит клиент в B2C-виджете.
+                                                </p>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <div
+                                                    style={{
+                                                        width: '52px',
+                                                        height: '52px',
+                                                        borderRadius: '999px',
+                                                        overflow: 'hidden',
+                                                        background: '#e5e7eb',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: '20px',
+                                                        fontWeight: 600,
+                                                        color: '#4b5563',
+                                                        flexShrink: 0,
+                                                    }}
+                                                >
+                                                    {aiB2cAvatarUrl ? (
+                                                        // eslint-disable-next-line jsx-a11y/alt-text
+                                                        <img
+                                                            src={aiB2cAvatarUrl}
+                                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                        />
+                                                    ) : (
+                                                        (aiB2cDisplayName.trim()[0] ?? 'A').toUpperCase()
+                                                    )}
+                                                </div>
+                                                <label
+                                                    style={{
+                                                        fontSize: '12px',
+                                                        color: '#4b5563',
+                                                        cursor: 'pointer',
+                                                        padding: '6px 10px',
+                                                        borderRadius: '999px',
+                                                        border: '1px solid #d1d5db',
+                                                        background: '#fff',
+                                                        whiteSpace: 'nowrap',
+                                                    }}
+                                                >
+                                                    {uploadingAiB2cAvatar ? 'Загрузка…' : 'Загрузить с компьютера'}
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        onChange={handleAiB2cAvatarFileChange}
+                                                        style={{ display: 'none' }}
+                                                        disabled={uploadingAiB2cAvatar}
+                                                    />
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '12px' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                <label style={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>
+                                                    Имя ассистента
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={aiB2cDisplayName}
+                                                    onChange={(e) => setAiB2cDisplayName(e.target.value)}
+                                                    placeholder="Например, Виктория"
+                                                    style={{
+                                                        padding: '8px 10px',
+                                                        borderRadius: '10px',
+                                                        border: '1px solid #d1d5db',
+                                                        fontSize: '14px',
+                                                        outline: 'none',
+                                                    }}
+                                                />
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                <label style={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>
+                                                    URL аватара
+                                                </label>
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <input
+                                                        type="text"
+                                                        value={aiB2cAvatarUrl}
+                                                        onChange={(e) => setAiB2cAvatarUrl(e.target.value)}
+                                                        placeholder="https://example.com/avatar.png"
+                                                        style={{
+                                                            flex: 1,
+                                                            padding: '8px 10px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid #d1d5db',
+                                                            fontSize: '14px',
+                                                            outline: 'none',
+                                                        }}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setAiB2cAvatarUrl('')}
+                                                        style={{
+                                                            padding: '8px 10px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid #fecaca',
+                                                            background: '#fef2f2',
+                                                            fontSize: '12px',
+                                                            color: '#b91c1c',
+                                                            cursor: aiB2cAvatarUrl ? 'pointer' : 'default',
+                                                            whiteSpace: 'nowrap',
+                                                        }}
+                                                        disabled={!aiB2cAvatarUrl}
+                                                    >
+                                                        Удалить аватар
+                                                    </button>
+                                                </div>
+                                                <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>
+                                                    Загрузите картинку в ваше хранилище и вставьте сюда прямой URL.
+                                                </p>
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                <label style={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>
+                                                    Описание (зелёная подпись)
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={aiB2cTagline}
+                                                    onChange={(e) => setAiB2cTagline(e.target.value)}
+                                                    placeholder="Короткое описание роли ассистента"
+                                                    style={{
+                                                        padding: '8px 10px',
+                                                        borderRadius: '10px',
+                                                        border: '1px solid #d1d5db',
+                                                        fontSize: '14px',
+                                                        outline: 'none',
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
+                                            <button
+                                                type="button"
+                                                onClick={saveAiB2cSettings}
+                                                disabled={savingAiB2cSettings}
+                                                style={{
+                                                    padding: '8px 16px',
+                                                    borderRadius: '999px',
+                                                    border: 'none',
+                                                    background: savingAiB2cSettings
+                                                        ? '#9ca3af'
+                                                        : 'linear-gradient(135deg, #10B981, #059669)',
+                                                    color: '#fff',
+                                                    fontSize: '13px',
+                                                    fontWeight: 600,
+                                                    cursor: savingAiB2cSettings ? 'wait' : 'pointer',
+                                                }}
+                                            >
+                                                {savingAiB2cSettings ? 'Сохранение…' : 'Сохранить внешний вид'}
+                                            </button>
+                                        </div>
+                                    </section>
+
                                     {/* Мозг — brain-contexts */}
                                     <section>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>

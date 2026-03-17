@@ -134,6 +134,27 @@ export interface PassiveIncomeYieldSettings {
 
 // --- AI B2C (настройки ИИ для B2C) ---
 
+export interface AiB2cSettings {
+    id?: number;
+    project_id?: number | null;
+    display_name: string;
+    avatar_url?: string | null;
+    tagline?: string | null;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface AiB2cSettingsPayload {
+    display_name: string;
+    avatar_url?: string | null;
+    tagline?: string | null;
+}
+
+export interface AiB2cUploadImageResponse {
+    success?: boolean;
+    url: string;
+}
+
 export interface AiB2cBrainContext {
     id: number | string;
     title?: string;
@@ -282,7 +303,40 @@ export const agentLkApi = {
         return response.data;
     },
 
+    // --- AI B2C: настройки ассистента ---
+    getAiB2cSettings: async (): Promise<AiB2cSettings | null> => {
+        try {
+            const response = await axios.get<AiB2cSettings | null>(`${API_BASE}/ai-b2c/settings`, {
+                headers: getHeaders(),
+            });
+            return response.data;
+        } catch (e: any) {
+            if (e?.response?.status === 404) return null;
+            throw e;
+        }
+    },
+
+    putAiB2cSettings: async (payload: AiB2cSettingsPayload): Promise<AiB2cSettings> => {
+        const response = await axios.put<AiB2cSettings>(`${API_BASE}/ai-b2c/settings`, payload, {
+            headers: getHeaders(),
+        });
+        return response.data;
+    },
+
+    uploadAiB2cAvatar: async (file: File): Promise<AiB2cUploadImageResponse> => {
+        const formData = new FormData();
+        formData.append('image', file);
+        const response = await axios.post<AiB2cUploadImageResponse>(`${API_BASE}/ai-b2c/avatar-upload`, formData, {
+            headers: {
+                ...getHeaders(),
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return response.data;
+    },
+
     // --- AI B2C: brain-contexts ---
+
     getBrainContexts: async (): Promise<AiB2cBrainContext[]> => {
         const response = await axios.get(`${API_BASE}/ai-b2c/brain-contexts`, {
             headers: getHeaders(),
