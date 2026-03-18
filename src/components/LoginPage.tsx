@@ -8,8 +8,8 @@ interface LoginPageProps {
     onLoginSuccess: () => void;
 }
 
-const defaultEmail = import.meta.env.VITE_LOGIN ?? 'testuser@example.com';
-const defaultPassword = import.meta.env.VITE_PASSWORD ?? 'Test1234';
+const defaultEmail = import.meta.env.VITE_LOGIN ?? '';
+const defaultPassword = import.meta.env.VITE_PASSWORD ?? '';
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     const [email, setEmail] = useState(defaultEmail);
@@ -112,13 +112,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         {loading ? 'Вход...' : 'Войти в кабинет'}
                     </button>
                 </form>
-
-                <div style={{ marginTop: '24px', textAlign: 'center' }}>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-                        Тестовый аккаунт: <br />
-                        <span style={{ color: 'var(--primary)' }}>testuser@example.com / Test1234</span>
-                    </p>
-                </div>
             </motion.div>
         </div>
     );
