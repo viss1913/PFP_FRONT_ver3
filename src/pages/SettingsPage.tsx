@@ -33,6 +33,45 @@ const RISK_PROFILE_LABELS: Record<string, string> = {
     AGGRESSIVE: 'Агрессивный',
 };
 
+const PORTFOLIO_SHARE_STEP = 5;
+
+/** Доли по бакету, в сумме ровно 100%, кратные step (кроме возможной коррекции на последнем). */
+function splitSharesEqually(count: number, step: number): number[] {
+    if (count <= 0) return [];
+    if (count === 1) return [100];
+    const arr: number[] = [];
+    let remaining = 100;
+    for (let i = 0; i < count - 1; i++) {
+        const target = remaining / (count - i);
+        const v = Math.max(0, Math.min(100, Math.round(target / step) * step));
+        arr.push(v);
+        remaining -= v;
+    }
+    arr.push(Math.max(0, Math.min(100, remaining)));
+    const sum = arr.reduce((a, b) => a + b, 0);
+    if (sum !== 100) {
+        arr[arr.length - 1] += 100 - sum;
+    }
+    return arr;
+}
+
+function rebalanceBucketShares(
+    instruments: Array<{ product_id: number; bucket_type: 'INITIAL_CAPITAL' | 'TOP_UP'; share_percent: number }>,
+    bucket: 'INITIAL_CAPITAL' | 'TOP_UP'
+): Array<{ product_id: number; bucket_type: 'INITIAL_CAPITAL' | 'TOP_UP'; share_percent: number }> {
+    const idxInBucket: number[] = [];
+    instruments.forEach((inv, idx) => {
+        if (inv.bucket_type === bucket) idxInBucket.push(idx);
+    });
+    if (idxInBucket.length === 0) return instruments;
+    const splits = splitSharesEqually(idxInBucket.length, PORTFOLIO_SHARE_STEP);
+    const next = instruments.map((inv) => ({ ...inv }));
+    idxInBucket.forEach((idx, j) => {
+        next[idx] = { ...next[idx], share_percent: splits[j] };
+    });
+    return next;
+}
+
 function getEmptyPortfolioForm(): {
     name: string;
     currency: string;
@@ -398,7 +437,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     };
 
     const setBucketTab = (profileIndex: number, bucket: 'INITIAL_CAPITAL' | 'TOP_UP') => {
-        if (bucket === 'TOP_UP' && editingPortfolioId == null) {
+        if (bucket === 'TOP_UP') {
             const rp = portfolioForm.risk_profiles[profileIndex];
             const initialInstr = rp.instruments.filter((i) => i.bucket_type === 'INITIAL_CAPITAL');
             const topUpInstr = rp.instruments.filter((i) => i.bucket_type === 'TOP_UP');
@@ -408,7 +447,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                     const prof = { ...next.risk_profiles[profileIndex] };
                     prof.instruments = [
                         ...prof.instruments,
-                        ...initialInstr.map((i) => ({ ...i, bucket_type: 'TOP_UP' as const })),
+                        ...initialInstr.map((i) => ({
+                            product_id: i.product_id,
+                            bucket_type: 'TOP_UP' as const,
+                            share_percent: i.share_percent,
+                        })),
                     ];
                     next.risk_profiles = next.risk_profiles.map((r, i) => (i === profileIndex ? prof : r));
                     return next;
@@ -420,16 +463,31 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
 
     const buildPortfolioPayload = (): PortfolioCreateUpdatePayload => {
         const classIds = portfolioForm.class_ids;
-        const risk_profiles: PortfolioRiskProfile[] = portfolioForm.risk_profiles.map((rp) => ({
-            profile_type: rp.profile_type,
-            explanation: rp.explanation.trim() || undefined,
-            potential_yield_percent: rp.potential_yield_percent ? Number(rp.potential_yield_percent) : undefined,
-            instruments: rp.instruments.map((inv) => ({
+        const risk_profiles: PortfolioRiskProfile[] = portfolioForm.risk_profiles.map((rp) => {
+            let instruments = rp.instruments.map((inv) => ({
                 product_id: inv.product_id,
                 bucket_type: inv.bucket_type,
                 share_percent: inv.share_percent,
-            })),
-        }));
+            }));
+            const initial = instruments.filter((i) => i.bucket_type === 'INITIAL_CAPITAL');
+            const topUp = instruments.filter((i) => i.bucket_type === 'TOP_UP');
+            if (initial.length > 0 && topUp.length === 0) {
+                instruments = [
+                    ...instruments,
+                    ...initial.map((i) => ({
+                        product_id: i.product_id,
+                        bucket_type: 'TOP_UP' as const,
+                        share_percent: i.share_percent,
+                    })),
+                ];
+            }
+            return {
+                profile_type: rp.profile_type,
+                explanation: rp.explanation.trim() || undefined,
+                potential_yield_percent: rp.potential_yield_percent ? Number(rp.potential_yield_percent) : undefined,
+                instruments,
+            };
+        });
         return {
             name: portfolioForm.name.trim(),
             currency: portfolioForm.currency.trim() || 'RUB',
@@ -442,9 +500,38 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         };
     };
 
+    const validatePortfolioShares = (): string | null => {
+        for (const rp of portfolioForm.risk_profiles) {
+            const label = RISK_PROFILE_LABELS[rp.profile_type] ?? rp.profile_type;
+            let initial = rp.instruments.filter((i) => i.bucket_type === 'INITIAL_CAPITAL');
+            let topUp = rp.instruments.filter((i) => i.bucket_type === 'TOP_UP');
+            if (initial.length > 0 && topUp.length === 0) {
+                topUp = initial.map((i) => ({ ...i, bucket_type: 'TOP_UP' as const }));
+            }
+            if (initial.length > 0) {
+                const s = initial.reduce((acc, i) => acc + i.share_percent, 0);
+                if (Math.abs(s - 100) > 0.5) {
+                    return `${label}: сумма долей по первоначальному капиталу = ${s}%, нужно ровно 100%.`;
+                }
+            }
+            if (topUp.length > 0) {
+                const s = topUp.reduce((acc, i) => acc + i.share_percent, 0);
+                if (Math.abs(s - 100) > 0.5) {
+                    return `${label}: сумма долей по пополнению = ${s}%, нужно ровно 100%.`;
+                }
+            }
+        }
+        return null;
+    };
+
     const savePortfolio = async () => {
         if (!portfolioForm.name.trim()) {
             setError('Введите название портфеля.');
+            return;
+        }
+        const shareErr = validatePortfolioShares();
+        if (shareErr) {
+            setError(shareErr);
             return;
         }
         try {
@@ -469,17 +556,35 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     };
 
     const addInstrument = (profileIndex: number, bucketType: 'INITIAL_CAPITAL' | 'TOP_UP') => {
-        const firstProductId = (products && products[0]) ? Number(products[0].id) : 0;
+        const firstProductId = products && products[0] ? Number(products[0].id) : 0;
         setPortfolioForm((prev) => {
             const next = { ...prev };
             const prof = { ...next.risk_profiles[profileIndex] };
-            prof.instruments = [...prof.instruments, { product_id: firstProductId, bucket_type: bucketType, share_percent: 0 }];
+            const initialList = prof.instruments.filter((i) => i.bucket_type === 'INITIAL_CAPITAL');
+            const topUpList = prof.instruments.filter((i) => i.bucket_type === 'TOP_UP');
+
+            if (bucketType === 'TOP_UP' && topUpList.length === 0 && initialList.length > 0) {
+                prof.instruments = [
+                    ...prof.instruments,
+                    ...initialList.map((i) => ({
+                        product_id: i.product_id,
+                        bucket_type: 'TOP_UP' as const,
+                        share_percent: i.share_percent,
+                    })),
+                ];
+                next.risk_profiles = next.risk_profiles.map((r, i) => (i === profileIndex ? prof : r));
+                return next;
+            }
+
+            prof.instruments = [
+                ...prof.instruments,
+                { product_id: firstProductId, bucket_type: bucketType, share_percent: 0 },
+            ];
+            prof.instruments = rebalanceBucketShares(prof.instruments, bucketType);
             next.risk_profiles = next.risk_profiles.map((r, i) => (i === profileIndex ? prof : r));
             return next;
         });
     };
-
-    const SLIDER_STEP = 5;
 
     const updateInstrument = (profileIndex: number, instIndex: number, field: 'product_id' | 'bucket_type' | 'share_percent', value: number | string) => {
         setPortfolioForm((prev) => {
@@ -495,7 +600,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
 
     /** Меняет долю одного инструмента и распределяет остаток пропорционально между остальными — все ползунки двигаются синхронно, без прыжков. */
     const updateInstrumentShareWithAutoBalance = (profileIndex: number, originalIndex: number, newValRaw: number) => {
-        const newVal = Math.max(0, Math.min(100, Math.round(newValRaw / SLIDER_STEP) * SLIDER_STEP));
+        const newVal = Math.max(0, Math.min(100, Math.round(newValRaw / PORTFOLIO_SHARE_STEP) * PORTFOLIO_SHARE_STEP));
         setPortfolioForm((prev) => {
             const next = { ...prev };
             const prof = { ...next.risk_profiles[profileIndex] };
@@ -523,7 +628,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                     const proportional = (oldShare / sumOthersOld) * targetForOthers;
                     prof.instruments[idx] = {
                         ...prof.instruments[idx],
-                        share_percent: Math.round(proportional / SLIDER_STEP) * SLIDER_STEP,
+                        share_percent: Math.round(proportional / PORTFOLIO_SHARE_STEP) * PORTFOLIO_SHARE_STEP,
                     };
                 });
                 const actualOthersSum = others.reduce((s, { idx }) => s + prof.instruments[idx].share_percent, 0);
@@ -547,7 +652,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         setPortfolioForm((prev) => {
             const next = { ...prev };
             const prof = { ...next.risk_profiles[profileIndex] };
+            const removed = prof.instruments[instIndex];
+            if (!removed) return next;
+            const bucket = removed.bucket_type;
             prof.instruments = prof.instruments.filter((_, i) => i !== instIndex);
+            prof.instruments = rebalanceBucketShares(prof.instruments, bucket);
             next.risk_profiles = next.risk_profiles.map((r, i) => (i === profileIndex ? prof : r));
             return next;
         });
@@ -2692,6 +2801,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                             .map((inv, idx) => ({ inv, originalIndex: idx }))
                                             .filter(({ inv }) => inv.bucket_type === activeBucket);
                                         const totalPercent = currentInstruments.reduce((s, { inv }) => s + inv.share_percent, 0);
+                                        const sumInitial = rp.instruments.filter((i) => i.bucket_type === 'INITIAL_CAPITAL').reduce((s, i) => s + i.share_percent, 0);
+                                        const sumTopUpDirect = rp.instruments.filter((i) => i.bucket_type === 'TOP_UP').reduce((s, i) => s + i.share_percent, 0);
+                                        const sumTopUp =
+                                            rp.instruments.some((i) => i.bucket_type === 'TOP_UP')
+                                                ? sumTopUpDirect
+                                                : sumInitial;
                                         const donutItems = currentInstruments.map(({ inv }) => ({ name: getProductNameById(inv.product_id), amount: inv.share_percent }));
                                         const COLORS = ['#E91E63', '#9C27B0', '#673AB7', '#3F51B5', '#2196F3', '#00BCD4', '#009688', '#4CAF50'];
                                         let angle = 0;
@@ -2798,7 +2913,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                             type="range"
                                                                             min={0}
                                                                             max={100}
-                                                                            step={SLIDER_STEP}
+                                                                            step={PORTFOLIO_SHARE_STEP}
                                                                             value={inv.share_percent}
                                                                             onChange={(e) => updateInstrumentShareWithAutoBalance(profileIndex, originalIndex, Number(e.target.value))}
                                                                             style={{ flex: 1, minWidth: '120px', height: '12px' }}
@@ -2808,7 +2923,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                                 type="number"
                                                                                 min={0}
                                                                                 max={100}
-                                                                                step={SLIDER_STEP}
+                                                                                step={PORTFOLIO_SHARE_STEP}
                                                                                 value={inv.share_percent}
                                                                                 onChange={(e) => {
                                                                                     const v = e.target.value === '' ? 0 : Number(e.target.value);
@@ -2860,6 +2975,36 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                         {s.name}: {s.amount}%
                                                                     </div>
                                                                 ))}
+                                                            </div>
+                                                        )}
+                                                        {rp.instruments.some((i) => i.bucket_type === 'INITIAL_CAPITAL') && (
+                                                            <div
+                                                                style={{
+                                                                    marginTop: '8px',
+                                                                    fontSize: '11px',
+                                                                    color: Math.abs(sumInitial - 100) <= 0.5 ? '#059669' : '#b91c1c',
+                                                                    fontWeight: 600,
+                                                                }}
+                                                            >
+                                                                Первонач. капитал: {sumInitial}%{' '}
+                                                                {Math.abs(sumInitial - 100) <= 0.5 ? '✓' : '(нужно 100%)'}
+                                                            </div>
+                                                        )}
+                                                        {(rp.instruments.some((i) => i.bucket_type === 'TOP_UP') ||
+                                                            rp.instruments.some((i) => i.bucket_type === 'INITIAL_CAPITAL')) && (
+                                                            <div
+                                                                style={{
+                                                                    marginTop: '4px',
+                                                                    fontSize: '11px',
+                                                                    color: Math.abs(sumTopUp - 100) <= 0.5 ? '#059669' : '#b91c1c',
+                                                                    fontWeight: 600,
+                                                                }}
+                                                            >
+                                                                Пополнение: {sumTopUp}%
+                                                                {!rp.instruments.some((i) => i.bucket_type === 'TOP_UP') && sumInitial > 0 && (
+                                                                    <span style={{ color: '#6b7280', fontWeight: 400 }}> (как у первонач., пока не настроишь)</span>
+                                                                )}{' '}
+                                                                {Math.abs(sumTopUp - 100) <= 0.5 ? '✓' : '(нужно 100%)'}
                                                             </div>
                                                         )}
                                                     </div>
