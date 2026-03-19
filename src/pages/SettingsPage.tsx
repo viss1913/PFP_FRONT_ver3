@@ -55,6 +55,23 @@ function splitSharesEqually(count: number, step: number): number[] {
     return arr;
 }
 
+/** Строка линии доходности в модалке «Новый продукт» (значения в инпутах — строки). */
+function getDefaultProductCreateLine(): {
+    min_term_months: string;
+    max_term_months: string;
+    min_amount: string;
+    max_amount: string;
+    yield_percent: string;
+} {
+    return {
+        min_term_months: '0',
+        max_term_months: '0',
+        min_amount: '0',
+        max_amount: '1000000000000',
+        yield_percent: '10',
+    };
+}
+
 function rebalanceBucketShares(
     instruments: Array<{ product_id: number; bucket_type: 'INITIAL_CAPITAL' | 'TOP_UP'; share_percent: number }>,
     bucket: 'INITIAL_CAPITAL' | 'TOP_UP'
@@ -244,21 +261,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         name: string;
         product_type: string;
         currency: string;
-        min_term_months: string;
-        max_term_months: string;
-        min_amount: string;
-        max_amount: string;
-        yield_percent: string;
     }>({
         name: '',
         product_type: '',
         currency: 'RUB',
-        min_term_months: '12',
-        max_term_months: '60',
-        min_amount: '10000',
-        max_amount: '1000000',
-        yield_percent: '10',
     });
+    const [productCreateLines, setProductCreateLines] = useState(() => [getDefaultProductCreateLine()]);
     const [isSavingProduct, setIsSavingProduct] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<AgentProduct | null>(null);
     const [isProductDetailsOpen, setIsProductDetailsOpen] = useState(false);
@@ -383,12 +391,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             name: '',
             product_type: '',
             currency: 'RUB',
-            min_term_months: '12',
-            max_term_months: '60',
-            min_amount: '10000',
-            max_amount: '1000000',
-            yield_percent: '10',
         });
+        setProductCreateLines([getDefaultProductCreateLine()]);
     };
 
     const openCreatePortfolio = () => {
@@ -532,6 +536,17 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         const shareErr = validatePortfolioShares();
         if (shareErr) {
             setError(shareErr);
+            return;
+        }
+        if (!portfolioForm.class_ids || portfolioForm.class_ids.length === 0) {
+            setError('Выберите хотя бы один класс портфеля.');
+            return;
+        }
+        const emptyInstrumentsProfiles = portfolioForm.risk_profiles.filter((rp) => !rp.instruments || rp.instruments.length === 0);
+        if (emptyInstrumentsProfiles.length > 0) {
+            const rp = emptyInstrumentsProfiles[0];
+            const label = RISK_PROFILE_LABELS[rp.profile_type] ?? rp.profile_type;
+            setError(`Для профиля "${label}" добавьте инструменты (product_id) в риск-профиль.`);
             return;
         }
         try {
@@ -699,15 +714,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             name: productForm.name.trim(),
             product_type: productForm.product_type.trim(),
             currency: productForm.currency.trim() || 'RUB',
-            lines: [
-                {
-                    min_term_months: Number(productForm.min_term_months) || 0,
-                    max_term_months: Number(productForm.max_term_months) || 0,
-                    min_amount: Number(productForm.min_amount) || 0,
-                    max_amount: Number(productForm.max_amount) || 0,
-                    yield_percent: Number(productForm.yield_percent) || 0,
-                },
-            ],
+            lines: productCreateLines.map((line) => ({
+                min_term_months: Number(line.min_term_months) || 0,
+                max_term_months: Number(line.max_term_months) || 0,
+                min_amount: Number(line.min_amount) || 0,
+                max_amount: Number(line.max_amount) || 0,
+                yield_percent: Number(line.yield_percent) || 0,
+            })),
         };
 
         try {
@@ -1240,7 +1253,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                 </h1>
                                 <button
                                     type="button"
-                                    onClick={() => setIsProductModalOpen(true)}
+                                    onClick={() => {
+                                        resetProductForm();
+                                        setIsProductModalOpen(true);
+                                    }}
                                     style={{
                                         padding: '8px 14px',
                                         borderRadius: '999px',
@@ -2022,7 +2038,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                 width: '100%',
                                                 padding: '8px 10px',
                                                 borderRadius: '10px',
-                                                border: '1px solid #e57e7eb',
+                                                border: '1px solid #e5e7eb',
                                                 fontSize: '13px',
                                             }}
                                         />
@@ -2038,108 +2054,204 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                         border: '1px dashed #e5e7eb',
                                     }}
                                 >
-                                    <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>
-                                        Линия доходности (минимальный набор для старта)
+                                    <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>
+                                        Линии доходности (можно несколько строк)
                                     </div>
-                                    <div
+                                    <table
                                         style={{
-                                            display: 'grid',
-                                            gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
-                                            gap: '8px',
+                                            width: '100%',
+                                            borderCollapse: 'collapse',
+                                            fontSize: '12px',
+                                            marginBottom: '8px',
                                         }}
                                     >
-                                        <input
-                                            type="number"
-                                            min={0}
-                                            value={productForm.min_term_months}
-                                            onChange={(e) =>
-                                                setProductForm((prev) => ({
-                                                    ...prev,
-                                                    min_term_months: e.target.value,
-                                                }))
-                                            }
-                                            placeholder="Срок от (мес)"
-                                            style={{
-                                                padding: '6px 8px',
-                                                borderRadius: '8px',
-                                                border: '1px solid #e5e7eb',
-                                                fontSize: '12px',
-                                            }}
-                                        />
-                                        <input
-                                            type="number"
-                                            min={0}
-                                            value={productForm.max_term_months}
-                                            onChange={(e) =>
-                                                setProductForm((prev) => ({
-                                                    ...prev,
-                                                    max_term_months: e.target.value,
-                                                }))
-                                            }
-                                            placeholder="Срок до (мес)"
-                                            style={{
-                                                padding: '6px 8px',
-                                                borderRadius: '8px',
-                                                border: '1px solid #e5e7eb',
-                                                fontSize: '12px',
-                                            }}
-                                        />
-                                        <input
-                                            type="number"
-                                            min={0}
-                                            value={productForm.min_amount}
-                                            onChange={(e) =>
-                                                setProductForm((prev) => ({
-                                                    ...prev,
-                                                    min_amount: e.target.value,
-                                                }))
-                                            }
-                                            placeholder="Сумма от"
-                                            style={{
-                                                padding: '6px 8px',
-                                                borderRadius: '8px',
-                                                border: '1px solid #e5e7eb',
-                                                fontSize: '12px',
-                                            }}
-                                        />
-                                        <input
-                                            type="number"
-                                            min={0}
-                                            value={productForm.max_amount}
-                                            onChange={(e) =>
-                                                setProductForm((prev) => ({
-                                                    ...prev,
-                                                    max_amount: e.target.value,
-                                                }))
-                                            }
-                                            placeholder="Сумма до"
-                                            style={{
-                                                padding: '6px 8px',
-                                                borderRadius: '8px',
-                                                border: '1px solid #e5e7eb',
-                                                fontSize: '12px',
-                                            }}
-                                        />
-                                        <input
-                                            type="number"
-                                            min={0}
-                                            step="0.1"
-                                            value={productForm.yield_percent}
-                                            onChange={(e) =>
-                                                setProductForm((prev) => ({
-                                                    ...prev,
-                                                    yield_percent: e.target.value,
-                                                }))
-                                            }
-                                            placeholder="% годовых"
-                                            style={{
-                                                padding: '6px 8px',
-                                                borderRadius: '8px',
-                                                border: '1px solid #e5e7eb',
-                                                fontSize: '12px',
-                                            }}
-                                        />
-                                    </div>
+                                        <thead>
+                                            <tr style={{ textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>
+                                                <th style={{ padding: '4px 6px 6px 0', color: '#6b7280', fontWeight: 500 }}>
+                                                    Срок от (мес)
+                                                </th>
+                                                <th style={{ padding: '4px 6px 6px 0', color: '#6b7280', fontWeight: 500 }}>
+                                                    Срок до (мес)
+                                                </th>
+                                                <th style={{ padding: '4px 6px 6px 0', color: '#6b7280', fontWeight: 500 }}>
+                                                    Сумма от
+                                                </th>
+                                                <th style={{ padding: '4px 6px 6px 0', color: '#6b7280', fontWeight: 500 }}>
+                                                    Сумма до
+                                                </th>
+                                                <th style={{ padding: '4px 6px 6px 0', color: '#6b7280', fontWeight: 500 }}>
+                                                    % годовых
+                                                </th>
+                                                <th style={{ width: 36 }} />
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {productCreateLines.map((line, idx) => (
+                                                <tr key={idx} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                                                    <td style={{ padding: '6px 6px 6px 0', verticalAlign: 'middle' }}>
+                                                        <input
+                                                            type="number"
+                                                            min={0}
+                                                            value={line.min_term_months}
+                                                            onChange={(e) =>
+                                                                setProductCreateLines((prev) =>
+                                                                    prev.map((l, i) =>
+                                                                        i === idx ? { ...l, min_term_months: e.target.value } : l,
+                                                                    ),
+                                                                )
+                                                            }
+                                                            style={{
+                                                                width: '100%',
+                                                                minWidth: 0,
+                                                                padding: '6px 8px',
+                                                                borderRadius: '8px',
+                                                                border: '1px solid #e5e7eb',
+                                                                fontSize: '12px',
+                                                            }}
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: '6px 6px 6px 0', verticalAlign: 'middle' }}>
+                                                        <input
+                                                            type="number"
+                                                            min={0}
+                                                            value={line.max_term_months}
+                                                            onChange={(e) =>
+                                                                setProductCreateLines((prev) =>
+                                                                    prev.map((l, i) =>
+                                                                        i === idx ? { ...l, max_term_months: e.target.value } : l,
+                                                                    ),
+                                                                )
+                                                            }
+                                                            style={{
+                                                                width: '100%',
+                                                                minWidth: 0,
+                                                                padding: '6px 8px',
+                                                                borderRadius: '8px',
+                                                                border: '1px solid #e5e7eb',
+                                                                fontSize: '12px',
+                                                            }}
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: '6px 6px 6px 0', verticalAlign: 'middle' }}>
+                                                        <input
+                                                            type="number"
+                                                            min={0}
+                                                            value={line.min_amount}
+                                                            onChange={(e) =>
+                                                                setProductCreateLines((prev) =>
+                                                                    prev.map((l, i) =>
+                                                                        i === idx ? { ...l, min_amount: e.target.value } : l,
+                                                                    ),
+                                                                )
+                                                            }
+                                                            style={{
+                                                                width: '100%',
+                                                                minWidth: 0,
+                                                                padding: '6px 8px',
+                                                                borderRadius: '8px',
+                                                                border: '1px solid #e5e7eb',
+                                                                fontSize: '12px',
+                                                            }}
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: '6px 6px 6px 0', verticalAlign: 'middle' }}>
+                                                        <input
+                                                            type="number"
+                                                            min={0}
+                                                            value={line.max_amount}
+                                                            onChange={(e) =>
+                                                                setProductCreateLines((prev) =>
+                                                                    prev.map((l, i) =>
+                                                                        i === idx ? { ...l, max_amount: e.target.value } : l,
+                                                                    ),
+                                                                )
+                                                            }
+                                                            style={{
+                                                                width: '100%',
+                                                                minWidth: 0,
+                                                                padding: '6px 8px',
+                                                                borderRadius: '8px',
+                                                                border: '1px solid #e5e7eb',
+                                                                fontSize: '12px',
+                                                            }}
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: '6px 6px 6px 0', verticalAlign: 'middle' }}>
+                                                        <input
+                                                            type="number"
+                                                            min={0}
+                                                            step="0.1"
+                                                            value={line.yield_percent}
+                                                            onChange={(e) =>
+                                                                setProductCreateLines((prev) =>
+                                                                    prev.map((l, i) =>
+                                                                        i === idx ? { ...l, yield_percent: e.target.value } : l,
+                                                                    ),
+                                                                )
+                                                            }
+                                                            style={{
+                                                                width: '100%',
+                                                                minWidth: 0,
+                                                                padding: '6px 8px',
+                                                                borderRadius: '8px',
+                                                                border: '1px solid #e5e7eb',
+                                                                fontSize: '12px',
+                                                            }}
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: '6px 0', textAlign: 'center', verticalAlign: 'middle' }}>
+                                                        <button
+                                                            type="button"
+                                                            disabled={productCreateLines.length <= 1 || isSavingProduct}
+                                                            title={
+                                                                productCreateLines.length <= 1
+                                                                    ? 'Нужна хотя бы одна линия'
+                                                                    : 'Удалить строку'
+                                                            }
+                                                            onClick={() =>
+                                                                setProductCreateLines((prev) =>
+                                                                    prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx),
+                                                                )
+                                                            }
+                                                            style={{
+                                                                border: 'none',
+                                                                background: 'transparent',
+                                                                color:
+                                                                    productCreateLines.length <= 1 ? '#d1d5db' : '#ef4444',
+                                                                cursor:
+                                                                    productCreateLines.length <= 1 || isSavingProduct
+                                                                        ? 'not-allowed'
+                                                                        : 'pointer',
+                                                                fontSize: '16px',
+                                                                lineHeight: 1,
+                                                                padding: '2px 4px',
+                                                            }}
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                    <button
+                                        type="button"
+                                        disabled={isSavingProduct}
+                                        onClick={() =>
+                                            setProductCreateLines((prev) => [...prev, getDefaultProductCreateLine()])
+                                        }
+                                        style={{
+                                            padding: '6px 10px',
+                                            borderRadius: '999px',
+                                            border: '1px dashed #e5e7eb',
+                                            background: '#fff',
+                                            fontSize: '12px',
+                                            cursor: isSavingProduct ? 'wait' : 'pointer',
+                                            color: '#374151',
+                                        }}
+                                    >
+                                        + Добавить линию
+                                    </button>
                                 </div>
 
                                 <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
