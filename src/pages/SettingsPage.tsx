@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Header from '../components/Header';
 import { API_BASE_URL } from '../api/config';
+import { normalizePdfCoverLayout } from '../utils/pdfCoverLayout';
 import {
     agentLkApi,
     type AgentProduct,
@@ -49,6 +50,9 @@ function blobToDataUrl(blob: Blob): Promise<string> {
         fr.readAsDataURL(blob);
     });
 }
+
+/** Как в макете Figma «Отчёт» / дефолт бэка. */
+const DEFAULT_COVER_TITLE_TEXT = 'персональное финансовое решение';
 
 const DEFAULT_PDF_FORM_FIELDS: PdfCoverEditorField[] = [
     { key: 'cover_background_url', type: 'image', label: 'Фон обложки' },
@@ -380,11 +384,32 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         (async () => {
             let dataUrl: string | null = null;
             try {
-                const blob = await agentLkApi.getPdfCoverImageBlob();
+                const src = await agentLkApi.getPdfCoverImageForPreview();
                 if (cancelled) return;
-                dataUrl = await blobToDataUrl(blob);
+                if (src.startsWith('data:')) {
+                    dataUrl = src;
+                } else if (/^https?:\/\//i.test(src)) {
+                    try {
+                        const blob = await agentLkApi.fetchImageBlobFromPublicUrl(src);
+                        dataUrl = await blobToDataUrl(blob);
+                    } catch {
+                        setPdfCoverPreviewUrl(src);
+                        return;
+                    }
+                } else {
+                    dataUrl = src;
+                }
             } catch (e) {
-                console.warn('[pdf-cover preview] GET cover-image →', e);
+                console.warn('[pdf-cover preview] cover-image (JSON/url/blob) →', e);
+            }
+            if (!dataUrl) {
+                try {
+                    const blob = await agentLkApi.getPdfCoverImageBlob();
+                    if (cancelled) return;
+                    dataUrl = await blobToDataUrl(blob);
+                } catch (e2) {
+                    console.warn('[pdf-cover preview] axios blob →', e2);
+                }
             }
             if (!dataUrl && direct) {
                 try {
@@ -1402,6 +1427,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     };
 
     const pdfCoverBandColor = pdfDraft.title_band_color.trim() || '#722257';
+    const coverLayoutPx = normalizePdfCoverLayout(pdfSettings?.cover_layout ?? null);
+    const PDF_COVER_PREVIEW_MAX_W = 260;
+    const pdfCoverLayoutScale = coverLayoutPx ? PDF_COVER_PREVIEW_MAX_W / coverLayoutPx.canvasW : 0;
+    const pdfCoverBandTitle =
+        coverLayoutPx?.contentTitle?.trim() ||
+        pdfDraft.cover_title.trim() ||
+        DEFAULT_COVER_TITLE_TEXT;
+    const pdfCoverDateStr =
+        coverLayoutPx?.contentDate?.trim() || pdfSettings?.date_preview?.trim() || '';
 
     return (
         <div style={{ minHeight: '100vh', background: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
@@ -2223,12 +2257,19 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                     margin: '0 0 8px 0',
                                                                 }}
                                                             >
-                                                                Превью (примерно как на PDF)
+                                                                {coverLayoutPx
+                                                                    ? 'Превью (cover_layout с бэка)'
+                                                                    : 'Превью (без cover_layout — упрощённо)'}
                                                             </p>
                                                             <div
                                                                 style={{
-                                                                    width: 'min(100%, 260px)',
-                                                                    aspectRatio: '210 / 297',
+                                                                    width: coverLayoutPx
+                                                                        ? PDF_COVER_PREVIEW_MAX_W
+                                                                        : 'min(100%, 260px)',
+                                                                    height: coverLayoutPx
+                                                                        ? coverLayoutPx.canvasH * pdfCoverLayoutScale
+                                                                        : undefined,
+                                                                    aspectRatio: coverLayoutPx ? undefined : '210 / 297',
                                                                     borderRadius: '14px',
                                                                     overflow: 'hidden',
                                                                     border: '1px solid #e5e7eb',
@@ -2237,6 +2278,23 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                     boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
                                                                 }}
                                                             >
+                                                                {coverLayoutPx
+                                                                    ? coverLayoutPx.gradients.map((g, idx) => (
+                                                                          <div
+                                                                              key={`g-${idx}`}
+                                                                              style={{
+                                                                                  position: 'absolute',
+                                                                                  left: g.rect.x * pdfCoverLayoutScale,
+                                                                                  top: g.rect.y * pdfCoverLayoutScale,
+                                                                                  width: g.rect.width * pdfCoverLayoutScale,
+                                                                                  height: g.rect.height * pdfCoverLayoutScale,
+                                                                                  zIndex: g.zIndex ?? 4 + idx,
+                                                                                  backgroundImage: g.css,
+                                                                                  pointerEvents: 'none',
+                                                                              }}
+                                                                          />
+                                                                      ))
+                                                                    : null}
                                                                 {pdfCoverPreviewUrl ? (
                                                                     // eslint-disable-next-line jsx-a11y/alt-text -- декоративное превью макета
                                                                     <img
@@ -2254,45 +2312,139 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                         }}
                                                                     />
                                                                 ) : null}
-                                                                <div
-                                                                    style={{
-                                                                        position: 'absolute',
-                                                                        left: 0,
-                                                                        right: 0,
-                                                                        bottom: '16%',
-                                                                        zIndex: 1,
-                                                                        background: pdfCoverBandColor,
-                                                                        padding: '14px 12px',
-                                                                    }}
-                                                                >
-                                                                    <div
-                                                                        style={{
-                                                                            color: '#fff',
-                                                                            fontSize: '11px',
-                                                                            fontWeight: 700,
-                                                                            textAlign: 'center',
-                                                                            lineHeight: 1.35,
-                                                                        }}
-                                                                    >
-                                                                        {pdfDraft.cover_title.trim() ||
-                                                                            'Текст плашки'}
-                                                                    </div>
-                                                                </div>
-                                                                {pdfSettings?.date_preview ? (
-                                                                    <div
-                                                                        style={{
-                                                                            position: 'absolute',
-                                                                            bottom: '10px',
-                                                                            right: '12px',
-                                                                            zIndex: 2,
-                                                                            fontSize: '9px',
-                                                                            color: '#fff',
-                                                                            textShadow: '0 1px 3px rgba(0,0,0,0.85)',
-                                                                        }}
-                                                                    >
-                                                                        {pdfSettings.date_preview}
-                                                                    </div>
-                                                                ) : null}
+                                                                {coverLayoutPx ? (
+                                                                    <>
+                                                                        <div
+                                                                            style={{
+                                                                                position: 'absolute',
+                                                                                left:
+                                                                                    coverLayoutPx.titleBand.x *
+                                                                                    pdfCoverLayoutScale,
+                                                                                top:
+                                                                                    coverLayoutPx.titleBand.y *
+                                                                                    pdfCoverLayoutScale,
+                                                                                width:
+                                                                                    coverLayoutPx.titleBand.width *
+                                                                                    pdfCoverLayoutScale,
+                                                                                height:
+                                                                                    coverLayoutPx.titleBand.height *
+                                                                                    pdfCoverLayoutScale,
+                                                                                zIndex: 10,
+                                                                                boxSizing: 'border-box',
+                                                                                background: coverLayoutPx.titleBand.background,
+                                                                                padding: `${coverLayoutPx.titleBand.padding.top * pdfCoverLayoutScale}px ${coverLayoutPx.titleBand.padding.right * pdfCoverLayoutScale}px ${coverLayoutPx.titleBand.padding.bottom * pdfCoverLayoutScale}px ${coverLayoutPx.titleBand.padding.left * pdfCoverLayoutScale}px`,
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                justifyContent:
+                                                                                    coverLayoutPx.titleText.textAlign ===
+                                                                                    'left'
+                                                                                        ? 'flex-start'
+                                                                                        : coverLayoutPx.titleText.textAlign ===
+                                                                                            'right'
+                                                                                          ? 'flex-end'
+                                                                                          : 'center',
+                                                                            }}
+                                                                        >
+                                                                            <div
+                                                                                style={{
+                                                                                    color: coverLayoutPx.titleText.color,
+                                                                                    fontSize: `${coverLayoutPx.titleText.fontSize * pdfCoverLayoutScale}px`,
+                                                                                    fontWeight: coverLayoutPx.titleText.fontWeight,
+                                                                                    fontFamily: coverLayoutPx.titleText.fontFamily,
+                                                                                    textAlign: coverLayoutPx.titleText.textAlign,
+                                                                                    lineHeight:
+                                                                                        coverLayoutPx.titleText.lineHeight != null
+                                                                                            ? coverLayoutPx.titleText.lineHeight
+                                                                                            : 1.25,
+                                                                                    width: '100%',
+                                                                                }}
+                                                                            >
+                                                                                {pdfCoverBandTitle}
+                                                                            </div>
+                                                                        </div>
+                                                                        {pdfCoverDateStr ? (
+                                                                            <div
+                                                                                style={{
+                                                                                    position: 'absolute',
+                                                                                    left:
+                                                                                        coverLayoutPx.date.x *
+                                                                                        pdfCoverLayoutScale,
+                                                                                    top:
+                                                                                        coverLayoutPx.date.y *
+                                                                                        pdfCoverLayoutScale,
+                                                                                    width:
+                                                                                        coverLayoutPx.date.width *
+                                                                                        pdfCoverLayoutScale,
+                                                                                    minHeight:
+                                                                                        coverLayoutPx.date.height *
+                                                                                        pdfCoverLayoutScale,
+                                                                                    zIndex: 11,
+                                                                                    fontSize: `${coverLayoutPx.date.fontSize * pdfCoverLayoutScale}px`,
+                                                                                    color: coverLayoutPx.date.color,
+                                                                                    fontFamily: coverLayoutPx.date.fontFamily,
+                                                                                    textAlign: coverLayoutPx.date.textAlign,
+                                                                                    textShadow: coverLayoutPx.date.textShadow,
+                                                                                    display: 'flex',
+                                                                                    alignItems: 'center',
+                                                                                    justifyContent:
+                                                                                        coverLayoutPx.date.textAlign === 'left'
+                                                                                            ? 'flex-start'
+                                                                                            : coverLayoutPx.date.textAlign ===
+                                                                                                'center'
+                                                                                              ? 'center'
+                                                                                              : 'flex-end',
+                                                                                    boxSizing: 'border-box',
+                                                                                    pointerEvents: 'none',
+                                                                                }}
+                                                                            >
+                                                                                {pdfCoverDateStr}
+                                                                            </div>
+                                                                        ) : null}
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <div
+                                                                            style={{
+                                                                                position: 'absolute',
+                                                                                left: 0,
+                                                                                right: 0,
+                                                                                bottom: '16%',
+                                                                                zIndex: 1,
+                                                                                background: pdfCoverBandColor,
+                                                                                padding: '14px 12px',
+                                                                            }}
+                                                                        >
+                                                                            <div
+                                                                                style={{
+                                                                                    color: '#fff',
+                                                                                    fontSize: '11px',
+                                                                                    fontWeight: 700,
+                                                                                    textAlign: 'center',
+                                                                                    lineHeight: 1.35,
+                                                                                }}
+                                                                            >
+                                                                                {pdfDraft.cover_title.trim() ||
+                                                                                    DEFAULT_COVER_TITLE_TEXT}
+                                                                            </div>
+                                                                        </div>
+                                                                        {pdfSettings?.date_preview ? (
+                                                                            <div
+                                                                                style={{
+                                                                                    position: 'absolute',
+                                                                                    bottom: '10px',
+                                                                                    right: '12px',
+                                                                                    zIndex: 2,
+                                                                                    fontSize: '9px',
+                                                                                    color: '#fff',
+                                                                                    textShadow:
+                                                                                        '0 1px 3px rgba(0,0,0,0.85)',
+                                                                                }}
+                                                                            >
+                                                                                {pdfSettings.date_preview}
+                                                                            </div>
+                                                                        ) : null}
+                                                                    </>
+                                                                )}
                                                             </div>
                                                         </div>
                                                         <div style={{ flex: 1, minWidth: '240px', maxWidth: '480px' }}>

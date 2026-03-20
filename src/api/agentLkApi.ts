@@ -22,6 +22,10 @@ async function assertLooksLikeImageBlob(blob: Blob): Promise<void> {
         const t = await blob.text();
         throw new Error(t.slice(0, 400) || 'Сервер вернул JSON вместо картинки.');
     }
+    if (head[0] === 0x3c) {
+        const t = await blob.text();
+        throw new Error(t.slice(0, 200).trim() || 'Похоже на HTML, не картинка.');
+    }
     const mime = String(blob.type || '');
     if (mime.startsWith('image/')) return;
     const jpeg = head[0] === 0xff && head[1] === 0xd8;
@@ -29,6 +33,9 @@ async function assertLooksLikeImageBlob(blob: Blob): Promise<void> {
     const gif = head[0] === 0x47 && head[1] === 0x49 && head[2] === 0x46;
     const webp = head[0] === 0x52 && head[1] === 0x49 && head[2] === 0x46 && head[3] === 0x46;
     if (jpeg || png || gif || webp) return;
+    if (blob.size > 512 && !mime.includes('json') && !mime.includes('html') && !mime.includes('text/')) {
+        return;
+    }
     throw new Error(`Ответ не похож на изображение (Content-Type: ${mime || 'нет'}).`);
 }
 
@@ -230,6 +237,11 @@ export interface PdfCoverSettings {
     title_band_color?: string | null;
     /** Только превью для ЛК; на PDF дата ставится на бэке. */
     date_preview?: string | null;
+    /**
+     * Спека макета Figma/PDF для превью: канвас, градиенты, плашка (350×150 и позиция), типографика, content.
+     * read-only с бэка; см. `normalizePdfCoverLayout` на фронте.
+     */
+    cover_layout?: Record<string, unknown> | null;
 }
 
 export type PdfCoverFieldType = 'image' | 'text' | 'color' | 'readonly';
@@ -608,12 +620,80 @@ export const agentLkApi = {
     },
 
     /**
+     * Один запрос к cover-image: либо JSON `{ url }` (signed/direct), либо тело картинки → data URL.
+     * Удобно для превью в ЛК.
+     */
+    getPdfCoverImageForPreview: async (): Promise<string> => {
+        const token = localStorage.getItem('token');
+        const r = await fetch(`${API_BASE}/pdf-settings/cover-image?_cb=${Date.now()}`, {
+            method: 'GET',
+            headers: {
+                Authorization: token ? `Bearer ${token}` : '',
+                'X-Project-Key': PROJECT_KEY,
+            },
+        });
+        const ct = (r.headers.get('content-type') || '').toLowerCase();
+        if (!r.ok) {
+            let msg = '';
+            try {
+                if (ct.includes('json')) msg = JSON.stringify(await r.json());
+                else msg = (await r.text()).slice(0, 400);
+            } catch {
+                msg = r.statusText;
+            }
+            throw new Error(`cover-image ${r.status}: ${msg}`);
+        }
+        if (ct.includes('application/json')) {
+            const j = (await r.json()) as { url?: string };
+            if (typeof j?.url !== 'string' || !j.url) {
+                throw new Error('cover-image JSON без поля url');
+            }
+            return j.url;
+        }
+        const blob = await r.blob();
+        await assertLooksLikeImageBlob(blob);
+        return await new Promise<string>((resolve, reject) => {
+            const fr = new FileReader();
+            fr.onload = () => resolve(fr.result as string);
+            fr.onerror = () => reject(fr.error ?? new Error('FileReader'));
+            fr.readAsDataURL(blob);
+        });
+    },
+
+    /**
      * Картинка фона для превью в ЛК (Bearer + x-project-key).
      * Прямой URL из R2 в CSS часто не грузится (403 / политика бакета); бэк отдаёт файл/редирект сюда.
      */
+    /** Нативный fetch — иногда стабильнее axios+blob на редиректах. */
+    getPdfCoverImageBlobViaFetch: async (): Promise<Blob> => {
+        const token = localStorage.getItem('token');
+        const bust = `_cb=${Date.now()}`;
+        const url = `${API_BASE}/pdf-settings/cover-image?${bust}`;
+        const r = await fetch(url, {
+            method: 'GET',
+            headers: {
+                Authorization: token ? `Bearer ${token}` : '',
+                'X-Project-Key': PROJECT_KEY,
+            },
+        });
+        const blob = await r.blob();
+        if (!r.ok) {
+            const t = blob.size < 4096 ? await blob.text() : '';
+            throw new Error(`cover-image HTTP ${r.status}: ${t.slice(0, 300)}`);
+        }
+        const ct = r.headers.get('content-type') || '';
+        if (ct.includes('application/json') && blob.size < 8192) {
+            const text = await blob.text();
+            throw new Error(text || 'cover-image: JSON вместо файла');
+        }
+        await assertLooksLikeImageBlob(blob);
+        return blob;
+    },
+
     getPdfCoverImageBlob: async (): Promise<Blob> => {
         const token = localStorage.getItem('token');
         const response = await axios.get(`${API_BASE}/pdf-settings/cover-image`, {
+            params: { _cb: Date.now() },
             responseType: 'blob',
             maxRedirects: 10,
             headers: {

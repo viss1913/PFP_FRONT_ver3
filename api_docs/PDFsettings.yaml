@@ -40,7 +40,7 @@ components:
           maxLength: 2048
         cover_title:
           type: string
-          description: Текст в цветной плашке (по умолчанию «персональное финансовое решение»).
+          description: Текст в цветной плашке (по умолчанию как в Figma «Отчет» — «персональное финансовое решение»).
           example: персональное финансовое решение
           maxLength: 500
         title_band_color:
@@ -53,6 +53,54 @@ components:
           description: Как сейчас отформатировалась бы дата на обложке (Europe/Moscow или REPORT_PDF_TZ). Только для отображения в ЛК, в БД не сохраняется.
           readOnly: true
           example: '20 марта 2026 г.'
+        cover_layout:
+          type: object
+          description: |
+            Полная спека превью/PDF: размеры канваса, слой фона, два градиента (как в Figma Frame 400), плашка заголовка **350×150** с **уже подставленным** `title_band.background`,
+            типографика заголовка и даты, `content` (заголовок и дата; дефолт заголовка — «персональное финансовое решение»), `stock_background`, `pdf.default_font_repo_relative_path`.
+            Совпадает с тем, что рендерит бэк для PDF — фронт не хардкодит отступы и размер плашки; см. `normalizePdfCoverLayout` во фронте (поля snake_case / camelCase).
+          readOnly: true
+          additionalProperties: true
+          example:
+            canvas:
+              width: 1240
+              height: 1754
+            title_band:
+              x: 120
+              y: 980
+              width: 350
+              height: 150
+              background: '#722257'
+              padding:
+                top: 16
+                right: 20
+                bottom: 16
+                left: 20
+            title_typography:
+              font_size: 22
+              font_weight: 700
+              color: '#ffffff'
+              text_align: center
+            date:
+              x: 980
+              y: 1680
+              width: 200
+              height: 32
+            date_typography:
+              font_size: 12
+              color: '#ffffff'
+              text_align: right
+            content:
+              title: персональное финансовое решение
+              date: '20 марта 2026 г.'
+            gradients:
+              - rect: { x: 0, y: 0, width: 1240, height: 400 }
+                angle: 180
+                stops:
+                  - { offset: 0, color: 'rgba(0,0,0,0)' }
+                  - { offset: 1, color: 'rgba(0,0,0,0.35)' }
+            pdf:
+              default_font_repo_relative_path: assets/fonts/Report-Regular.ttf
 
     PdfCoverSettingsResponse:
       allOf:
@@ -147,42 +195,6 @@ paths:
         '404':
           description: Агент не найден в проекте
 
-  /pfp/pdf-settings/cover-image:
-    get:
-      operationId: getPdfCoverImage
-      summary: Картинка фона для превью в ЛК
-      description: |
-        Отдаёт байты изображения (или редирект на подписанный URL), с теми же заголовками, что и остальной PFP.
-        Нужен для превью в браузере: прямой `cover_background_url` на R2 часто не отображается из-за политики бакета/CORS.
-      tags:
-        - PDF settings
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/ProjectKeyHeader'
-      responses:
-        '200':
-          description: Тело изображения (image/jpeg и т.д.) или редирект
-          content:
-            image/jpeg:
-              schema:
-                type: string
-                format: binary
-            image/png:
-              schema:
-                type: string
-                format: binary
-            image/webp:
-              schema:
-                type: string
-                format: binary
-        '401':
-          description: Нет токена
-        '403':
-          description: Нет agent_id
-        '404':
-          description: Агент не найден / нет фона
-
   /pfp/pdf-settings/cover-background:
     post:
       operationId: uploadPdfCoverBackground
@@ -190,6 +202,7 @@ paths:
       description: |
         `multipart/form-data`, поле **`image`** (jpeg/png/webp, до 8 МБ).
         Файл уходит в R2 (если настроен) или в `/uploads/pdf-report-covers/...`.
+        Если задано `STORAGE_REQUIRE_R2=1`, без R2 вернётся **503** (`STORAGE_R2_REQUIRED`).
         URL сразу записывается в `cover_background_url` агента.
       tags:
         - PDF settings
@@ -236,3 +249,48 @@ paths:
           description: Нет agent_id
         '404':
           description: Агент не найден в проекте
+        '503':
+          description: STORAGE_REQUIRE_R2, а R2 недоступен
+
+  /pfp/pdf-settings/cover-image:
+    get:
+      operationId: getPdfCoverImageUrl
+      summary: URL фона обложки для превью (прямой или signed R2)
+      description: |
+        Ссылка для `<img src>` в ЛК. Обычно совпадает с `cover_background_url` (`access: direct`).
+        При `R2_SIGN_COVER_URL=1` и распознанном префиксе `R2_PUBLIC_*` — временная подпись (`access: signed`, `expires_in`, `expires_at`).
+      tags:
+        - PDF settings
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectKeyHeader'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - url
+                  - access
+                properties:
+                  url:
+                    type: string
+                  access:
+                    type: string
+                    enum: [direct, signed]
+                  expires_in:
+                    type: integer
+                    nullable: true
+                  expires_at:
+                    type: string
+                    format: date-time
+                    nullable: true
+        '401':
+          description: Нет токена
+        '403':
+          description: Нет agent_id
+        '404':
+          description: Фон не задан или агент не найден
