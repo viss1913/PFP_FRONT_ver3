@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Header from '../components/Header';
 import { API_BASE_URL } from '../api/config';
 import {
@@ -49,20 +49,37 @@ const DEFAULT_PDF_FORM_FIELDS: PdfCoverEditorField[] = [
 
 function pdfFormFieldsFromSchema(schema: unknown): PdfCoverEditorField[] {
     if (!schema || typeof schema !== 'object') return DEFAULT_PDF_FORM_FIELDS;
-    const raw = (schema as { fields?: unknown }).fields;
-    if (!Array.isArray(raw)) return DEFAULT_PDF_FORM_FIELDS;
+    const s = schema as { fields?: unknown; templates?: unknown };
+    let raw: unknown[] | null = null;
+    if (Array.isArray(s.templates)) {
+        for (const t of s.templates) {
+            if (t && typeof t === 'object' && Array.isArray((t as { fields?: unknown }).fields)) {
+                raw = (t as { fields: unknown[] }).fields;
+                break;
+            }
+        }
+    }
+    if (!raw && Array.isArray(s.fields)) raw = s.fields as unknown[];
+    if (!raw) return DEFAULT_PDF_FORM_FIELDS;
+
     const out: PdfCoverEditorField[] = [];
     for (const item of raw) {
         if (!item || typeof item !== 'object') continue;
-        const key = (item as { key?: unknown }).key;
-        const type = (item as { type?: unknown }).type;
-        if (typeof key !== 'string' || typeof type !== 'string') continue;
+        const obj = item as Record<string, unknown>;
+        const type = obj.type;
+        const patchKey = typeof obj.patch_key === 'string' ? obj.patch_key : null;
+        const id = typeof obj.id === 'string' ? obj.id : null;
+        const legacyKey = typeof obj.key === 'string' ? obj.key : null;
+        const key = patchKey || legacyKey || id;
+        if (!key || typeof type !== 'string') continue;
         if (!['image', 'text', 'color', 'readonly'].includes(type)) continue;
+        const value_key = typeof obj.value_key === 'string' ? obj.value_key : undefined;
         out.push({
             key,
             type: type as PdfCoverEditorField['type'],
-            label: typeof (item as { label?: unknown }).label === 'string' ? (item as { label: string }).label : undefined,
-            hint: typeof (item as { hint?: unknown }).hint === 'string' ? (item as { hint: string }).hint : undefined,
+            label: typeof obj.label === 'string' ? obj.label : undefined,
+            hint: typeof obj.hint === 'string' ? obj.hint : undefined,
+            value_key,
         });
     }
     return out.length ? out : DEFAULT_PDF_FORM_FIELDS;
@@ -191,6 +208,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     const [pdfSaving, setPdfSaving] = useState(false);
     const [pdfUploading, setPdfUploading] = useState(false);
     const [pdfError, setPdfError] = useState<string | null>(null);
+    /** Превью фона: blob URL с GET /cover-image (R2 в CSS часто не открывается). */
+    const [pdfCoverPreviewUrl, setPdfCoverPreviewUrl] = useState<string | null>(null);
+    const pdfCoverBlobRef = useRef<string | null>(null);
 
     const renderTabLabel = (tab: SettingsTab) => {
         switch (tab) {
@@ -335,6 +355,47 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         };
         void load();
     }, [activeTab, reportSubPage]);
+
+    useEffect(() => {
+        if (activeTab !== 'report' || reportSubPage !== 'cover') {
+            if (pdfCoverBlobRef.current) {
+                URL.revokeObjectURL(pdfCoverBlobRef.current);
+                pdfCoverBlobRef.current = null;
+            }
+            setPdfCoverPreviewUrl(null);
+            return;
+        }
+        if (!pdfSettings || pdfLoading) {
+            return;
+        }
+
+        let cancelled = false;
+        const revokePrev = () => {
+            if (pdfCoverBlobRef.current) {
+                URL.revokeObjectURL(pdfCoverBlobRef.current);
+                pdfCoverBlobRef.current = null;
+            }
+        };
+
+        revokePrev();
+        (async () => {
+            try {
+                const blob = await agentLkApi.getPdfCoverImageBlob();
+                if (cancelled) return;
+                const u = URL.createObjectURL(blob);
+                pdfCoverBlobRef.current = u;
+                setPdfCoverPreviewUrl(u);
+            } catch {
+                if (cancelled) return;
+                setPdfCoverPreviewUrl(resolveAgentLkAssetUrl(pdfSettings.cover_background_url));
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+            revokePrev();
+        };
+    }, [activeTab, reportSubPage, pdfLoading, pdfSettings?.cover_background_url]);
 
     const [isProductModalOpen, setIsProductModalOpen] = useState(false);
     const [productForm, setProductForm] = useState<{
@@ -1325,7 +1386,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         }
     };
 
-    const pdfCoverBgResolved = resolveAgentLkAssetUrl(pdfDraft.cover_background_url);
     const pdfCoverBandColor = pdfDraft.title_band_color.trim() || '#722257';
 
     return (
@@ -2158,8 +2218,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                     overflow: 'hidden',
                                                                     border: '1px solid #e5e7eb',
                                                                     background: '#e5e7eb',
-                                                                    backgroundImage: pdfCoverBgResolved
-                                                                        ? `url(${pdfCoverBgResolved})`
+                                                                    backgroundImage: pdfCoverPreviewUrl
+                                                                        ? `url(${pdfCoverPreviewUrl})`
                                                                         : undefined,
                                                                     backgroundSize: 'cover',
                                                                     backgroundPosition: 'center',
@@ -2218,9 +2278,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                 Обложка
                                                             </h2>
                                                             <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '16px' }}>
-                                                                Картинку меняем загрузкой файла — бэк сам положит в хранилище
-                                                                и пропишет URL. Пустая строка в полях ниже при сохранении
-                                                                вернёт дефолт (как в API).
+                                                                Картинку меняем загрузкой файла — бэк сам положит в хранилище и
+                                                                пропишет URL. Превью слева тянем через{' '}
+                                                                <code style={{ fontSize: '12px' }}>/api/pfp/pdf-settings/cover-image</code>
+                                                                с твоим JWT: прямой линк на R2 в браузере часто не рисуется
+                                                                (доступ/реферер). Пустая строка при сохранении — дефолт по API.
                                                             </p>
                                                             {pdfFormFieldsFromSchema(pdfSettings?.editor_schema).map(
                                                                 (field) => {
@@ -2456,7 +2518,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                             </div>
                                                                         );
                                                                     }
-                                                                    if (field.type === 'readonly' && field.key === 'date_preview') {
+                                                                    if (field.type === 'readonly') {
+                                                                        const vk = field.value_key || field.key;
+                                                                        const data = pdfSettings as Record<string, unknown> | null | undefined;
+                                                                        const raw =
+                                                                            vk === 'date_preview'
+                                                                                ? pdfSettings?.date_preview
+                                                                                : data?.[vk];
+                                                                        const display =
+                                                                            raw != null && raw !== '' ? String(raw) : '—';
                                                                         return (
                                                                             <div
                                                                                 key={field.key}
@@ -2479,7 +2549,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                                     {field.label ?? 'Дата'}
                                                                                 </div>
                                                                                 <div style={{ fontSize: '14px', color: '#111827' }}>
-                                                                                    {pdfSettings?.date_preview ?? '—'}
+                                                                                    {display}
                                                                                 </div>
                                                                                 <p
                                                                                     style={{

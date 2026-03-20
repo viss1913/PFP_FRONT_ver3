@@ -218,10 +218,13 @@ export interface PdfCoverSettings {
 export type PdfCoverFieldType = 'image' | 'text' | 'color' | 'readonly';
 
 export interface PdfCoverEditorField {
+    /** Ключ для PATCH / состояния (с бэка: patch_key или id). */
     key: string;
     type: PdfCoverFieldType;
     label?: string;
     hint?: string;
+    /** Для readonly: поле в ответе settings (например date_preview). */
+    value_key?: string;
 }
 
 export interface PdfCoverEditorSchema {
@@ -585,6 +588,28 @@ export const agentLkApi = {
             }
         );
         return response.data;
+    },
+
+    /**
+     * Картинка фона для превью в ЛК (Bearer + x-project-key).
+     * Прямой URL из R2 в CSS часто не грузится (403 / политика бакета); бэк отдаёт файл/редирект сюда.
+     */
+    getPdfCoverImageBlob: async (): Promise<Blob> => {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${API_BASE}/pdf-settings/cover-image`, {
+            responseType: 'blob',
+            headers: {
+                Authorization: token ? `Bearer ${token}` : '',
+                'X-Project-Key': PROJECT_KEY,
+            },
+        });
+        const blob: Blob = response.data;
+        const ct = String(response.headers['content-type'] || '');
+        if (ct.includes('application/json') && blob.size < 4096) {
+            const text = await blob.text();
+            throw new Error(text || 'cover-image returned JSON error');
+        }
+        return blob;
     },
 };
 
