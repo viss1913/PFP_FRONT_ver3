@@ -15,6 +15,23 @@ const getHeaders = () => {
     };
 };
 
+async function assertLooksLikeImageBlob(blob: Blob): Promise<void> {
+    if (!blob || blob.size === 0) throw new Error('Пустой ответ (0 байт).');
+    const head = new Uint8Array(await blob.slice(0, 16).arrayBuffer());
+    if (head[0] === 0x7b || head[0] === 0x5b) {
+        const t = await blob.text();
+        throw new Error(t.slice(0, 400) || 'Сервер вернул JSON вместо картинки.');
+    }
+    const mime = String(blob.type || '');
+    if (mime.startsWith('image/')) return;
+    const jpeg = head[0] === 0xff && head[1] === 0xd8;
+    const png = head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47;
+    const gif = head[0] === 0x47 && head[1] === 0x49 && head[2] === 0x46;
+    const webp = head[0] === 0x52 && head[1] === 0x49 && head[2] === 0x46 && head[3] === 0x46;
+    if (jpeg || png || gif || webp) return;
+    throw new Error(`Ответ не похож на изображение (Content-Type: ${mime || 'нет'}).`);
+}
+
 export interface AgentProduct {
     id: number | string;
     name?: string;
@@ -598,6 +615,7 @@ export const agentLkApi = {
         const token = localStorage.getItem('token');
         const response = await axios.get(`${API_BASE}/pdf-settings/cover-image`, {
             responseType: 'blob',
+            maxRedirects: 10,
             headers: {
                 Authorization: token ? `Bearer ${token}` : '',
                 'X-Project-Key': PROJECT_KEY,
@@ -605,10 +623,29 @@ export const agentLkApi = {
         });
         const blob: Blob = response.data;
         const ct = String(response.headers['content-type'] || '');
-        if (ct.includes('application/json') && blob.size < 4096) {
+        if (ct.includes('application/json') && blob.size < 8192) {
             const text = await blob.text();
-            throw new Error(text || 'cover-image returned JSON error');
+            throw new Error(text || 'cover-image: JSON вместо файла');
         }
+        await assertLooksLikeImageBlob(blob);
+        return blob;
+    },
+
+    /**
+     * Скачать картинку по абсолютному URL (например публичный R2) — запасной путь для превью в ЛК.
+     */
+    fetchImageBlobFromPublicUrl: async (absoluteUrl: string): Promise<Blob> => {
+        if (!/^https?:\/\//i.test(absoluteUrl)) {
+            throw new Error('Нужен абсолютный http(s) URL');
+        }
+        const response = await axios.get(absoluteUrl, {
+            responseType: 'blob',
+            timeout: 30000,
+            maxRedirects: 10,
+            headers: { Accept: 'image/*,*/*' },
+        });
+        const blob: Blob = response.data;
+        await assertLooksLikeImageBlob(blob);
         return blob;
     },
 };

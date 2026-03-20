@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Header from '../components/Header';
 import { API_BASE_URL } from '../api/config';
 import {
@@ -38,6 +38,16 @@ function resolveAgentLkAssetUrl(url: string | null | undefined): string | null {
     const u = String(url).trim();
     if (u.startsWith('http://') || u.startsWith('https://')) return u;
     return `${API_BASE_URL}${u.startsWith('/') ? '' : '/'}${u}`;
+}
+
+/** Байты → data URL для стабильного показа в img (в отличие от background + blob URL). */
+function blobToDataUrl(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result as string);
+        fr.onerror = () => reject(fr.error ?? new Error('FileReader'));
+        fr.readAsDataURL(blob);
+    });
 }
 
 const DEFAULT_PDF_FORM_FIELDS: PdfCoverEditorField[] = [
@@ -208,9 +218,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     const [pdfSaving, setPdfSaving] = useState(false);
     const [pdfUploading, setPdfUploading] = useState(false);
     const [pdfError, setPdfError] = useState<string | null>(null);
-    /** Превью фона: blob URL с GET /cover-image (R2 в CSS часто не открывается). */
+    /** Превью фона: data:… (скачали и встроили) или в конце прямой https для img. */
     const [pdfCoverPreviewUrl, setPdfCoverPreviewUrl] = useState<string | null>(null);
-    const pdfCoverBlobRef = useRef<string | null>(null);
 
     const renderTabLabel = (tab: SettingsTab) => {
         switch (tab) {
@@ -358,10 +367,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
 
     useEffect(() => {
         if (activeTab !== 'report' || reportSubPage !== 'cover') {
-            if (pdfCoverBlobRef.current) {
-                URL.revokeObjectURL(pdfCoverBlobRef.current);
-                pdfCoverBlobRef.current = null;
-            }
             setPdfCoverPreviewUrl(null);
             return;
         }
@@ -370,30 +375,40 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         }
 
         let cancelled = false;
-        const revokePrev = () => {
-            if (pdfCoverBlobRef.current) {
-                URL.revokeObjectURL(pdfCoverBlobRef.current);
-                pdfCoverBlobRef.current = null;
-            }
-        };
+        const direct = resolveAgentLkAssetUrl(pdfSettings.cover_background_url);
 
-        revokePrev();
         (async () => {
+            let dataUrl: string | null = null;
             try {
                 const blob = await agentLkApi.getPdfCoverImageBlob();
                 if (cancelled) return;
-                const u = URL.createObjectURL(blob);
-                pdfCoverBlobRef.current = u;
-                setPdfCoverPreviewUrl(u);
-            } catch {
-                if (cancelled) return;
-                setPdfCoverPreviewUrl(resolveAgentLkAssetUrl(pdfSettings.cover_background_url));
+                dataUrl = await blobToDataUrl(blob);
+            } catch (e) {
+                console.warn('[pdf-cover preview] GET cover-image →', e);
             }
+            if (!dataUrl && direct) {
+                try {
+                    const blob = await agentLkApi.fetchImageBlobFromPublicUrl(direct);
+                    if (cancelled) return;
+                    dataUrl = await blobToDataUrl(blob);
+                } catch (e) {
+                    console.warn('[pdf-cover preview] прямой URL →', e);
+                }
+            }
+            if (cancelled) return;
+            if (dataUrl) {
+                setPdfCoverPreviewUrl(dataUrl);
+                return;
+            }
+            if (direct) {
+                setPdfCoverPreviewUrl(direct);
+                return;
+            }
+            setPdfCoverPreviewUrl(null);
         })();
 
         return () => {
             cancelled = true;
-            revokePrev();
         };
     }, [activeTab, reportSubPage, pdfLoading, pdfSettings?.cover_background_url]);
 
@@ -2218,21 +2233,34 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                     overflow: 'hidden',
                                                                     border: '1px solid #e5e7eb',
                                                                     background: '#e5e7eb',
-                                                                    backgroundImage: pdfCoverPreviewUrl
-                                                                        ? `url(${pdfCoverPreviewUrl})`
-                                                                        : undefined,
-                                                                    backgroundSize: 'cover',
-                                                                    backgroundPosition: 'center',
                                                                     position: 'relative',
                                                                     boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
                                                                 }}
                                                             >
+                                                                {pdfCoverPreviewUrl ? (
+                                                                    // eslint-disable-next-line jsx-a11y/alt-text -- декоративное превью макета
+                                                                    <img
+                                                                        src={pdfCoverPreviewUrl}
+                                                                        alt=""
+                                                                        style={{
+                                                                            position: 'absolute',
+                                                                            inset: 0,
+                                                                            zIndex: 0,
+                                                                            width: '100%',
+                                                                            height: '100%',
+                                                                            objectFit: 'cover',
+                                                                            display: 'block',
+                                                                            pointerEvents: 'none',
+                                                                        }}
+                                                                    />
+                                                                ) : null}
                                                                 <div
                                                                     style={{
                                                                         position: 'absolute',
                                                                         left: 0,
                                                                         right: 0,
                                                                         bottom: '16%',
+                                                                        zIndex: 1,
                                                                         background: pdfCoverBandColor,
                                                                         padding: '14px 12px',
                                                                     }}
@@ -2256,6 +2284,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                             position: 'absolute',
                                                                             bottom: '10px',
                                                                             right: '12px',
+                                                                            zIndex: 2,
                                                                             fontSize: '9px',
                                                                             color: '#fff',
                                                                             textShadow: '0 1px 3px rgba(0,0,0,0.85)',
