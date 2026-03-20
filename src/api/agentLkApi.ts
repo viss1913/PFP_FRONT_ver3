@@ -206,6 +206,44 @@ export interface AiB2cStageUpdate {
     priority?: number;
 }
 
+/** Настройки первой страницы PDF-отчёта (обложка агента). */
+export interface PdfCoverSettings {
+    cover_background_url?: string | null;
+    cover_title?: string | null;
+    title_band_color?: string | null;
+    /** Только превью для ЛК; на PDF дата ставится на бэке. */
+    date_preview?: string | null;
+}
+
+export type PdfCoverFieldType = 'image' | 'text' | 'color' | 'readonly';
+
+export interface PdfCoverEditorField {
+    key: string;
+    type: PdfCoverFieldType;
+    label?: string;
+    hint?: string;
+}
+
+export interface PdfCoverEditorSchema {
+    template?: string;
+    fields?: PdfCoverEditorField[];
+    [key: string]: unknown;
+}
+
+export interface PdfCoverSettingsResponse extends PdfCoverSettings {
+    editor_schema: PdfCoverEditorSchema;
+}
+
+export interface PdfCoverSettingsPatch {
+    cover_title?: string | null;
+    title_band_color?: string | null;
+    cover_background_url?: string | null;
+}
+
+export interface PdfCoverBackgroundUploadResponse extends PdfCoverSettingsResponse {
+    url: string;
+}
+
 export const agentLkApi = {
     getProducts: async (includeDefaults = true): Promise<AgentProduct[]> => {
         const response = await axios.get(`${API_BASE}/products`, {
@@ -514,6 +552,39 @@ export const agentLkApi = {
             { lines },
             { headers: getHeaders() }
         );
+    },
+
+    // --- Обложка PDF-отчёта ---
+    getPdfCoverSettings: async (): Promise<PdfCoverSettingsResponse> => {
+        const response = await axios.get<PdfCoverSettingsResponse>(`${API_BASE}/pdf-settings`, {
+            headers: getHeaders(),
+        });
+        return response.data;
+    },
+
+    patchPdfCoverSettings: async (payload: PdfCoverSettingsPatch): Promise<PdfCoverSettingsResponse> => {
+        const response = await axios.patch<PdfCoverSettingsResponse>(`${API_BASE}/pdf-settings`, payload, {
+            headers: getHeaders(),
+        });
+        return response.data;
+    },
+
+    /** multipart, поле `image` — jpeg/png/webp, до 8 МБ; URL сразу в профиле агента. */
+    uploadPdfCoverBackground: async (file: File): Promise<PdfCoverBackgroundUploadResponse> => {
+        const formData = new FormData();
+        formData.append('image', file);
+        const token = localStorage.getItem('token');
+        const response = await axios.post<PdfCoverBackgroundUploadResponse>(
+            `${API_BASE}/pdf-settings/cover-background`,
+            formData,
+            {
+                headers: {
+                    Authorization: token ? `Bearer ${token}` : '',
+                    'X-Project-Key': PROJECT_KEY,
+                },
+            }
+        );
+        return response.data;
     },
 };
 

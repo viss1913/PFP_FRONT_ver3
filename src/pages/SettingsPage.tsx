@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Header from '../components/Header';
+import { API_BASE_URL } from '../api/config';
 import {
     agentLkApi,
     type AgentProduct,
@@ -16,6 +17,8 @@ import {
     type AiB2cStageCreate,
     type InflationRateRange,
     type PassiveIncomeYieldLine,
+    type PdfCoverSettingsResponse,
+    type PdfCoverEditorField,
 } from '../api/agentLkApi';
 
 type NavPage = 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings';
@@ -24,7 +27,46 @@ interface SettingsPageProps {
     onNavigate: (page: NavPage) => void;
 }
 
-type SettingsTab = 'products' | 'portfolios' | 'plans' | 'ai-b2c' | 'legacy';
+type SettingsTab = 'products' | 'portfolios' | 'plans' | 'ai-b2c' | 'report' | 'legacy';
+
+/** Подстраницы раздела «Отчёт» — сюда потом добавятся новые пункты. */
+const REPORT_SUBPAGE_ITEMS = [{ id: 'cover' as const, label: 'Обложка PDF' }];
+type ReportSubPage = (typeof REPORT_SUBPAGE_ITEMS)[number]['id'];
+
+function resolveAgentLkAssetUrl(url: string | null | undefined): string | null {
+    if (url == null || String(url).trim() === '') return null;
+    const u = String(url).trim();
+    if (u.startsWith('http://') || u.startsWith('https://')) return u;
+    return `${API_BASE_URL}${u.startsWith('/') ? '' : '/'}${u}`;
+}
+
+const DEFAULT_PDF_FORM_FIELDS: PdfCoverEditorField[] = [
+    { key: 'cover_background_url', type: 'image', label: 'Фон обложки' },
+    { key: 'cover_title', type: 'text', label: 'Текст плашки' },
+    { key: 'title_band_color', type: 'color', label: 'Цвет плашки' },
+    { key: 'date_preview', type: 'readonly', label: 'Дата на обложке' },
+];
+
+function pdfFormFieldsFromSchema(schema: unknown): PdfCoverEditorField[] {
+    if (!schema || typeof schema !== 'object') return DEFAULT_PDF_FORM_FIELDS;
+    const raw = (schema as { fields?: unknown }).fields;
+    if (!Array.isArray(raw)) return DEFAULT_PDF_FORM_FIELDS;
+    const out: PdfCoverEditorField[] = [];
+    for (const item of raw) {
+        if (!item || typeof item !== 'object') continue;
+        const key = (item as { key?: unknown }).key;
+        const type = (item as { type?: unknown }).type;
+        if (typeof key !== 'string' || typeof type !== 'string') continue;
+        if (!['image', 'text', 'color', 'readonly'].includes(type)) continue;
+        out.push({
+            key,
+            type: type as PdfCoverEditorField['type'],
+            label: typeof (item as { label?: unknown }).label === 'string' ? (item as { label: string }).label : undefined,
+            hint: typeof (item as { hint?: unknown }).hint === 'string' ? (item as { hint: string }).hint : undefined,
+        });
+    }
+    return out.length ? out : DEFAULT_PDF_FORM_FIELDS;
+}
 
 const RISK_PROFILE_TYPES: Array<'CONSERVATIVE' | 'BALANCED' | 'AGGRESSIVE'> = ['CONSERVATIVE', 'BALANCED', 'AGGRESSIVE'];
 const RISK_PROFILE_LABELS: Record<string, string> = {
@@ -138,6 +180,18 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     const [plansLoading, setPlansLoading] = useState(false);
     const [plansSaving, setPlansSaving] = useState<string | null>(null);
 
+    const [reportSubPage, setReportSubPage] = useState<ReportSubPage>('cover');
+    const [pdfSettings, setPdfSettings] = useState<PdfCoverSettingsResponse | null>(null);
+    const [pdfDraft, setPdfDraft] = useState({
+        cover_title: '',
+        title_band_color: '',
+        cover_background_url: '',
+    });
+    const [pdfLoading, setPdfLoading] = useState(false);
+    const [pdfSaving, setPdfSaving] = useState(false);
+    const [pdfUploading, setPdfUploading] = useState(false);
+    const [pdfError, setPdfError] = useState<string | null>(null);
+
     const renderTabLabel = (tab: SettingsTab) => {
         switch (tab) {
             case 'products':
@@ -148,6 +202,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                 return 'Планы и инфляция';
             case 'ai-b2c':
                 return 'AI B2C';
+            case 'report':
+                return 'Отчёт';
             case 'legacy':
                 return 'Прочие настройки';
             default:
@@ -155,7 +211,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         }
     };
 
-    const tabs: SettingsTab[] = ['products', 'portfolios', 'plans', 'ai-b2c', 'legacy'];
+    const tabs: SettingsTab[] = ['products', 'portfolios', 'plans', 'ai-b2c', 'report', 'legacy'];
 
     useEffect(() => {
         const load = async () => {
@@ -255,6 +311,30 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         };
         void load();
     }, [activeTab]);
+
+    useEffect(() => {
+        if (activeTab !== 'report' || reportSubPage !== 'cover') return;
+        const load = async () => {
+            try {
+                setPdfLoading(true);
+                setPdfError(null);
+                const res = await agentLkApi.getPdfCoverSettings();
+                setPdfSettings(res);
+                setPdfDraft({
+                    cover_title: res.cover_title ?? '',
+                    title_band_color: res.title_band_color ?? '',
+                    cover_background_url: res.cover_background_url ?? '',
+                });
+            } catch (e) {
+                console.error('Failed to load PDF cover settings:', e);
+                setPdfError('Не удалось загрузить настройки обложки PDF. Нужен JWT с agent_id и доступ к API.');
+                setPdfSettings(null);
+            } finally {
+                setPdfLoading(false);
+            }
+        };
+        void load();
+    }, [activeTab, reportSubPage]);
 
     const [isProductModalOpen, setIsProductModalOpen] = useState(false);
     const [productForm, setProductForm] = useState<{
@@ -1187,6 +1267,67 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         }
     };
 
+    const applyPdfSettingsResponse = (res: PdfCoverSettingsResponse) => {
+        setPdfSettings(res);
+        setPdfDraft({
+            cover_title: res.cover_title ?? '',
+            title_band_color: res.title_band_color ?? '',
+            cover_background_url: res.cover_background_url ?? '',
+        });
+    };
+
+    const savePdfCoverDraft = async () => {
+        setPdfSaving(true);
+        try {
+            const res = await agentLkApi.patchPdfCoverSettings({
+                cover_title: pdfDraft.cover_title,
+                title_band_color: pdfDraft.title_band_color.trim() || '',
+                cover_background_url: pdfDraft.cover_background_url,
+            });
+            applyPdfSettingsResponse(res);
+            setPdfError(null);
+        } catch (e) {
+            console.error(e);
+            setPdfError('Не удалось сохранить настройки обложки.');
+        } finally {
+            setPdfSaving(false);
+        }
+    };
+
+    const resetPdfCoverBackground = async () => {
+        setPdfSaving(true);
+        try {
+            const res = await agentLkApi.patchPdfCoverSettings({ cover_background_url: '' });
+            applyPdfSettingsResponse(res);
+            setPdfError(null);
+        } catch (e) {
+            console.error(e);
+            setPdfError('Не удалось сбросить фон к значению по умолчанию.');
+        } finally {
+            setPdfSaving(false);
+        }
+    };
+
+    const handlePdfCoverImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file) return;
+        setPdfUploading(true);
+        try {
+            const res = await agentLkApi.uploadPdfCoverBackground(file);
+            applyPdfSettingsResponse(res);
+            setPdfError(null);
+        } catch (err) {
+            console.error(err);
+            setPdfError('Не удалось загрузить фон. Нужен jpeg/png/webp, не больше 8 МБ.');
+        } finally {
+            setPdfUploading(false);
+        }
+    };
+
+    const pdfCoverBgResolved = resolveAgentLkAssetUrl(pdfDraft.cover_background_url);
+    const pdfCoverBandColor = pdfDraft.title_band_color.trim() || '#722257';
+
     return (
         <div style={{ minHeight: '100vh', background: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
             <Header activePage="settings" onNavigate={onNavigate} />
@@ -1924,6 +2065,465 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                     </section>
                                 </>
                             )}
+                        </>
+                    )}
+
+                    {activeTab === 'report' && (
+                        <>
+                            <h1 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '8px', color: '#111' }}>
+                                {renderTabLabel(activeTab)}
+                            </h1>
+                            <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '24px' }}>
+                                Настройки PDF-отчёта для клиентов. Слева — разделы; позже сюда добавятся другие страницы
+                                отчёта, не только обложка.
+                            </p>
+                            {pdfError && (
+                                <div
+                                    style={{
+                                        padding: '12px',
+                                        borderRadius: '12px',
+                                        background: '#fef2f2',
+                                        color: '#b91c1c',
+                                        marginBottom: '16px',
+                                        fontSize: '14px',
+                                    }}
+                                >
+                                    {pdfError}
+                                </div>
+                            )}
+                            <div style={{ display: 'flex', gap: '28px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                                <nav
+                                    style={{
+                                        flexShrink: 0,
+                                        minWidth: '200px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '6px',
+                                    }}
+                                    aria-label="Разделы отчёта"
+                                >
+                                    {REPORT_SUBPAGE_ITEMS.map((item) => (
+                                        <button
+                                            key={item.id}
+                                            type="button"
+                                            onClick={() => setReportSubPage(item.id)}
+                                            style={{
+                                                padding: '10px 14px',
+                                                borderRadius: '12px',
+                                                border: 'none',
+                                                textAlign: 'left',
+                                                fontSize: '13px',
+                                                fontWeight: 600,
+                                                cursor: 'pointer',
+                                                background: reportSubPage === item.id ? '#fdf4ff' : 'transparent',
+                                                color: reportSubPage === item.id ? '#D946EF' : '#6b7280',
+                                                transition: 'all 0.15s ease',
+                                            }}
+                                        >
+                                            {item.label}
+                                        </button>
+                                    ))}
+                                </nav>
+                                <div style={{ flex: 1, minWidth: 'min(100%, 320px)' }}>
+                                    {reportSubPage === 'cover' && (
+                                        <>
+                                            {pdfLoading ? (
+                                                <p style={{ color: '#6b7280' }}>Загрузка…</p>
+                                            ) : (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                                    <div
+                                                        style={{
+                                                            display: 'flex',
+                                                            gap: '24px',
+                                                            flexWrap: 'wrap',
+                                                            alignItems: 'flex-start',
+                                                        }}
+                                                    >
+                                                        <div>
+                                                            <p
+                                                                style={{
+                                                                    fontSize: '12px',
+                                                                    fontWeight: 600,
+                                                                    color: '#6b7280',
+                                                                    margin: '0 0 8px 0',
+                                                                }}
+                                                            >
+                                                                Превью (примерно как на PDF)
+                                                            </p>
+                                                            <div
+                                                                style={{
+                                                                    width: 'min(100%, 260px)',
+                                                                    aspectRatio: '210 / 297',
+                                                                    borderRadius: '14px',
+                                                                    overflow: 'hidden',
+                                                                    border: '1px solid #e5e7eb',
+                                                                    background: '#e5e7eb',
+                                                                    backgroundImage: pdfCoverBgResolved
+                                                                        ? `url(${pdfCoverBgResolved})`
+                                                                        : undefined,
+                                                                    backgroundSize: 'cover',
+                                                                    backgroundPosition: 'center',
+                                                                    position: 'relative',
+                                                                    boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
+                                                                }}
+                                                            >
+                                                                <div
+                                                                    style={{
+                                                                        position: 'absolute',
+                                                                        left: 0,
+                                                                        right: 0,
+                                                                        bottom: '16%',
+                                                                        background: pdfCoverBandColor,
+                                                                        padding: '14px 12px',
+                                                                    }}
+                                                                >
+                                                                    <div
+                                                                        style={{
+                                                                            color: '#fff',
+                                                                            fontSize: '11px',
+                                                                            fontWeight: 700,
+                                                                            textAlign: 'center',
+                                                                            lineHeight: 1.35,
+                                                                        }}
+                                                                    >
+                                                                        {pdfDraft.cover_title.trim() ||
+                                                                            'Текст плашки'}
+                                                                    </div>
+                                                                </div>
+                                                                {pdfSettings?.date_preview ? (
+                                                                    <div
+                                                                        style={{
+                                                                            position: 'absolute',
+                                                                            bottom: '10px',
+                                                                            right: '12px',
+                                                                            fontSize: '9px',
+                                                                            color: '#fff',
+                                                                            textShadow: '0 1px 3px rgba(0,0,0,0.85)',
+                                                                        }}
+                                                                    >
+                                                                        {pdfSettings.date_preview}
+                                                                    </div>
+                                                                ) : null}
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ flex: 1, minWidth: '240px', maxWidth: '480px' }}>
+                                                            <h2
+                                                                style={{
+                                                                    fontSize: '16px',
+                                                                    fontWeight: 600,
+                                                                    color: '#111827',
+                                                                    margin: '0 0 12px 0',
+                                                                }}
+                                                            >
+                                                                Обложка
+                                                            </h2>
+                                                            <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '16px' }}>
+                                                                Картинку меняем загрузкой файла — бэк сам положит в хранилище
+                                                                и пропишет URL. Пустая строка в полях ниже при сохранении
+                                                                вернёт дефолт (как в API).
+                                                            </p>
+                                                            {pdfFormFieldsFromSchema(pdfSettings?.editor_schema).map(
+                                                                (field) => {
+                                                                    if (field.type === 'image') {
+                                                                        return (
+                                                                            <div
+                                                                                key={field.key}
+                                                                                style={{
+                                                                                    marginBottom: '16px',
+                                                                                    display: 'flex',
+                                                                                    flexDirection: 'column',
+                                                                                    gap: '8px',
+                                                                                }}
+                                                                            >
+                                                                                <label
+                                                                                    style={{
+                                                                                        fontSize: '13px',
+                                                                                        fontWeight: 500,
+                                                                                        color: '#374151',
+                                                                                    }}
+                                                                                >
+                                                                                    {field.label ?? 'Фон'}
+                                                                                </label>
+                                                                                {field.hint ? (
+                                                                                    <span
+                                                                                        style={{
+                                                                                            fontSize: '12px',
+                                                                                            color: '#9ca3af',
+                                                                                        }}
+                                                                                    >
+                                                                                        {field.hint}
+                                                                                    </span>
+                                                                                ) : null}
+                                                                                <div
+                                                                                    style={{
+                                                                                        display: 'flex',
+                                                                                        flexWrap: 'wrap',
+                                                                                        gap: '10px',
+                                                                                        alignItems: 'center',
+                                                                                    }}
+                                                                                >
+                                                                                    <label
+                                                                                        style={{
+                                                                                            fontSize: '12px',
+                                                                                            color: '#4b5563',
+                                                                                            cursor: pdfUploading
+                                                                                                ? 'wait'
+                                                                                                : 'pointer',
+                                                                                            padding: '8px 14px',
+                                                                                            borderRadius: '999px',
+                                                                                            border: '1px solid #d1d5db',
+                                                                                            background: '#fff',
+                                                                                        }}
+                                                                                    >
+                                                                                        {pdfUploading
+                                                                                            ? 'Загрузка…'
+                                                                                            : 'Загрузить картинку'}
+                                                                                        <input
+                                                                                            type="file"
+                                                                                            accept="image/jpeg,image/png,image/webp"
+                                                                                            onChange={handlePdfCoverImageChange}
+                                                                                            style={{ display: 'none' }}
+                                                                                            disabled={pdfUploading}
+                                                                                        />
+                                                                                    </label>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        disabled={pdfSaving || pdfUploading}
+                                                                                        onClick={() => void resetPdfCoverBackground()}
+                                                                                        style={{
+                                                                                            padding: '8px 14px',
+                                                                                            borderRadius: '999px',
+                                                                                            border: '1px solid #fecaca',
+                                                                                            background: '#fef2f2',
+                                                                                            fontSize: '12px',
+                                                                                            cursor:
+                                                                                                pdfSaving || pdfUploading
+                                                                                                    ? 'wait'
+                                                                                                    : 'pointer',
+                                                                                            color: '#b91c1c',
+                                                                                        }}
+                                                                                    >
+                                                                                        Сбросить фон
+                                                                                    </button>
+                                                                                </div>
+                                                                                <label
+                                                                                    style={{
+                                                                                        fontSize: '12px',
+                                                                                        color: '#6b7280',
+                                                                                    }}
+                                                                                >
+                                                                                    URL фона (можно править вручную)
+                                                                                </label>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    value={pdfDraft.cover_background_url}
+                                                                                    onChange={(e) =>
+                                                                                        setPdfDraft((d) => ({
+                                                                                            ...d,
+                                                                                            cover_background_url:
+                                                                                                e.target.value,
+                                                                                        }))
+                                                                                    }
+                                                                                    placeholder="https://… или путь с сервера"
+                                                                                    style={{
+                                                                                        padding: '8px 10px',
+                                                                                        borderRadius: '10px',
+                                                                                        border: '1px solid #d1d5db',
+                                                                                        fontSize: '13px',
+                                                                                        outline: 'none',
+                                                                                        width: '100%',
+                                                                                        boxSizing: 'border-box',
+                                                                                    }}
+                                                                                />
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    if (field.type === 'text' && field.key === 'cover_title') {
+                                                                        return (
+                                                                            <div
+                                                                                key={field.key}
+                                                                                style={{
+                                                                                    marginBottom: '16px',
+                                                                                    display: 'flex',
+                                                                                    flexDirection: 'column',
+                                                                                    gap: '4px',
+                                                                                }}
+                                                                            >
+                                                                                <label
+                                                                                    style={{
+                                                                                        fontSize: '13px',
+                                                                                        fontWeight: 500,
+                                                                                        color: '#374151',
+                                                                                    }}
+                                                                                >
+                                                                                    {field.label ?? 'Текст плашки'}
+                                                                                </label>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    value={pdfDraft.cover_title}
+                                                                                    onChange={(e) =>
+                                                                                        setPdfDraft((d) => ({
+                                                                                            ...d,
+                                                                                            cover_title: e.target.value,
+                                                                                        }))
+                                                                                    }
+                                                                                    style={{
+                                                                                        padding: '8px 10px',
+                                                                                        borderRadius: '10px',
+                                                                                        border: '1px solid #d1d5db',
+                                                                                        fontSize: '14px',
+                                                                                        outline: 'none',
+                                                                                    }}
+                                                                                />
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    if (field.type === 'color' && field.key === 'title_band_color') {
+                                                                        return (
+                                                                            <div
+                                                                                key={field.key}
+                                                                                style={{
+                                                                                    marginBottom: '16px',
+                                                                                    display: 'flex',
+                                                                                    flexDirection: 'column',
+                                                                                    gap: '8px',
+                                                                                }}
+                                                                            >
+                                                                                <label
+                                                                                    style={{
+                                                                                        fontSize: '13px',
+                                                                                        fontWeight: 500,
+                                                                                        color: '#374151',
+                                                                                    }}
+                                                                                >
+                                                                                    {field.label ?? 'Цвет плашки'}
+                                                                                </label>
+                                                                                <div
+                                                                                    style={{
+                                                                                        display: 'flex',
+                                                                                        gap: '10px',
+                                                                                        alignItems: 'center',
+                                                                                        flexWrap: 'wrap',
+                                                                                    }}
+                                                                                >
+                                                                                    <input
+                                                                                        type="color"
+                                                                                        value={
+                                                                                            /^#[0-9A-Fa-f]{6}$/.test(
+                                                                                                pdfDraft.title_band_color.trim()
+                                                                                            )
+                                                                                                ? pdfDraft.title_band_color.trim()
+                                                                                                : '#722257'
+                                                                                        }
+                                                                                        onChange={(e) =>
+                                                                                            setPdfDraft((d) => ({
+                                                                                                ...d,
+                                                                                                title_band_color:
+                                                                                                    e.target.value,
+                                                                                            }))
+                                                                                        }
+                                                                                        style={{
+                                                                                            width: 44,
+                                                                                            height: 36,
+                                                                                            padding: 0,
+                                                                                            border: '1px solid #d1d5db',
+                                                                                            borderRadius: 8,
+                                                                                            cursor: 'pointer',
+                                                                                        }}
+                                                                                    />
+                                                                                    <input
+                                                                                        type="text"
+                                                                                        value={pdfDraft.title_band_color}
+                                                                                        onChange={(e) =>
+                                                                                            setPdfDraft((d) => ({
+                                                                                                ...d,
+                                                                                                title_band_color:
+                                                                                                    e.target.value,
+                                                                                            }))
+                                                                                        }
+                                                                                        placeholder="#RRGGBB"
+                                                                                        style={{
+                                                                                            flex: 1,
+                                                                                            minWidth: '120px',
+                                                                                            padding: '8px 10px',
+                                                                                            borderRadius: '10px',
+                                                                                            border: '1px solid #d1d5db',
+                                                                                            fontSize: '13px',
+                                                                                            fontFamily: 'monospace',
+                                                                                        }}
+                                                                                    />
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    if (field.type === 'readonly' && field.key === 'date_preview') {
+                                                                        return (
+                                                                            <div
+                                                                                key={field.key}
+                                                                                style={{
+                                                                                    marginBottom: '16px',
+                                                                                    padding: '12px 14px',
+                                                                                    borderRadius: '12px',
+                                                                                    background: '#f9fafb',
+                                                                                    border: '1px solid #e5e7eb',
+                                                                                }}
+                                                                            >
+                                                                                <div
+                                                                                    style={{
+                                                                                        fontSize: '12px',
+                                                                                        fontWeight: 600,
+                                                                                        color: '#6b7280',
+                                                                                        marginBottom: '4px',
+                                                                                    }}
+                                                                                >
+                                                                                    {field.label ?? 'Дата'}
+                                                                                </div>
+                                                                                <div style={{ fontSize: '14px', color: '#111827' }}>
+                                                                                    {pdfSettings?.date_preview ?? '—'}
+                                                                                </div>
+                                                                                <p
+                                                                                    style={{
+                                                                                        fontSize: '11px',
+                                                                                        color: '#9ca3af',
+                                                                                        margin: '8px 0 0 0',
+                                                                                    }}
+                                                                                >
+                                                                                    Реальную дату на PDF подставляет бэкенд;
+                                                                                    здесь только подсказка для ЛК.
+                                                                                </p>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    return null;
+                                                                }
+                                                            )}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => void savePdfCoverDraft()}
+                                                                disabled={pdfSaving || pdfUploading}
+                                                                style={{
+                                                                    padding: '10px 20px',
+                                                                    borderRadius: '999px',
+                                                                    border: 'none',
+                                                                    background: 'linear-gradient(135deg, #D946EF, #8B5CF6)',
+                                                                    color: '#fff',
+                                                                    fontSize: '13px',
+                                                                    fontWeight: 600,
+                                                                    cursor:
+                                                                        pdfSaving || pdfUploading ? 'wait' : 'pointer',
+                                                                    marginTop: '4px',
+                                                                }}
+                                                            >
+                                                                {pdfSaving ? 'Сохранение…' : 'Сохранить текст и URL фона'}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            </div>
                         </>
                     )}
 
