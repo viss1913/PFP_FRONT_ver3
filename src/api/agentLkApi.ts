@@ -902,5 +902,42 @@ export const agentLkApi = {
             return { ok: false, trace };
         }
     },
+
+    /** GET …/:id/profit — сырой ответ (часто обёртка success + data от Comon) */
+    getComonStrategyProfit: async (
+        id: number | string,
+    ): Promise<{ ok: true; payload: unknown; trace: ComonApiTrace } | { ok: false; trace: ComonApiTrace }> => {
+        const url = `${API_BASE}/agent/comon-strategies/${encodeURIComponent(String(id))}/profit`;
+        const trace: ComonApiTrace = { method: 'GET', url };
+        try {
+            const res = await axios.get(url, { headers: getHeaders() });
+            trace.status = res.status;
+            trace.responseBody = res.data;
+            return { ok: true, payload: res.data, trace };
+        } catch (e: any) {
+            trace.failed = true;
+            trace.status = e?.response?.status;
+            trace.responseBody = e?.response?.data ?? { message: String(e?.message ?? e) };
+            return { ok: false, trace };
+        }
+    },
+
+    getComonStrategyProfitMetrics: async (
+        id: number | string,
+    ): Promise<{ ok: true; payload: unknown; trace: ComonApiTrace } | { ok: false; trace: ComonApiTrace }> => {
+        const url = `${API_BASE}/agent/comon-strategies/${encodeURIComponent(String(id))}/profit/metrics`;
+        const trace: ComonApiTrace = { method: 'GET', url };
+        try {
+            const res = await axios.get(url, { headers: getHeaders() });
+            trace.status = res.status;
+            trace.responseBody = res.data;
+            return { ok: true, payload: res.data, trace };
+        } catch (e: any) {
+            trace.failed = true;
+            trace.status = e?.response?.status;
+            trace.responseBody = e?.response?.data ?? { message: String(e?.message ?? e) };
+            return { ok: false, trace };
+        }
+    },
 };
 

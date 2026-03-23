@@ -1,7 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import Header from '../components/Header';
 import { API_BASE_URL } from '../api/config';
 import { normalizePdfCoverLayout } from '../utils/pdfCoverLayout';
+import {
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
+    AreaChart,
+    Area,
+    PieChart,
+    Pie,
+    Cell,
+} from 'recharts';
+import { extractComonProfitChartPoints, extractComonMetricsView } from '../utils/comonProfitSeries';
 import {
     agentLkApi,
     type AgentProduct,
@@ -116,6 +129,36 @@ const COMON_RISK_LABELS: Record<string, string> = {
     balanced: 'Сбалансированный',
     aggressive: 'Агрессивный',
 };
+
+const COMON_SHOW_CHART = {
+    primary: '#9333EA',
+    gradientStart: '#D946EF',
+    gradientEnd: '#C4B5FD',
+    grid: '#E5E7EB',
+    text: '#6B7280',
+};
+
+const COMON_PIE_COLORS = ['#D946EF', '#8B5CF6', '#A855F7', '#6366F1'];
+
+function formatComonChartAxisDate(dateStr: string): string {
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return dateStr.length > 14 ? `${dateStr.slice(0, 10)}…` : dateStr;
+    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' });
+}
+
+function formatComonMetricCell(key: string, v: unknown): string {
+    if (v == null || v === '') return '—';
+    if (typeof v === 'boolean') return v ? 'да' : 'нет';
+    if (typeof v === 'number') {
+        const k = key.toLowerCase();
+        if (k.includes('pct') || k.endsWith('_pct') || k.includes('percent')) {
+            return `${v.toLocaleString('ru-RU', { maximumFractionDigits: 4 })}%`;
+        }
+        return v.toLocaleString('ru-RU', { maximumFractionDigits: 4 });
+    }
+    if (typeof v === 'object') return JSON.stringify(v);
+    return String(v);
+}
 
 type ComonFormState = {
     comon_url: string;
@@ -586,6 +629,65 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     const [comonSaving, setComonSaving] = useState(false);
     const [comonResolving, setComonResolving] = useState(false);
     const [deletingComonId, setDeletingComonId] = useState<string | null>(null);
+    const [comonShowOpen, setComonShowOpen] = useState(false);
+    const [comonShowCard, setComonShowCard] = useState<AgentComonStrategyCard | null>(null);
+    const [comonShowProfitPayload, setComonShowProfitPayload] = useState<unknown>(null);
+    const [comonShowMetricsPayload, setComonShowMetricsPayload] = useState<unknown>(null);
+    const [comonShowLoading, setComonShowLoading] = useState(false);
+    const [comonShowError, setComonShowError] = useState<string | null>(null);
+
+    const comonShowChartPoints = useMemo(
+        () => extractComonProfitChartPoints(comonShowProfitPayload),
+        [comonShowProfitPayload],
+    );
+
+    const comonShowMetricsView = useMemo(
+        () => extractComonMetricsView(comonShowMetricsPayload),
+        [comonShowMetricsPayload],
+    );
+
+    const comonShowPieData = useMemo(() => {
+        if (!comonShowCard?.portfolio?.length) return [];
+        return comonShowCard.portfolio.map((item, i) => ({
+            name: String(item.instrument || `Инструмент ${i + 1}`),
+            value: Math.max(0, Number(item.share_percent) || 0),
+        }));
+    }, [comonShowCard]);
+
+    useEffect(() => {
+        if (!comonShowOpen || !comonShowCard) return;
+        const id = comonShowCard.id;
+        let cancelled = false;
+        setComonShowLoading(true);
+        setComonShowError(null);
+        setComonShowProfitPayload(null);
+        setComonShowMetricsPayload(null);
+
+        void (async () => {
+            const [pr, mr] = await Promise.all([
+                agentLkApi.getComonStrategyProfit(id),
+                agentLkApi.getComonStrategyProfitMetrics(id),
+            ]);
+            if (cancelled) return;
+            setComonShowLoading(false);
+            if (pr.ok) setComonShowProfitPayload(pr.payload);
+            if (mr.ok) setComonShowMetricsPayload(mr.payload);
+            const missing: string[] = [];
+            if (!pr.ok) missing.push('ряд доходности (график)');
+            if (!mr.ok) missing.push('метрики');
+            if (missing.length === 2) {
+                setComonShowError(
+                    'Не загрузили ни график, ни метрики — проверь бэкенд и доступность Comon (часто 502).',
+                );
+            } else if (missing.length === 1) {
+                setComonShowError(`Загрузилось не всё: нет ${missing[0]}.`);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [comonShowOpen, comonShowCard?.id]);
 
     useEffect(() => {
         if (activeTab !== 'comon-strategies') return;
@@ -729,6 +831,20 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             return;
         }
         setComonStrategies((prev) => (prev ? prev.filter((c) => String(c.id) !== String(id)) : []));
+    };
+
+    const openComonShow = (card: AgentComonStrategyCard) => {
+        setComonShowCard(card);
+        setComonShowOpen(true);
+    };
+
+    const closeComonShow = () => {
+        setComonShowOpen(false);
+        setComonShowCard(null);
+        setComonShowProfitPayload(null);
+        setComonShowMetricsPayload(null);
+        setComonShowError(null);
+        setComonShowLoading(false);
     };
 
     const saveAiB2cSettings = async () => {
@@ -3097,6 +3213,22 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                                             <button
                                                                 type="button"
+                                                                onClick={() => openComonShow(row)}
+                                                                style={{
+                                                                    padding: '6px 12px',
+                                                                    borderRadius: '8px',
+                                                                    border: '1px solid #e9d5ff',
+                                                                    background: '#faf5ff',
+                                                                    fontSize: '12px',
+                                                                    cursor: 'pointer',
+                                                                    color: '#7C3AED',
+                                                                    fontWeight: 600,
+                                                                }}
+                                                            >
+                                                                Показать
+                                                            </button>
+                                                            <button
+                                                                type="button"
                                                                 onClick={() => openComonEdit(row)}
                                                                 style={{
                                                                     padding: '6px 12px',
@@ -4597,6 +4729,438 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                     <button type="submit" disabled={savingAiB2c} style={{ padding: '8px 20px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #6366F1, #4F46E5)', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', opacity: savingAiB2c ? 0.7 : 1 }}>{savingAiB2c ? 'Сохранение…' : 'Сохранить'}</button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Просмотр стратегии Comon: график, метрики, портфель */}
+                {comonShowOpen && comonShowCard && (
+                    <div
+                        onClick={() => closeComonShow()}
+                        style={{
+                            position: 'fixed',
+                            inset: 0,
+                            background: 'rgba(15,23,42,0.5)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 1400,
+                            padding: '16px',
+                        }}
+                    >
+                        <div
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                                width: 'min(920px, 100%)',
+                                maxHeight: '92vh',
+                                overflow: 'auto',
+                                background: '#fff',
+                                borderRadius: '24px',
+                                boxShadow: '0 24px 80px rgba(15,23,42,0.35)',
+                                padding: '24px 28px',
+                            }}
+                        >
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'flex-start',
+                                    gap: '16px',
+                                    marginBottom: '16px',
+                                }}
+                            >
+                                <div>
+                                    <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#111' }}>
+                                        {comonShowCard.name ?? 'Стратегия'}
+                                    </h2>
+                                    <p style={{ margin: '6px 0 0 0', fontSize: '13px', color: '#6b7280' }}>
+                                        Риск:{' '}
+                                        {COMON_RISK_LABELS[String(comonShowCard.risk_profile)] ??
+                                            comonShowCard.risk_profile ??
+                                            '—'}
+                                        {comonShowCard.comon_strategy_id != null && (
+                                            <>
+                                                {' '}
+                                                · Comon id:{' '}
+                                                <span style={{ fontFamily: 'ui-monospace, monospace' }}>
+                                                    {comonShowCard.comon_strategy_id}
+                                                </span>
+                                            </>
+                                        )}
+                                        {' · '}
+                                        Наш id:{' '}
+                                        <span style={{ fontFamily: 'ui-monospace, monospace' }}>{comonShowCard.id}</span>
+                                    </p>
+                                    {comonShowCard.comon_url ? (
+                                        <a
+                                            href={String(comonShowCard.comon_url)}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            style={{ fontSize: '13px', color: '#7C3AED', wordBreak: 'break-all' }}
+                                        >
+                                            {comonShowCard.comon_url}
+                                        </a>
+                                    ) : null}
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => closeComonShow()}
+                                    style={{
+                                        border: 'none',
+                                        background: 'transparent',
+                                        cursor: 'pointer',
+                                        fontSize: '22px',
+                                        lineHeight: 1,
+                                        color: '#6b7280',
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    ×
+                                </button>
+                            </div>
+
+                            {comonShowCard.description ? (
+                                <p
+                                    style={{
+                                        fontSize: '14px',
+                                        color: '#374151',
+                                        lineHeight: 1.5,
+                                        margin: '0 0 12px 0',
+                                        whiteSpace: 'pre-wrap',
+                                    }}
+                                >
+                                    {String(comonShowCard.description)}
+                                </p>
+                            ) : null}
+
+                            {comonShowCard.min_contribution != null ? (
+                                <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 12px 0' }}>
+                                    Мин. сумма: <strong>{String(comonShowCard.min_contribution)}</strong>
+                                </p>
+                            ) : null}
+
+                            <p style={{ fontSize: '11px', color: '#9ca3af', margin: '0 0 16px 0' }}>
+                                Данные доходности и метрики — ознакомительно; прошлые результаты не гарантируют будущую
+                                доходность.
+                            </p>
+
+                            {comonShowLoading ? (
+                                <p style={{ color: '#6b7280', marginBottom: '16px' }}>Тянем график и метрики с бэка…</p>
+                            ) : null}
+
+                            {comonShowError ? (
+                                <div
+                                    style={{
+                                        padding: '10px 12px',
+                                        borderRadius: '10px',
+                                        background: '#fffbeb',
+                                        color: '#92400e',
+                                        marginBottom: '16px',
+                                        fontSize: '13px',
+                                    }}
+                                >
+                                    {comonShowError}
+                                </div>
+                            ) : null}
+
+                            {comonShowMetricsView.metrics &&
+                            Object.keys(comonShowMetricsView.metrics).filter((k) => k !== 'definitions').length > 0 ? (
+                                <section style={{ marginBottom: '20px' }}>
+                                    <h3
+                                        style={{
+                                            fontSize: '14px',
+                                            fontWeight: 600,
+                                            color: '#374151',
+                                            margin: '0 0 10px 0',
+                                        }}
+                                    >
+                                        Метрики
+                                    </h3>
+                                    <div
+                                        style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+                                            gap: '10px',
+                                        }}
+                                    >
+                                        {Object.entries(comonShowMetricsView.metrics)
+                                            .filter(([k]) => k !== 'definitions')
+                                            .map(([k, v]) => (
+                                                <div
+                                                    key={k}
+                                                    style={{
+                                                        padding: '10px 12px',
+                                                        borderRadius: '12px',
+                                                        border: '1px solid #e5e7eb',
+                                                        background: '#f9fafb',
+                                                    }}
+                                                >
+                                                    <div
+                                                        style={{
+                                                            fontSize: '11px',
+                                                            color: '#9ca3af',
+                                                            textTransform: 'lowercase',
+                                                            marginBottom: '4px',
+                                                        }}
+                                                    >
+                                                        {k.replace(/_/g, ' ')}
+                                                    </div>
+                                                    <div style={{ fontSize: '15px', fontWeight: 600, color: '#111827' }}>
+                                                        {formatComonMetricCell(k, v)}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                    </div>
+                                </section>
+                            ) : !comonShowLoading && comonShowMetricsPayload != null ? (
+                                <p style={{ fontSize: '13px', color: '#9ca3af', marginBottom: '16px' }}>
+                                    Метрики пришли, но в ожидаемом виде не распарсились — смотри сырой JSON внизу.
+                                </p>
+                            ) : null}
+
+                            <section style={{ marginBottom: '20px' }}>
+                                <h3
+                                    style={{
+                                        fontSize: '14px',
+                                        fontWeight: 600,
+                                        color: '#374151',
+                                        margin: '0 0 10px 0',
+                                    }}
+                                >
+                                    Доходность (ряд Comon через бэк)
+                                </h3>
+                                {comonShowLoading ? (
+                                    <div style={{ height: '280px' }} />
+                                ) : comonShowChartPoints.length === 0 ? (
+                                    <p style={{ fontSize: '13px', color: '#9ca3af' }}>
+                                        Не нашли массив точек с датой и значением в ответе /profit. Открой «Сырой ответ
+                                        /profit» ниже и скажи бэку, если структура другая — допилим парсер.
+                                    </p>
+                                ) : (
+                                    <div style={{ width: '100%', height: '300px' }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <AreaChart
+                                                data={comonShowChartPoints}
+                                                margin={{ top: 8, right: 12, left: 4, bottom: 4 }}
+                                            >
+                                                <defs>
+                                                    <linearGradient id="comonProfitGrad" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop
+                                                            offset="0%"
+                                                            stopColor={COMON_SHOW_CHART.gradientStart}
+                                                            stopOpacity={0.35}
+                                                        />
+                                                        <stop
+                                                            offset="100%"
+                                                            stopColor={COMON_SHOW_CHART.gradientEnd}
+                                                            stopOpacity={0.05}
+                                                        />
+                                                    </linearGradient>
+                                                </defs>
+                                                <CartesianGrid strokeDasharray="3 3" stroke={COMON_SHOW_CHART.grid} />
+                                                <XAxis
+                                                    dataKey="date"
+                                                    tick={{ fontSize: 10, fill: COMON_SHOW_CHART.text }}
+                                                    tickFormatter={(v) => formatComonChartAxisDate(String(v))}
+                                                    interval="preserveStartEnd"
+                                                    minTickGap={28}
+                                                />
+                                                <YAxis
+                                                    tick={{ fontSize: 10, fill: COMON_SHOW_CHART.text }}
+                                                    width={48}
+                                                    tickFormatter={(v) =>
+                                                        typeof v === 'number' ? v.toLocaleString('ru-RU') : String(v)
+                                                    }
+                                                />
+                                                <Tooltip
+                                                    labelFormatter={(v) => String(v)}
+                                                    formatter={(value: number | string | undefined) => [
+                                                        typeof value === 'number'
+                                                            ? value.toLocaleString('ru-RU', { maximumFractionDigits: 6 })
+                                                            : String(value ?? ''),
+                                                        'Значение',
+                                                    ]}
+                                                    contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb' }}
+                                                />
+                                                <Area
+                                                    type="monotone"
+                                                    dataKey="value"
+                                                    stroke={COMON_SHOW_CHART.primary}
+                                                    strokeWidth={2}
+                                                    fill="url(#comonProfitGrad)"
+                                                    dot={false}
+                                                    isAnimationActive={comonShowChartPoints.length < 400}
+                                                />
+                                            </AreaChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                )}
+                            </section>
+
+                            <section style={{ marginBottom: '20px' }}>
+                                <h3
+                                    style={{
+                                        fontSize: '14px',
+                                        fontWeight: 600,
+                                        color: '#374151',
+                                        margin: '0 0 10px 0',
+                                    }}
+                                >
+                                    Доли в карточке (портфель)
+                                </h3>
+                                {comonShowPieData.length === 0 ? (
+                                    <p style={{ fontSize: '13px', color: '#9ca3af' }}>В карточке нет портфеля.</p>
+                                ) : (
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            flexWrap: 'wrap',
+                                            alignItems: 'center',
+                                            gap: '24px',
+                                        }}
+                                    >
+                                        <div style={{ width: '220px', height: '220px' }}>
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <PieChart>
+                                                    <Pie
+                                                        data={comonShowPieData}
+                                                        dataKey="value"
+                                                        nameKey="name"
+                                                        cx="50%"
+                                                        cy="50%"
+                                                        innerRadius={52}
+                                                        outerRadius={88}
+                                                        paddingAngle={2}
+                                                    >
+                                                        {comonShowPieData.map((_, i) => (
+                                                            <Cell
+                                                                key={i}
+                                                                fill={COMON_PIE_COLORS[i % COMON_PIE_COLORS.length]}
+                                                            />
+                                                        ))}
+                                                    </Pie>
+                                                    <Tooltip
+                                                        formatter={(v: number | string | undefined) =>
+                                                            `${v != null ? String(v) : ''}%`
+                                                        }
+                                                    />
+                                                </PieChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                        <ul
+                                            style={{
+                                                margin: 0,
+                                                padding: 0,
+                                                listStyle: 'none',
+                                                fontSize: '13px',
+                                                color: '#374151',
+                                            }}
+                                        >
+                                            {comonShowPieData.map((row, i) => (
+                                                <li
+                                                    key={row.name + i}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px',
+                                                        marginBottom: '6px',
+                                                    }}
+                                                >
+                                                    <span
+                                                        style={{
+                                                            width: '10px',
+                                                            height: '10px',
+                                                            borderRadius: '2px',
+                                                            background: COMON_PIE_COLORS[i % COMON_PIE_COLORS.length],
+                                                            flexShrink: 0,
+                                                        }}
+                                                    />
+                                                    <span>
+                                                        {row.name}: <strong>{row.value}%</strong>
+                                                    </span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </section>
+
+                            {comonShowMetricsView.definitions != null ? (
+                                <details style={{ marginBottom: '12px', fontSize: '12px' }}>
+                                    <summary style={{ cursor: 'pointer', color: '#6b7280', fontWeight: 600 }}>
+                                        Пояснения к метрикам (definitions)
+                                    </summary>
+                                    <pre
+                                        style={{
+                                            marginTop: '8px',
+                                            padding: '10px',
+                                            background: '#f9fafb',
+                                            borderRadius: '10px',
+                                            maxHeight: '200px',
+                                            overflow: 'auto',
+                                            border: '1px solid #e5e7eb',
+                                        }}
+                                    >
+                                        {JSON.stringify(comonShowMetricsView.definitions, null, 2)}
+                                    </pre>
+                                </details>
+                            ) : null}
+
+                            <details style={{ fontSize: '12px' }}>
+                                <summary style={{ cursor: 'pointer', color: '#6b7280', fontWeight: 600 }}>
+                                    Сырой ответ API (отладка)
+                                </summary>
+                                <p style={{ color: '#9ca3af', margin: '8px 0 6px 0' }}>GET …/profit</p>
+                                <pre
+                                    style={{
+                                        padding: '10px',
+                                        background: '#f9fafb',
+                                        borderRadius: '10px',
+                                        maxHeight: '180px',
+                                        overflow: 'auto',
+                                        border: '1px solid #e5e7eb',
+                                        marginBottom: '10px',
+                                    }}
+                                >
+                                    {comonShowProfitPayload != null
+                                        ? JSON.stringify(comonShowProfitPayload, null, 2)
+                                        : '—'}
+                                </pre>
+                                <p style={{ color: '#9ca3af', margin: '0 0 6px 0' }}>GET …/profit/metrics</p>
+                                <pre
+                                    style={{
+                                        padding: '10px',
+                                        background: '#faf5ff',
+                                        borderRadius: '10px',
+                                        maxHeight: '180px',
+                                        overflow: 'auto',
+                                        border: '1px solid #e9d5ff',
+                                    }}
+                                >
+                                    {comonShowMetricsPayload != null
+                                        ? JSON.stringify(comonShowMetricsPayload, null, 2)
+                                        : '—'}
+                                </pre>
+                            </details>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => closeComonShow()}
+                                    style={{
+                                        padding: '8px 20px',
+                                        borderRadius: '999px',
+                                        border: 'none',
+                                        background: 'linear-gradient(135deg, #D946EF, #8B5CF6)',
+                                        color: '#fff',
+                                        fontSize: '13px',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    Закрыть
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
