@@ -276,6 +276,57 @@ export interface PdfCoverBackgroundUploadResponse extends PdfCoverSettingsRespon
     url: string;
 }
 
+// --- Стратегии Comon (автоследование, ЛК агента) ---
+
+export type ComonRiskProfile = 'conservative' | 'balanced' | 'aggressive';
+
+export interface ComonPortfolioItemPayload {
+    instrument: string;
+    share_percent: number;
+}
+
+export interface AgentComonStrategyCard {
+    id: number | string;
+    agent_id?: number;
+    comon_strategy_id?: string;
+    comon_url?: string | null;
+    comon_profit_api_url?: string | null;
+    name?: string;
+    min_contribution?: number | null;
+    risk_profile?: string;
+    description?: string | null;
+    portfolio?: ComonPortfolioItemPayload[];
+    created_at?: string;
+    updated_at?: string;
+    [key: string]: unknown;
+}
+
+export interface AgentComonStrategyCreatePayload {
+    comon_url: string;
+    name: string;
+    risk_profile: ComonRiskProfile;
+    min_contribution?: number | null;
+    description?: string | null;
+    portfolio: [ComonPortfolioItemPayload, ComonPortfolioItemPayload];
+}
+
+export type AgentComonStrategyPatchPayload = Partial<
+    Omit<AgentComonStrategyCreatePayload, 'portfolio'>
+> & {
+    portfolio?: [ComonPortfolioItemPayload, ComonPortfolioItemPayload];
+};
+
+export interface ComonApiTrace {
+    method: string;
+    url: string;
+    requestBody?: unknown;
+    status?: number;
+    responseBody?: unknown;
+    failed?: boolean;
+}
+
+const DEFAULT_COMON_RISK_PROFILES: ComonRiskProfile[] = ['conservative', 'balanced', 'aggressive'];
+
 export const agentLkApi = {
     getProducts: async (includeDefaults = true): Promise<AgentProduct[]> => {
         const response = await axios.get(`${API_BASE}/products`, {
@@ -727,6 +778,129 @@ export const agentLkApi = {
         const blob: Blob = response.data;
         await assertLooksLikeImageBlob(blob);
         return blob;
+    },
+
+    /** GET /agent/comon-strategies — список + risk_profiles; trace для отладки UI */
+    listComonStrategies: async (): Promise<{
+        ok: boolean;
+        strategies: AgentComonStrategyCard[];
+        riskProfiles: string[];
+        trace: ComonApiTrace;
+    }> => {
+        const url = `${API_BASE}/agent/comon-strategies`;
+        const trace: ComonApiTrace = { method: 'GET', url };
+        try {
+            const res = await axios.get(url, { headers: getHeaders() });
+            trace.status = res.status;
+            trace.responseBody = res.data;
+            const body = res.data as {
+                data?: AgentComonStrategyCard[];
+                risk_profiles?: string[];
+            };
+            const strategies = Array.isArray(body.data) ? body.data : [];
+            const riskProfiles =
+                Array.isArray(body.risk_profiles) && body.risk_profiles.length > 0
+                    ? body.risk_profiles
+                    : DEFAULT_COMON_RISK_PROFILES;
+            return { ok: true, strategies, riskProfiles, trace };
+        } catch (e: any) {
+            trace.failed = true;
+            trace.status = e?.response?.status;
+            trace.responseBody = e?.response?.data ?? { message: String(e?.message ?? e) };
+            return {
+                ok: false,
+                strategies: [],
+                riskProfiles: DEFAULT_COMON_RISK_PROFILES,
+                trace,
+            };
+        }
+    },
+
+    createComonStrategy: async (
+        payload: AgentComonStrategyCreatePayload,
+    ): Promise<{ ok: true; card: AgentComonStrategyCard; trace: ComonApiTrace } | { ok: false; trace: ComonApiTrace }> => {
+        const url = `${API_BASE}/agent/comon-strategies`;
+        const trace: ComonApiTrace = { method: 'POST', url, requestBody: payload };
+        try {
+            const res = await axios.post(url, payload, { headers: getHeaders() });
+            trace.status = res.status;
+            trace.responseBody = res.data;
+            const body = res.data as { data?: AgentComonStrategyCard };
+            const card = body?.data;
+            if (!card) {
+                trace.failed = true;
+                trace.responseBody = { ...((trace.responseBody as object) || {}), _clientNote: 'нет поля data в ответе' };
+                return { ok: false, trace };
+            }
+            return { ok: true, card, trace };
+        } catch (e: any) {
+            trace.failed = true;
+            trace.status = e?.response?.status;
+            trace.responseBody = e?.response?.data ?? { message: String(e?.message ?? e) };
+            return { ok: false, trace };
+        }
+    },
+
+    updateComonStrategy: async (
+        id: number | string,
+        payload: AgentComonStrategyPatchPayload,
+    ): Promise<{ ok: true; card: AgentComonStrategyCard; trace: ComonApiTrace } | { ok: false; trace: ComonApiTrace }> => {
+        const url = `${API_BASE}/agent/comon-strategies/${encodeURIComponent(String(id))}`;
+        const trace: ComonApiTrace = { method: 'PATCH', url, requestBody: payload };
+        try {
+            const res = await axios.patch(url, payload, { headers: getHeaders() });
+            trace.status = res.status;
+            trace.responseBody = res.data;
+            const body = res.data as { data?: AgentComonStrategyCard };
+            const card = body?.data;
+            if (!card) {
+                trace.failed = true;
+                return { ok: false, trace };
+            }
+            return { ok: true, card, trace };
+        } catch (e: any) {
+            trace.failed = true;
+            trace.status = e?.response?.status;
+            trace.responseBody = e?.response?.data ?? { message: String(e?.message ?? e) };
+            return { ok: false, trace };
+        }
+    },
+
+    deleteComonStrategy: async (
+        id: number | string,
+    ): Promise<{ ok: true; trace: ComonApiTrace } | { ok: false; trace: ComonApiTrace }> => {
+        const url = `${API_BASE}/agent/comon-strategies/${encodeURIComponent(String(id))}`;
+        const trace: ComonApiTrace = { method: 'DELETE', url };
+        try {
+            const res = await axios.delete(url, { headers: getHeaders() });
+            trace.status = res.status;
+            trace.responseBody = res.data;
+            return { ok: true, trace };
+        } catch (e: any) {
+            trace.failed = true;
+            trace.status = e?.response?.status;
+            trace.responseBody = e?.response?.data ?? { message: String(e?.message ?? e) };
+            return { ok: false, trace };
+        }
+    },
+
+    /** POST /comon/strategies/resolve — разбор ссылки до сохранения */
+    resolveComonStrategyUrl: async (
+        body: { url?: string; link?: string },
+    ): Promise<{ ok: true; trace: ComonApiTrace } | { ok: false; trace: ComonApiTrace }> => {
+        const url = `${API_BASE}/comon/strategies/resolve`;
+        const trace: ComonApiTrace = { method: 'POST', url, requestBody: body };
+        try {
+            const res = await axios.post(url, body, { headers: getHeaders() });
+            trace.status = res.status;
+            trace.responseBody = res.data;
+            return { ok: true, trace };
+        } catch (e: any) {
+            trace.failed = true;
+            trace.status = e?.response?.status;
+            trace.responseBody = e?.response?.data ?? { message: String(e?.message ?? e) };
+            return { ok: false, trace };
+        }
     },
 };
 

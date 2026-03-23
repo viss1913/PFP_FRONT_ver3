@@ -20,6 +20,11 @@ import {
     type PassiveIncomeYieldLine,
     type PdfCoverSettingsResponse,
     type PdfCoverEditorField,
+    type AgentComonStrategyCard,
+    type AgentComonStrategyCreatePayload,
+    type AgentComonStrategyPatchPayload,
+    type ComonApiTrace,
+    type ComonRiskProfile,
 } from '../api/agentLkApi';
 
 type NavPage = 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings';
@@ -28,7 +33,7 @@ interface SettingsPageProps {
     onNavigate: (page: NavPage) => void;
 }
 
-type SettingsTab = 'products' | 'portfolios' | 'plans' | 'ai-b2c' | 'report' | 'legacy';
+type SettingsTab = 'products' | 'portfolios' | 'plans' | 'ai-b2c' | 'report' | 'comon-strategies';
 
 /** Подстраницы раздела «Отчёт» — сюда потом добавятся новые пункты. */
 const REPORT_SUBPAGE_ITEMS = [{ id: 'cover' as const, label: 'Обложка PDF' }];
@@ -105,6 +110,56 @@ const RISK_PROFILE_LABELS: Record<string, string> = {
     BALANCED: 'Сбалансированный',
     AGGRESSIVE: 'Агрессивный',
 };
+
+const COMON_RISK_LABELS: Record<string, string> = {
+    conservative: 'Консервативный',
+    balanced: 'Сбалансированный',
+    aggressive: 'Агрессивный',
+};
+
+type ComonFormState = {
+    comon_url: string;
+    name: string;
+    risk_profile: ComonRiskProfile;
+    min_contribution: string;
+    description: string;
+    portfolio: [{ instrument: string; share_percent: string }, { instrument: string; share_percent: string }];
+};
+
+function getEmptyComonForm(): ComonFormState {
+    return {
+        comon_url: '',
+        name: '',
+        risk_profile: 'balanced',
+        min_contribution: '',
+        description: '',
+        portfolio: [
+            { instrument: '', share_percent: '50' },
+            { instrument: '', share_percent: '50' },
+        ],
+    };
+}
+
+function cardToComonForm(card: AgentComonStrategyCard): ComonFormState {
+    const rp = (card.risk_profile as ComonRiskProfile) || 'balanced';
+    const safeRp: ComonRiskProfile =
+        rp === 'conservative' || rp === 'balanced' || rp === 'aggressive' ? rp : 'balanced';
+    const p = card.portfolio;
+    const row = (i: number) => ({
+        instrument: (p?.[i]?.instrument as string) || '',
+        share_percent: p?.[i]?.share_percent != null ? String(p[i].share_percent) : i === 0 ? '50' : '50',
+    });
+    return {
+        comon_url: String(card.comon_url ?? ''),
+        name: String(card.name ?? ''),
+        risk_profile: safeRp,
+        min_contribution: card.min_contribution != null && !Number.isNaN(Number(card.min_contribution))
+            ? String(card.min_contribution)
+            : '',
+        description: String(card.description ?? ''),
+        portfolio: [row(0), row(1)],
+    };
+}
 
 const PORTFOLIO_SHARE_STEP = 5;
 
@@ -237,14 +292,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                 return 'AI B2C';
             case 'report':
                 return 'Отчёт';
-            case 'legacy':
-                return 'Прочие настройки';
+            case 'comon-strategies':
+                return 'Автоследование';
             default:
                 return tab;
         }
     };
 
-    const tabs: SettingsTab[] = ['products', 'portfolios', 'plans', 'ai-b2c', 'report', 'legacy'];
+    const tabs: SettingsTab[] = ['products', 'portfolios', 'plans', 'ai-b2c', 'report', 'comon-strategies'];
 
     useEffect(() => {
         const load = async () => {
@@ -519,6 +574,162 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     });
     const [savingAiB2c, setSavingAiB2c] = useState(false);
     const [deletingAiB2cId, setDeletingAiB2cId] = useState<string | null>(null);
+
+    const [comonStrategies, setComonStrategies] = useState<AgentComonStrategyCard[] | null>(null);
+    const [comonRiskProfiles, setComonRiskProfiles] = useState<string[]>(['conservative', 'balanced', 'aggressive']);
+    const [comonLoading, setComonLoading] = useState(false);
+    const [comonError, setComonError] = useState<string | null>(null);
+    const [comonApiTrace, setComonApiTrace] = useState<ComonApiTrace | null>(null);
+    const [comonModalOpen, setComonModalOpen] = useState(false);
+    const [editingComonId, setEditingComonId] = useState<number | string | null>(null);
+    const [comonForm, setComonForm] = useState<ComonFormState>(() => getEmptyComonForm());
+    const [comonSaving, setComonSaving] = useState(false);
+    const [comonResolving, setComonResolving] = useState(false);
+    const [deletingComonId, setDeletingComonId] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (activeTab !== 'comon-strategies') return;
+        const load = async () => {
+            setComonLoading(true);
+            setComonError(null);
+            const result = await agentLkApi.listComonStrategies();
+            setComonApiTrace(result.trace);
+            if (!result.ok) {
+                setComonStrategies(null);
+                setComonError('Не удалось загрузить стратегии. Проверьте авторизацию и API.');
+            } else {
+                setComonStrategies(result.strategies);
+                setComonRiskProfiles(result.riskProfiles);
+            }
+            setComonLoading(false);
+        };
+        void load();
+    }, [activeTab]);
+
+    const openComonCreate = () => {
+        setEditingComonId(null);
+        setComonForm(getEmptyComonForm());
+        setComonError(null);
+        setComonModalOpen(true);
+    };
+
+    const openComonEdit = (card: AgentComonStrategyCard) => {
+        setEditingComonId(card.id);
+        setComonForm(cardToComonForm(card));
+        setComonError(null);
+        setComonModalOpen(true);
+    };
+
+    const buildComonPayloadFromForm = (): AgentComonStrategyCreatePayload | null => {
+        const url = comonForm.comon_url.trim();
+        const name = comonForm.name.trim();
+        if (!url || !name) {
+            setComonError('Заполни ссылку на Comon и название карточки.');
+            return null;
+        }
+        const ins0 = comonForm.portfolio[0].instrument.trim();
+        const ins1 = comonForm.portfolio[1].instrument.trim();
+        if (!ins0 || !ins1) {
+            setComonError('Оба инструмента в портфеле обязательны.');
+            return null;
+        }
+        const s0 = Number(comonForm.portfolio[0].share_percent);
+        const s1 = Number(comonForm.portfolio[1].share_percent);
+        if (Number.isNaN(s0) || Number.isNaN(s1)) {
+            setComonError('Доли портфеля должны быть числами.');
+            return null;
+        }
+        const minRaw = comonForm.min_contribution.trim();
+        const min_contribution =
+            minRaw === '' ? undefined : Number(minRaw);
+        if (min_contribution !== undefined && Number.isNaN(min_contribution)) {
+            setComonError('Мин. сумма — число или пусто.');
+            return null;
+        }
+        const desc = comonForm.description.trim();
+        const payload: AgentComonStrategyCreatePayload = {
+            comon_url: url,
+            name,
+            risk_profile: comonForm.risk_profile,
+            portfolio: [
+                { instrument: ins0, share_percent: s0 },
+                { instrument: ins1, share_percent: s1 },
+            ],
+        };
+        if (min_contribution !== undefined) payload.min_contribution = min_contribution;
+        if (desc) payload.description = desc;
+        return payload;
+    };
+
+    const submitComonStrategy = async () => {
+        const payload = buildComonPayloadFromForm();
+        if (!payload) return;
+        setComonSaving(true);
+        setComonError(null);
+        try {
+            if (editingComonId == null) {
+                const result = await agentLkApi.createComonStrategy(payload);
+                setComonApiTrace(result.trace);
+                if (!result.ok) {
+                    const st = result.trace.status;
+                    if (st === 409) setComonError('Эта стратегия уже в списке.');
+                    else if (st === 502) setComonError('Comon не ответил. Попробуй позже.');
+                    else setComonError('Не удалось создать карточку. Смотри ответ ниже.');
+                    return;
+                }
+                setComonStrategies((prev) => (prev ? [result.card, ...prev] : [result.card]));
+            } else {
+                const patch: AgentComonStrategyPatchPayload = { ...payload };
+                const result = await agentLkApi.updateComonStrategy(editingComonId, patch);
+                setComonApiTrace(result.trace);
+                if (!result.ok) {
+                    const st = result.trace.status;
+                    if (st === 409) setComonError('Конфликт: такая стратегия Comon уже привязана.');
+                    else if (st === 502) setComonError('Comon не ответил.');
+                    else setComonError('Не удалось сохранить. Смотри ответ ниже.');
+                    return;
+                }
+                setComonStrategies((prev) =>
+                    prev ? prev.map((c) => (String(c.id) === String(editingComonId) ? result.card : c)) : [result.card],
+                );
+            }
+            setComonModalOpen(false);
+            setEditingComonId(null);
+            setComonForm(getEmptyComonForm());
+        } finally {
+            setComonSaving(false);
+        }
+    };
+
+    const resolveComonLink = async () => {
+        const link = comonForm.comon_url.trim();
+        if (!link) {
+            setComonError('Вставь ссылку на страницу стратегии Comon.');
+            return;
+        }
+        setComonResolving(true);
+        setComonError(null);
+        const result = await agentLkApi.resolveComonStrategyUrl({ url: link });
+        setComonApiTrace(result.trace);
+        setComonResolving(false);
+        if (!result.ok) {
+            setComonError('Не удалось разобрать ссылку (400/502 или сеть). Смотри тело ответа ниже.');
+        }
+    };
+
+    const deleteComonRow = async (id: number | string) => {
+        if (!window.confirm('Удалить эту карточку стратегии?')) return;
+        setDeletingComonId(String(id));
+        setComonError(null);
+        const result = await agentLkApi.deleteComonStrategy(id);
+        setComonApiTrace(result.trace);
+        setDeletingComonId(null);
+        if (!result.ok) {
+            setComonError('Не удалось удалить. Смотри ответ ниже.');
+            return;
+        }
+        setComonStrategies((prev) => (prev ? prev.filter((c) => String(c.id) !== String(id)) : []));
+    };
 
     const saveAiB2cSettings = async () => {
         if (!aiB2cDisplayName.trim()) {
@@ -2778,11 +2989,228 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                         </>
                     )}
 
-                    {activeTab === 'legacy' && (
-                        <p style={{ fontSize: '13px', color: '#9ca3af' }}>
-                            Для вкладки «{renderTabLabel(activeTab)}» пока только каркас. Когда подключим
-                            соответствующие эндпоинты, здесь появится полноценный UI.
-                        </p>
+                    {activeTab === 'comon-strategies' && (
+                        <>
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    marginBottom: '12px',
+                                    flexWrap: 'wrap',
+                                    gap: '12px',
+                                }}
+                            >
+                                <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#111', margin: 0 }}>
+                                    Стратегии (Comon)
+                                </h1>
+                                <button
+                                    type="button"
+                                    onClick={openComonCreate}
+                                    style={{
+                                        padding: '8px 14px',
+                                        borderRadius: '999px',
+                                        border: 'none',
+                                        background: 'linear-gradient(135deg, #D946EF, #8B5CF6)',
+                                        color: '#fff',
+                                        fontSize: '13px',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    Новая стратегия
+                                </button>
+                            </div>
+                            <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '12px' }}>
+                                Карточки с ссылкой на Comon, риском и портфелем из двух инструментов — их увидят
+                                закреплённые за тобой клиенты. График доходности лучше брать с бэка (
+                                <code style={{ fontSize: '12px' }}>/profit</code>
+                                ), не с comon.ru в браузере (CORS).
+                            </p>
+                            {comonError && (
+                                <div
+                                    style={{
+                                        padding: '12px',
+                                        borderRadius: '12px',
+                                        background: '#fef2f2',
+                                        color: '#b91c1c',
+                                        marginBottom: '16px',
+                                        fontSize: '14px',
+                                    }}
+                                >
+                                    {comonError}
+                                </div>
+                            )}
+                            {comonLoading ? (
+                                <p style={{ color: '#6b7280' }}>Загружаем стратегии…</p>
+                            ) : comonStrategies === null ? (
+                                <p style={{ color: '#6b7280' }}>
+                                    Список не загружен. Если сверху красное сообщение — поправь токен или API; сырое
+                                    тело ответа — в блоке отладки внизу.
+                                </p>
+                            ) : comonStrategies.length === 0 ? (
+                                <p style={{ color: '#6b7280' }}>
+                                    Пока нет карточек. Нажми «Новая стратегия» и заполни форму — тело запроса и ответ
+                                    бэка покажем в блоке отладки ниже.
+                                </p>
+                            ) : (
+                                <div style={{ marginTop: '12px' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                        <thead>
+                                            <tr style={{ textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>
+                                                <th style={{ padding: '8px 4px', color: '#6b7280', fontWeight: 500 }}>
+                                                    Название
+                                                </th>
+                                                <th style={{ padding: '8px 4px', color: '#6b7280', fontWeight: 500 }}>
+                                                    Риск
+                                                </th>
+                                                <th style={{ padding: '8px 4px', color: '#6b7280', fontWeight: 500 }}>
+                                                    Comon id
+                                                </th>
+                                                <th style={{ padding: '8px 4px', color: '#6b7280', fontWeight: 500 }}>
+                                                    Действия
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {comonStrategies.map((row) => (
+                                                <tr key={String(row.id)} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                                                    <td style={{ padding: '8px 4px', color: '#111827' }}>
+                                                        {row.name ?? '—'}
+                                                    </td>
+                                                    <td style={{ padding: '8px 4px', color: '#4b5563' }}>
+                                                        {COMON_RISK_LABELS[String(row.risk_profile)] ??
+                                                            row.risk_profile ??
+                                                            '—'}
+                                                    </td>
+                                                    <td
+                                                        style={{
+                                                            padding: '8px 4px',
+                                                            color: '#4b5563',
+                                                            fontFamily: 'ui-monospace, monospace',
+                                                            fontSize: '12px',
+                                                        }}
+                                                    >
+                                                        {row.comon_strategy_id ?? '—'}
+                                                    </td>
+                                                    <td style={{ padding: '8px 4px' }}>
+                                                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => openComonEdit(row)}
+                                                                style={{
+                                                                    padding: '6px 12px',
+                                                                    borderRadius: '8px',
+                                                                    border: '1px solid #d1d5db',
+                                                                    background: '#fff',
+                                                                    fontSize: '12px',
+                                                                    cursor: 'pointer',
+                                                                    color: '#374151',
+                                                                }}
+                                                            >
+                                                                Изменить
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => void deleteComonRow(row.id)}
+                                                                disabled={deletingComonId === String(row.id)}
+                                                                style={{
+                                                                    padding: '6px 12px',
+                                                                    borderRadius: '8px',
+                                                                    border: '1px solid #fecaca',
+                                                                    background: '#fef2f2',
+                                                                    fontSize: '12px',
+                                                                    cursor:
+                                                                        deletingComonId === String(row.id)
+                                                                            ? 'wait'
+                                                                            : 'pointer',
+                                                                    color: '#b91c1c',
+                                                                }}
+                                                            >
+                                                                {deletingComonId === String(row.id) ? '…' : 'Удалить'}
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            <section
+                                style={{
+                                    marginTop: '24px',
+                                    paddingTop: '20px',
+                                    borderTop: '1px solid #e5e7eb',
+                                }}
+                            >
+                                <h2 style={{ fontSize: '15px', fontWeight: 600, color: '#374151', margin: '0 0 8px 0' }}>
+                                    Отладка API (последний запрос к Comon/стратегиям)
+                                </h2>
+                                <p style={{ fontSize: '12px', color: '#9ca3af', margin: '0 0 12px 0' }}>
+                                    Сюда пишем то, что ушло на бэк (метод, URL, тело) и сырой ответ после каждого
+                                    списка, сохранения, удаления или «Разобрать ссылку».
+                                </p>
+                                {!comonApiTrace ? (
+                                    <p style={{ fontSize: '13px', color: '#9ca3af' }}>Пока не было запросов с этой вкладки.</p>
+                                ) : (
+                                    <div
+                                        style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'minmax(0, 1fr)',
+                                            gap: '12px',
+                                        }}
+                                    >
+                                        <details open style={{ fontSize: '12px' }}>
+                                            <summary style={{ cursor: 'pointer', color: '#6b7280', fontWeight: 600 }}>
+                                                Запрос
+                                            </summary>
+                                            <pre
+                                                style={{
+                                                    marginTop: '8px',
+                                                    padding: '10px',
+                                                    background: '#f9fafb',
+                                                    borderRadius: '10px',
+                                                    maxHeight: '220px',
+                                                    overflow: 'auto',
+                                                    border: '1px solid #e5e7eb',
+                                                }}
+                                            >
+                                                {JSON.stringify(
+                                                    {
+                                                        method: comonApiTrace.method,
+                                                        url: comonApiTrace.url,
+                                                        requestBody: comonApiTrace.requestBody ?? null,
+                                                    },
+                                                    null,
+                                                    2,
+                                                )}
+                                            </pre>
+                                        </details>
+                                        <details open style={{ fontSize: '12px' }}>
+                                            <summary style={{ cursor: 'pointer', color: '#6b7280', fontWeight: 600 }}>
+                                                Ответ (HTTP {comonApiTrace.status ?? '—'}
+                                                {comonApiTrace.failed ? ', ошибка' : ''})
+                                            </summary>
+                                            <pre
+                                                style={{
+                                                    marginTop: '8px',
+                                                    padding: '10px',
+                                                    background: '#faf5ff',
+                                                    borderRadius: '10px',
+                                                    maxHeight: '320px',
+                                                    overflow: 'auto',
+                                                    border: '1px solid #e9d5ff',
+                                                }}
+                                            >
+                                                {JSON.stringify(comonApiTrace.responseBody ?? null, null, 2)}
+                                            </pre>
+                                        </details>
+                                    </div>
+                                )}
+                            </section>
+                        </>
                     )}
                 </div>
 
@@ -4169,6 +4597,362 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                     <button type="submit" disabled={savingAiB2c} style={{ padding: '8px 20px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #6366F1, #4F46E5)', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', opacity: savingAiB2c ? 0.7 : 1 }}>{savingAiB2c ? 'Сохранение…' : 'Сохранить'}</button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Модалка Comon / автоследование */}
+                {comonModalOpen && (
+                    <div
+                        onClick={() => !comonSaving && setComonModalOpen(false)}
+                        style={{
+                            position: 'fixed',
+                            inset: 0,
+                            background: 'rgba(15,23,42,0.45)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 1300,
+                            padding: '16px',
+                        }}
+                    >
+                        <div
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                                width: 'min(640px, 100%)',
+                                maxHeight: '90vh',
+                                overflow: 'auto',
+                                background: '#fff',
+                                borderRadius: '24px',
+                                boxShadow: '0 24px 80px rgba(15,23,42,0.35)',
+                                padding: '24px 28px',
+                            }}
+                        >
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    marginBottom: '16px',
+                                }}
+                            >
+                                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
+                                    {editingComonId != null ? 'Редактировать стратегию' : 'Новая стратегия (Comon)'}
+                                </h2>
+                                <button
+                                    type="button"
+                                    onClick={() => !comonSaving && setComonModalOpen(false)}
+                                    style={{
+                                        border: 'none',
+                                        background: 'transparent',
+                                        cursor: 'pointer',
+                                        fontSize: '20px',
+                                        lineHeight: 1,
+                                        color: '#6b7280',
+                                    }}
+                                >
+                                    ×
+                                </button>
+                            </div>
+                            {comonError && (
+                                <div
+                                    style={{
+                                        padding: '10px 12px',
+                                        borderRadius: '10px',
+                                        background: '#fef2f2',
+                                        color: '#b91c1c',
+                                        marginBottom: '12px',
+                                        fontSize: '13px',
+                                    }}
+                                >
+                                    {comonError}
+                                </div>
+                            )}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <div>
+                                    <label
+                                        style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}
+                                    >
+                                        Ссылка на страницу стратегии (comon_url)
+                                    </label>
+                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                        <input
+                                            type="url"
+                                            value={comonForm.comon_url}
+                                            onChange={(e) =>
+                                                setComonForm((prev) => ({ ...prev, comon_url: e.target.value }))
+                                            }
+                                            placeholder="https://www.comon.ru/strategies/…"
+                                            style={{
+                                                flex: '1 1 200px',
+                                                padding: '8px 10px',
+                                                borderRadius: '10px',
+                                                border: '1px solid #e5e7eb',
+                                                fontSize: '13px',
+                                            }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => void resolveComonLink()}
+                                            disabled={comonResolving}
+                                            style={{
+                                                padding: '8px 12px',
+                                                borderRadius: '10px',
+                                                border: '1px solid #ddd6fe',
+                                                background: '#faf5ff',
+                                                fontSize: '12px',
+                                                fontWeight: 600,
+                                                color: '#6d28d9',
+                                                cursor: comonResolving ? 'wait' : 'pointer',
+                                                whiteSpace: 'nowrap',
+                                            }}
+                                        >
+                                            {comonResolving ? 'Запрос…' : 'Разобрать ссылку'}
+                                        </button>
+                                    </div>
+                                    <p style={{ fontSize: '11px', color: '#9ca3af', margin: '6px 0 0 0' }}>
+                                        Опционально: перед сохранением дернётся POST /pfp/comon/strategies/resolve —
+                                        превью id в отладке под карточкой.
+                                    </p>
+                                    {comonApiTrace && (
+                                        <details style={{ marginTop: '10px', fontSize: '11px' }}>
+                                            <summary style={{ cursor: 'pointer', color: '#6b7280' }}>
+                                                Сырой запрос/ответ (видно и под модалкой на вкладке)
+                                            </summary>
+                                            <pre
+                                                style={{
+                                                    marginTop: '6px',
+                                                    padding: '8px',
+                                                    background: '#f9fafb',
+                                                    borderRadius: '8px',
+                                                    maxHeight: '160px',
+                                                    overflow: 'auto',
+                                                    border: '1px solid #e5e7eb',
+                                                }}
+                                            >
+                                                {JSON.stringify(comonApiTrace, null, 2)}
+                                            </pre>
+                                        </details>
+                                    )}
+                                </div>
+                                <div>
+                                    <label
+                                        style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}
+                                    >
+                                        Название карточки
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={comonForm.name}
+                                        onChange={(e) => setComonForm((prev) => ({ ...prev, name: e.target.value }))}
+                                        style={{
+                                            width: '100%',
+                                            padding: '8px 10px',
+                                            borderRadius: '10px',
+                                            border: '1px solid #e5e7eb',
+                                            fontSize: '13px',
+                                        }}
+                                    />
+                                </div>
+                                <div>
+                                    <label
+                                        style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}
+                                    >
+                                        Риск
+                                    </label>
+                                    <select
+                                        value={comonForm.risk_profile}
+                                        onChange={(e) =>
+                                            setComonForm((prev) => ({
+                                                ...prev,
+                                                risk_profile: e.target.value as ComonRiskProfile,
+                                            }))
+                                        }
+                                        style={{
+                                            width: '100%',
+                                            padding: '8px 10px',
+                                            borderRadius: '10px',
+                                            border: '1px solid #e5e7eb',
+                                            fontSize: '13px',
+                                        }}
+                                    >
+                                        {comonRiskProfiles.map((code) => (
+                                            <option key={code} value={code}>
+                                                {COMON_RISK_LABELS[code] ?? code}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label
+                                        style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}
+                                    >
+                                        Мин. сумма (опционально)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={comonForm.min_contribution}
+                                        onChange={(e) =>
+                                            setComonForm((prev) => ({ ...prev, min_contribution: e.target.value }))
+                                        }
+                                        placeholder="Пусто — не передаём"
+                                        style={{
+                                            width: '100%',
+                                            padding: '8px 10px',
+                                            borderRadius: '10px',
+                                            border: '1px solid #e5e7eb',
+                                            fontSize: '13px',
+                                        }}
+                                    />
+                                </div>
+                                <div>
+                                    <label
+                                        style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}
+                                    >
+                                        Описание для клиента (опционально)
+                                    </label>
+                                    <textarea
+                                        value={comonForm.description}
+                                        onChange={(e) =>
+                                            setComonForm((prev) => ({ ...prev, description: e.target.value }))
+                                        }
+                                        rows={3}
+                                        style={{
+                                            width: '100%',
+                                            padding: '8px 10px',
+                                            borderRadius: '10px',
+                                            border: '1px solid #e5e7eb',
+                                            fontSize: '13px',
+                                            resize: 'vertical',
+                                        }}
+                                    />
+                                </div>
+                                <div>
+                                    <div
+                                        style={{
+                                            fontSize: '12px',
+                                            fontWeight: 600,
+                                            color: '#374151',
+                                            marginBottom: '8px',
+                                        }}
+                                    >
+                                        Портфель (ровно 2 инструмента)
+                                    </div>
+                                    <div style={{ display: 'grid', gap: '10px' }}>
+                                        {[0, 1].map((idx) => (
+                                            <div
+                                                key={idx}
+                                                style={{
+                                                    display: 'grid',
+                                                    gridTemplateColumns: '1fr 100px',
+                                                    gap: '8px',
+                                                    alignItems: 'end',
+                                                }}
+                                            >
+                                                <div>
+                                                    <label
+                                                        style={{
+                                                            display: 'block',
+                                                            fontSize: '11px',
+                                                            color: '#9ca3af',
+                                                            marginBottom: '4px',
+                                                        }}
+                                                    >
+                                                        Инструмент {idx + 1}
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        value={comonForm.portfolio[idx].instrument}
+                                                        onChange={(e) => {
+                                                            const v = e.target.value;
+                                                            setComonForm((prev) => {
+                                                                const next = [...prev.portfolio] as ComonFormState['portfolio'];
+                                                                next[idx] = { ...next[idx], instrument: v };
+                                                                return { ...prev, portfolio: next };
+                                                            });
+                                                        }}
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '8px 10px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid #e5e7eb',
+                                                            fontSize: '13px',
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        style={{
+                                                            display: 'block',
+                                                            fontSize: '11px',
+                                                            color: '#9ca3af',
+                                                            marginBottom: '4px',
+                                                        }}
+                                                    >
+                                                        Доля %
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        inputMode="decimal"
+                                                        value={comonForm.portfolio[idx].share_percent}
+                                                        onChange={(e) => {
+                                                            const v = e.target.value;
+                                                            setComonForm((prev) => {
+                                                                const next = [...prev.portfolio] as ComonFormState['portfolio'];
+                                                                next[idx] = { ...next[idx], share_percent: v };
+                                                                return { ...prev, portfolio: next };
+                                                            });
+                                                        }}
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '8px 10px',
+                                                            borderRadius: '10px',
+                                                            border: '1px solid #e5e7eb',
+                                                            fontSize: '13px',
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => !comonSaving && setComonModalOpen(false)}
+                                        style={{
+                                            padding: '8px 16px',
+                                            borderRadius: '10px',
+                                            border: '1px solid #e5e7eb',
+                                            background: '#fff',
+                                            fontSize: '13px',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        Отмена
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => void submitComonStrategy()}
+                                        disabled={comonSaving}
+                                        style={{
+                                            padding: '8px 20px',
+                                            borderRadius: '10px',
+                                            border: 'none',
+                                            background: comonSaving
+                                                ? '#9ca3af'
+                                                : 'linear-gradient(135deg, #D946EF, #8B5CF6)',
+                                            color: '#fff',
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                            cursor: comonSaving ? 'wait' : 'pointer',
+                                        }}
+                                    >
+                                        {comonSaving ? 'Сохранение…' : editingComonId != null ? 'Сохранить' : 'Создать'}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
