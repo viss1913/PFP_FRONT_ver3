@@ -48,9 +48,178 @@ interface SettingsPageProps {
 
 type SettingsTab = 'products' | 'portfolios' | 'plans' | 'ai-b2c' | 'report' | 'comon-strategies';
 
-/** Подстраницы раздела «Отчёт» — сюда потом добавятся новые пункты. */
-const REPORT_SUBPAGE_ITEMS = [{ id: 'cover' as const, label: 'Обложка PDF' }];
+/** Подстраницы раздела «Отчёт» (id совпадают с шаблонами editor_schema, где есть). */
+const REPORT_SUBPAGE_ITEMS = [
+    { id: 'cover' as const, label: 'Обложка PDF' },
+    { id: 'summary' as const, label: 'Сводная информация' },
+];
 type ReportSubPage = (typeof REPORT_SUBPAGE_ITEMS)[number]['id'];
+
+const PDF_SUMMARY_TEMPLATE_ID = 'report_summary_overview';
+const PDF_COVER_TEMPLATE_ID = 'report_cover';
+
+/** Дефолтные поля обложки, если в схеме пусто. */
+const DEFAULT_PDF_FORM_FIELDS: PdfCoverEditorField[] = [
+    { key: 'cover_background_url', type: 'image', label: 'Фон обложки' },
+    { key: 'cover_title', type: 'text', label: 'Текст плашки' },
+    { key: 'title_band_color', type: 'color', label: 'Цвет плашки' },
+    { key: 'date_preview', type: 'readonly', label: 'Дата на обложке' },
+];
+
+type PdfEditorTemplateBlock = { id: string; label?: string; fields: PdfCoverEditorField[] };
+
+/** Фолбэк, если бэк ещё не прислал шаблон сводной в editor_schema.templates. */
+const DEFAULT_SUMMARY_PDF_FIELDS: PdfCoverEditorField[] = [
+    {
+        key: 'summary_background_url',
+        type: 'image',
+        label: 'Фон страницы',
+        upload: { path: 'pdf-settings/summary-background', form_field: 'image', max_size_mb: 8 },
+        read_url: { path: 'pdf-settings/summary-background-image' },
+        reset: { patch_key: 'summary_background_url' },
+    },
+    {
+        key: 'summary_logo_url',
+        type: 'image',
+        label: 'Логотип',
+        upload: { path: 'pdf-settings/summary-logo', form_field: 'image', max_size_mb: 8 },
+        read_url: { path: 'pdf-settings/summary-logo-image' },
+        reset: { patch_key: 'summary_logo_url' },
+    },
+    {
+        key: 'summary_chart_color',
+        type: 'color',
+        label: 'Цвет графиков и акцента',
+        reset: { patch_key: 'summary_chart_color' },
+    },
+];
+
+function formatPdfUploadError(err: unknown): string {
+    const ax = err as {
+        response?: { status?: number; data?: { message?: string; error?: string; code?: string } };
+    };
+    const st = ax?.response?.status;
+    const d = ax?.response?.data;
+    if (st === 503) {
+        const parts = [d?.code, d?.error, d?.message].filter(Boolean);
+        return (
+            parts.join(' — ') ||
+            'Хранилище недоступно (503). Проверьте R2, публичный URL или настройки STORAGE_REQUIRE_R2.'
+        );
+    }
+    if (st === 400) {
+        return d?.message || d?.error || 'Файл не подходит (тип или размер).';
+    }
+    return 'Не удалось загрузить файл.';
+}
+
+function acceptMimeToInputAccept(mimes: string[] | undefined): string {
+    if (!mimes?.length) return 'image/jpeg,image/png,image/webp';
+    return mimes.join(',');
+}
+
+function parsePdfEditorFieldItem(item: unknown): PdfCoverEditorField | null {
+    if (!item || typeof item !== 'object') return null;
+    const obj = item as Record<string, unknown>;
+    const type = obj.type;
+    const patchKey = typeof obj.patch_key === 'string' ? obj.patch_key : null;
+    const id = typeof obj.id === 'string' ? obj.id : null;
+    const legacyKey = typeof obj.key === 'string' ? obj.key : null;
+    const key = patchKey || legacyKey || id;
+    if (!key || typeof type !== 'string') return null;
+    if (!['image', 'text', 'color', 'readonly'].includes(type)) return null;
+    const value_key = typeof obj.value_key === 'string' ? obj.value_key : undefined;
+
+    let upload: PdfCoverEditorField['upload'];
+    const ur = obj.upload;
+    if (ur && typeof ur === 'object') {
+        const u = ur as Record<string, unknown>;
+        const am = u.accept_mime;
+        upload = {
+            path: typeof u.path === 'string' ? u.path : undefined,
+            form_field: typeof u.form_field === 'string' ? u.form_field : undefined,
+            max_size_mb: typeof u.max_size_mb === 'number' ? u.max_size_mb : undefined,
+            accept_mime: Array.isArray(am) ? am.filter((x): x is string => typeof x === 'string') : undefined,
+        };
+    }
+
+    let read_url: PdfCoverEditorField['read_url'];
+    const rr = obj.read_url;
+    if (rr && typeof rr === 'object') {
+        const r = rr as Record<string, unknown>;
+        read_url = {
+            path: typeof r.path === 'string' ? r.path : undefined,
+        };
+    }
+
+    let reset: PdfCoverEditorField['reset'];
+    const rs = obj.reset;
+    if (rs && typeof rs === 'object') {
+        const r = rs as Record<string, unknown>;
+        reset = {
+            patch_key: typeof r.patch_key === 'string' ? r.patch_key : undefined,
+        };
+    }
+
+    return {
+        key,
+        type: type as PdfCoverEditorField['type'],
+        label: typeof obj.label === 'string' ? obj.label : undefined,
+        hint: typeof obj.hint === 'string' ? obj.hint : undefined,
+        value_key,
+        upload,
+        read_url,
+        reset,
+    };
+}
+
+function parsePdfFieldsArray(raw: unknown[]): PdfCoverEditorField[] {
+    const out: PdfCoverEditorField[] = [];
+    for (const item of raw) {
+        const f = parsePdfEditorFieldItem(item);
+        if (f) out.push(f);
+    }
+    return out;
+}
+
+function pdfEditorTemplatesFromSchema(schema: unknown): PdfEditorTemplateBlock[] {
+    if (!schema || typeof schema !== 'object') return [];
+    const s = schema as Record<string, unknown>;
+    if (Array.isArray(s.templates)) {
+        const blocks: PdfEditorTemplateBlock[] = [];
+        for (const t of s.templates) {
+            if (!t || typeof t !== 'object') continue;
+            const o = t as Record<string, unknown>;
+            const id =
+                (typeof o.id === 'string' && o.id) ||
+                (typeof o.template === 'string' && o.template) ||
+                (typeof o.template_id === 'string' && o.template_id) ||
+                '';
+            if (!id) continue;
+            const label =
+                (typeof o.label === 'string' && o.label) ||
+                (typeof o.title === 'string' && o.title) ||
+                undefined;
+            const fields = Array.isArray(o.fields) ? parsePdfFieldsArray(o.fields as unknown[]) : [];
+            blocks.push({ id, label, fields });
+        }
+        return blocks;
+    }
+    if (Array.isArray(s.fields)) {
+        return [{ id: PDF_COVER_TEMPLATE_ID, label: 'Обложка', fields: parsePdfFieldsArray(s.fields as unknown[]) }];
+    }
+    return [];
+}
+
+/** Поля одного логического шаблона из editor_schema (или дефолты для сводной). */
+function pdfFormFieldsForTemplate(schema: unknown, templateId: string): PdfCoverEditorField[] {
+    const blocks = pdfEditorTemplatesFromSchema(schema);
+    const hit = blocks.find((b) => b.id === templateId);
+    if (hit?.fields.length) return hit.fields;
+    if (templateId === PDF_COVER_TEMPLATE_ID && blocks[0]?.fields.length) return blocks[0].fields;
+    if (templateId === PDF_SUMMARY_TEMPLATE_ID) return DEFAULT_SUMMARY_PDF_FIELDS;
+    return templateId === PDF_COVER_TEMPLATE_ID ? DEFAULT_PDF_FORM_FIELDS : [];
+}
 
 function resolveAgentLkAssetUrl(url: string | null | undefined): string | null {
     if (url == null || String(url).trim() === '') return null;
@@ -72,49 +241,8 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 /** Как в макете Figma «Отчёт» / дефолт бэка. */
 const DEFAULT_COVER_TITLE_TEXT = 'персональное финансовое решение';
 
-const DEFAULT_PDF_FORM_FIELDS: PdfCoverEditorField[] = [
-    { key: 'cover_background_url', type: 'image', label: 'Фон обложки' },
-    { key: 'cover_title', type: 'text', label: 'Текст плашки' },
-    { key: 'title_band_color', type: 'color', label: 'Цвет плашки' },
-    { key: 'date_preview', type: 'readonly', label: 'Дата на обложке' },
-];
-
 function pdfFormFieldsFromSchema(schema: unknown): PdfCoverEditorField[] {
-    if (!schema || typeof schema !== 'object') return DEFAULT_PDF_FORM_FIELDS;
-    const s = schema as { fields?: unknown; templates?: unknown };
-    let raw: unknown[] | null = null;
-    if (Array.isArray(s.templates)) {
-        for (const t of s.templates) {
-            if (t && typeof t === 'object' && Array.isArray((t as { fields?: unknown }).fields)) {
-                raw = (t as { fields: unknown[] }).fields;
-                break;
-            }
-        }
-    }
-    if (!raw && Array.isArray(s.fields)) raw = s.fields as unknown[];
-    if (!raw) return DEFAULT_PDF_FORM_FIELDS;
-
-    const out: PdfCoverEditorField[] = [];
-    for (const item of raw) {
-        if (!item || typeof item !== 'object') continue;
-        const obj = item as Record<string, unknown>;
-        const type = obj.type;
-        const patchKey = typeof obj.patch_key === 'string' ? obj.patch_key : null;
-        const id = typeof obj.id === 'string' ? obj.id : null;
-        const legacyKey = typeof obj.key === 'string' ? obj.key : null;
-        const key = patchKey || legacyKey || id;
-        if (!key || typeof type !== 'string') continue;
-        if (!['image', 'text', 'color', 'readonly'].includes(type)) continue;
-        const value_key = typeof obj.value_key === 'string' ? obj.value_key : undefined;
-        out.push({
-            key,
-            type: type as PdfCoverEditorField['type'],
-            label: typeof obj.label === 'string' ? obj.label : undefined,
-            hint: typeof obj.hint === 'string' ? obj.hint : undefined,
-            value_key,
-        });
-    }
-    return out.length ? out : DEFAULT_PDF_FORM_FIELDS;
+    return pdfFormFieldsForTemplate(schema, PDF_COVER_TEMPLATE_ID);
 }
 
 const RISK_PROFILE_TYPES: Array<'CONSERVATIVE' | 'BALANCED' | 'AGGRESSIVE'> = ['CONSERVATIVE', 'BALANCED', 'AGGRESSIVE'];
@@ -315,13 +443,22 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         cover_title: '',
         title_band_color: '',
         cover_background_url: '',
+        summary_chart_color: '',
+        summary_background_url: '',
+        summary_logo_url: '',
     });
     const [pdfLoading, setPdfLoading] = useState(false);
     const [pdfSaving, setPdfSaving] = useState(false);
     const [pdfUploading, setPdfUploading] = useState(false);
+    const [pdfSummaryUploadKey, setPdfSummaryUploadKey] = useState<string | null>(null);
     const [pdfError, setPdfError] = useState<string | null>(null);
     /** Превью фона: data:… (скачали и встроили) или в конце прямой https для img. */
     const [pdfCoverPreviewUrl, setPdfCoverPreviewUrl] = useState<string | null>(null);
+    /** Превью картинок сводной через GET *-image (url из JSON, не сырой storage URL). */
+    const [summaryBgThumbUrl, setSummaryBgThumbUrl] = useState<string | null>(null);
+    const [summaryLogoThumbUrl, setSummaryLogoThumbUrl] = useState<string | null>(null);
+    const [summaryPreviewHtml, setSummaryPreviewHtml] = useState<string | null>(null);
+    const [summaryPreviewLoading, setSummaryPreviewLoading] = useState(false);
 
     const renderTabLabel = (tab: SettingsTab) => {
         switch (tab) {
@@ -444,7 +581,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     }, [activeTab]);
 
     useEffect(() => {
-        if (activeTab !== 'report' || reportSubPage !== 'cover') return;
+        if (activeTab !== 'report') return;
         const load = async () => {
             try {
                 setPdfLoading(true);
@@ -455,17 +592,20 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                     cover_title: res.cover_title ?? '',
                     title_band_color: res.title_band_color ?? '',
                     cover_background_url: res.cover_background_url ?? '',
+                    summary_chart_color: res.summary_chart_color ?? '',
+                    summary_background_url: res.summary_background_url ?? '',
+                    summary_logo_url: res.summary_logo_url ?? '',
                 });
             } catch (e) {
-                console.error('Failed to load PDF cover settings:', e);
-                setPdfError('Не удалось загрузить настройки обложки PDF. Нужен JWT с agent_id и доступ к API.');
+                console.error('Failed to load PDF settings:', e);
+                setPdfError('Не удалось загрузить настройки PDF-отчёта. Нужен JWT с agent_id и доступ к API.');
                 setPdfSettings(null);
             } finally {
                 setPdfLoading(false);
             }
         };
         void load();
-    }, [activeTab, reportSubPage]);
+    }, [activeTab]);
 
     useEffect(() => {
         if (activeTab !== 'report' || reportSubPage !== 'cover') {
@@ -534,6 +674,109 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             cancelled = true;
         };
     }, [activeTab, reportSubPage, pdfLoading, pdfSettings?.cover_background_url]);
+
+    useEffect(() => {
+        if (activeTab !== 'report' || reportSubPage !== 'summary' || !pdfSettings || pdfLoading) {
+            setSummaryPreviewHtml(null);
+            setSummaryPreviewLoading(false);
+            return;
+        }
+        let cancelled = false;
+        setSummaryPreviewLoading(true);
+        (async () => {
+            try {
+                const html = await agentLkApi.getPdfSummaryPreviewHtml();
+                if (!cancelled) setSummaryPreviewHtml(html);
+            } catch (e) {
+                console.warn('[pdf-summary preview html]', e);
+                if (!cancelled) setSummaryPreviewHtml(null);
+            } finally {
+                if (!cancelled) setSummaryPreviewLoading(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        activeTab,
+        reportSubPage,
+        pdfLoading,
+        pdfSettings?.summary_background_url,
+        pdfSettings?.summary_logo_url,
+        pdfSettings?.summary_chart_color,
+    ]);
+
+    useEffect(() => {
+        if (activeTab !== 'report' || reportSubPage !== 'summary' || !pdfSettings || pdfLoading) {
+            setSummaryBgThumbUrl(null);
+            return;
+        }
+        const fields = pdfFormFieldsForTemplate(pdfSettings.editor_schema, PDF_SUMMARY_TEMPLATE_ID);
+        const f = fields.find((x) => x.key === 'summary_background_url' && x.type === 'image');
+        const readPath = f?.read_url?.path ?? 'pdf-settings/summary-background-image';
+
+        let cancelled = false;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+
+        const run = async () => {
+            try {
+                const meta = await agentLkApi.getPdfSettingsImageReadMeta(readPath);
+                if (cancelled) return;
+                if (!meta) {
+                    setSummaryBgThumbUrl(null);
+                    return;
+                }
+                setSummaryBgThumbUrl(meta.url);
+                if (meta.access === 'signed' && meta.expires_at) {
+                    const ms = new Date(meta.expires_at).getTime() - Date.now() - 60_000;
+                    if (ms > 5_000) timer = window.setTimeout(run, ms);
+                }
+            } catch {
+                if (!cancelled) setSummaryBgThumbUrl(null);
+            }
+        };
+        void run();
+        return () => {
+            cancelled = true;
+            if (timer) clearTimeout(timer);
+        };
+    }, [activeTab, reportSubPage, pdfLoading, pdfSettings?.summary_background_url, pdfSettings?.editor_schema]);
+
+    useEffect(() => {
+        if (activeTab !== 'report' || reportSubPage !== 'summary' || !pdfSettings || pdfLoading) {
+            setSummaryLogoThumbUrl(null);
+            return;
+        }
+        const fields = pdfFormFieldsForTemplate(pdfSettings.editor_schema, PDF_SUMMARY_TEMPLATE_ID);
+        const f = fields.find((x) => x.key === 'summary_logo_url' && x.type === 'image');
+        const readPath = f?.read_url?.path ?? 'pdf-settings/summary-logo-image';
+
+        let cancelled = false;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+
+        const run = async () => {
+            try {
+                const meta = await agentLkApi.getPdfSettingsImageReadMeta(readPath);
+                if (cancelled) return;
+                if (!meta) {
+                    setSummaryLogoThumbUrl(null);
+                    return;
+                }
+                setSummaryLogoThumbUrl(meta.url);
+                if (meta.access === 'signed' && meta.expires_at) {
+                    const ms = new Date(meta.expires_at).getTime() - Date.now() - 60_000;
+                    if (ms > 5_000) timer = window.setTimeout(run, ms);
+                }
+            } catch {
+                if (!cancelled) setSummaryLogoThumbUrl(null);
+            }
+        };
+        void run();
+        return () => {
+            cancelled = true;
+            if (timer) clearTimeout(timer);
+        };
+    }, [activeTab, reportSubPage, pdfLoading, pdfSettings?.summary_logo_url, pdfSettings?.editor_schema]);
 
     const [isProductModalOpen, setIsProductModalOpen] = useState(false);
     const [productForm, setProductForm] = useState<{
@@ -1701,6 +1944,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             cover_title: res.cover_title ?? '',
             title_band_color: res.title_band_color ?? '',
             cover_background_url: res.cover_background_url ?? '',
+            summary_chart_color: res.summary_chart_color ?? '',
+            summary_background_url: res.summary_background_url ?? '',
+            summary_logo_url: res.summary_logo_url ?? '',
         });
     };
 
@@ -1722,6 +1968,22 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         }
     };
 
+    const savePdfSummaryBrandingDraft = async () => {
+        setPdfSaving(true);
+        try {
+            const res = await agentLkApi.patchPdfCoverSettings({
+                summary_chart_color: pdfDraft.summary_chart_color.trim() || '',
+            });
+            applyPdfSettingsResponse(res);
+            setPdfError(null);
+        } catch (e) {
+            console.error(e);
+            setPdfError('Не удалось сохранить цвет сводной страницы.');
+        } finally {
+            setPdfSaving(false);
+        }
+    };
+
     const resetPdfCoverBackground = async () => {
         setPdfSaving(true);
         try {
@@ -1736,20 +1998,88 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         }
     };
 
+    const resetPdfSummaryImage = async (field: PdfCoverEditorField) => {
+        const pk = field.reset?.patch_key ?? field.key;
+        setPdfSaving(true);
+        try {
+            let res: PdfCoverSettingsResponse;
+            if (pk === 'summary_background_url') {
+                res = await agentLkApi.patchPdfCoverSettings({ summary_background_url: '' });
+            } else if (pk === 'summary_logo_url') {
+                res = await agentLkApi.patchPdfCoverSettings({ summary_logo_url: '' });
+            } else {
+                setPdfError('Сброс для этого поля не поддерживается.');
+                return;
+            }
+            applyPdfSettingsResponse(res);
+            setPdfError(null);
+        } catch (e) {
+            console.error(e);
+            setPdfError('Не удалось сбросить изображение.');
+        } finally {
+            setPdfSaving(false);
+        }
+    };
+
     const handlePdfCoverImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         e.target.value = '';
         if (!file) return;
+        const coverFields = pdfFormFieldsForTemplate(pdfSettings?.editor_schema, PDF_COVER_TEMPLATE_ID);
+        const coverBgField = coverFields.find((x) => x.type === 'image' && x.key === 'cover_background_url');
+        const maxMb = coverBgField?.upload?.max_size_mb ?? 8;
+        if (file.size > maxMb * 1024 * 1024) {
+            setPdfError(`Файл больше ${maxMb} МБ.`);
+            return;
+        }
         setPdfUploading(true);
         try {
-            const res = await agentLkApi.uploadPdfCoverBackground(file);
+            const upPath = coverBgField?.upload?.path;
+            const res = upPath
+                ? await agentLkApi.uploadPdfSettingsImage(
+                      upPath,
+                      file,
+                      coverBgField?.upload?.form_field ?? 'image'
+                  )
+                : await agentLkApi.uploadPdfCoverBackground(file);
             applyPdfSettingsResponse(res);
             setPdfError(null);
         } catch (err) {
             console.error(err);
-            setPdfError('Не удалось загрузить фон. Нужен jpeg/png/webp, не больше 8 МБ.');
+            setPdfError(formatPdfUploadError(err));
         } finally {
             setPdfUploading(false);
+        }
+    };
+
+    const handlePdfSummaryImageChange = async (field: PdfCoverEditorField, e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file) return;
+        const maxMb = field.upload?.max_size_mb ?? 8;
+        if (file.size > maxMb * 1024 * 1024) {
+            setPdfError(`Файл больше ${maxMb} МБ.`);
+            return;
+        }
+        const upPath = field.upload?.path;
+        if (!upPath) {
+            setPdfError('В схеме нет upload.path для этого поля.');
+            return;
+        }
+        setPdfSummaryUploadKey(field.key);
+        try {
+            const res = await agentLkApi.uploadPdfSettingsImage(
+                upPath,
+                file,
+                field.upload?.form_field ?? 'image'
+            );
+            applyPdfSettingsResponse(res);
+            setPdfError(null);
+        } catch (err) {
+            console.error(err);
+            setPdfError(formatPdfUploadError(err));
+        } finally {
+            setPdfSummaryUploadKey(null);
         }
     };
 
@@ -2510,8 +2840,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                 {renderTabLabel(activeTab)}
                             </h1>
                             <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '24px' }}>
-                                Настройки PDF-отчёта для клиентов. Слева — разделы; позже сюда добавятся другие страницы
-                                отчёта, не только обложка.
+                                Настройки PDF-отчёта для клиентов: обложка и страница «Сводная информация». Поля формы
+                                строятся из <code style={{ fontSize: '12px' }}>editor_schema</code> с бэка.
                             </p>
                             {pdfError && (
                                 <div
@@ -2836,9 +3166,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                                         style={{
                                                                                             fontSize: '12px',
                                                                                             color: '#4b5563',
-                                                                                            cursor: pdfUploading
-                                                                                                ? 'wait'
-                                                                                                : 'pointer',
+                                                                                            cursor:
+                                                                                                pdfUploading ||
+                                                                                                !!pdfSummaryUploadKey
+                                                                                                    ? 'wait'
+                                                                                                    : 'pointer',
                                                                                             padding: '8px 14px',
                                                                                             borderRadius: '999px',
                                                                                             border: '1px solid #d1d5db',
@@ -2853,12 +3185,19 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                                             accept="image/jpeg,image/png,image/webp"
                                                                                             onChange={handlePdfCoverImageChange}
                                                                                             style={{ display: 'none' }}
-                                                                                            disabled={pdfUploading}
+                                                                                            disabled={
+                                                                                                pdfUploading ||
+                                                                                                !!pdfSummaryUploadKey
+                                                                                            }
                                                                                         />
                                                                                     </label>
                                                                                     <button
                                                                                         type="button"
-                                                                                        disabled={pdfSaving || pdfUploading}
+                                                                                        disabled={
+                                                                                            pdfSaving ||
+                                                                                            pdfUploading ||
+                                                                                            !!pdfSummaryUploadKey
+                                                                                        }
                                                                                         onClick={() => void resetPdfCoverBackground()}
                                                                                         style={{
                                                                                             padding: '8px 14px',
@@ -2867,7 +3206,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                                             background: '#fef2f2',
                                                                                             fontSize: '12px',
                                                                                             cursor:
-                                                                                                pdfSaving || pdfUploading
+                                                                                                pdfSaving ||
+                                                                                                pdfUploading ||
+                                                                                                !!pdfSummaryUploadKey
                                                                                                     ? 'wait'
                                                                                                     : 'pointer',
                                                                                             color: '#b91c1c',
@@ -3078,7 +3419,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                             <button
                                                                 type="button"
                                                                 onClick={() => void savePdfCoverDraft()}
-                                                                disabled={pdfSaving || pdfUploading}
+                                                                disabled={
+                                                                    pdfSaving ||
+                                                                    pdfUploading ||
+                                                                    !!pdfSummaryUploadKey
+                                                                }
                                                                 style={{
                                                                     padding: '10px 20px',
                                                                     borderRadius: '999px',
@@ -3088,11 +3433,424 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                     fontSize: '13px',
                                                                     fontWeight: 600,
                                                                     cursor:
-                                                                        pdfSaving || pdfUploading ? 'wait' : 'pointer',
+                                                                        pdfSaving ||
+                                                                        pdfUploading ||
+                                                                        !!pdfSummaryUploadKey
+                                                                            ? 'wait'
+                                                                            : 'pointer',
                                                                     marginTop: '4px',
                                                                 }}
                                                             >
                                                                 {pdfSaving ? 'Сохранение…' : 'Сохранить текст и URL фона'}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                    {reportSubPage === 'summary' && (
+                                        <>
+                                            {pdfLoading ? (
+                                                <p style={{ color: '#6b7280' }}>Загрузка…</p>
+                                            ) : (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                                    <div
+                                                        style={{
+                                                            display: 'flex',
+                                                            gap: '24px',
+                                                            flexWrap: 'wrap',
+                                                            alignItems: 'flex-start',
+                                                        }}
+                                                    >
+                                                        <div style={{ flex: '1 1 300px', minWidth: 'min(100%, 280px)' }}>
+                                                            <p
+                                                                style={{
+                                                                    fontSize: '12px',
+                                                                    fontWeight: 600,
+                                                                    color: '#6b7280',
+                                                                    margin: '0 0 8px 0',
+                                                                }}
+                                                            >
+                                                                Превью страницы (мок с бэка)
+                                                            </p>
+                                                            {summaryPreviewLoading ? (
+                                                                <p style={{ color: '#6b7280', fontSize: '14px' }}>
+                                                                    Грузим HTML…
+                                                                </p>
+                                                            ) : summaryPreviewHtml ? (
+                                                                <iframe
+                                                                    title="Превью сводной страницы PDF"
+                                                                    sandbox="allow-same-origin allow-scripts"
+                                                                    srcDoc={summaryPreviewHtml}
+                                                                    style={{
+                                                                        width: '100%',
+                                                                        minHeight: '560px',
+                                                                        border: '1px solid #e5e7eb',
+                                                                        borderRadius: '14px',
+                                                                        background: '#fff',
+                                                                        boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <p style={{ color: '#6b7280', fontSize: '14px' }}>
+                                                                    Превью недоступно — проверь эндпоинт{' '}
+                                                                    <code style={{ fontSize: '12px' }}>
+                                                                        summary-preview-html
+                                                                    </code>
+                                                                    .
+                                                                </p>
+                                                            )}
+                                                            <p
+                                                                style={{
+                                                                    fontSize: '11px',
+                                                                    color: '#9ca3af',
+                                                                    margin: '10px 0 0 0',
+                                                                    lineHeight: 1.45,
+                                                                }}
+                                                            >
+                                                                iframe с <code style={{ fontSize: '11px' }}>src</code> не
+                                                                шлёт JWT — поэтому делаем fetch с Authorization и{' '}
+                                                                <code style={{ fontSize: '11px' }}>srcDoc</code>.
+                                                            </p>
+                                                        </div>
+                                                        <div
+                                                            style={{
+                                                                flex: '1 1 260px',
+                                                                minWidth: 'min(100%, 240px)',
+                                                                maxWidth: '520px',
+                                                            }}
+                                                        >
+                                                            <h2
+                                                                style={{
+                                                                    fontSize: '16px',
+                                                                    fontWeight: 600,
+                                                                    color: '#111827',
+                                                                    margin: '0 0 8px 0',
+                                                                }}
+                                                            >
+                                                                Сводная информация
+                                                            </h2>
+                                                            <p
+                                                                style={{
+                                                                    fontSize: '13px',
+                                                                    color: '#6b7280',
+                                                                    marginBottom: '16px',
+                                                                    lineHeight: 1.5,
+                                                                }}
+                                                            >
+                                                                Клиент, цели и текст ИИ на этой странице подставляет бэк при
+                                                                генерации PDF. Здесь только брендинг: фон, логотип и цвет
+                                                                графиков.
+                                                            </p>
+                                                            {pdfFormFieldsForTemplate(
+                                                                pdfSettings?.editor_schema,
+                                                                PDF_SUMMARY_TEMPLATE_ID
+                                                            ).map((field) => {
+                                                                if (field.type === 'image') {
+                                                                    const thumb =
+                                                                        field.key === 'summary_background_url'
+                                                                            ? summaryBgThumbUrl
+                                                                            : field.key === 'summary_logo_url'
+                                                                              ? summaryLogoThumbUrl
+                                                                              : null;
+                                                                    const busy = pdfSummaryUploadKey === field.key;
+                                                                    const uploadBusy = !!pdfSummaryUploadKey;
+                                                                    return (
+                                                                        <div
+                                                                            key={field.key}
+                                                                            style={{
+                                                                                marginBottom: '18px',
+                                                                                display: 'flex',
+                                                                                flexDirection: 'column',
+                                                                                gap: '8px',
+                                                                            }}
+                                                                        >
+                                                                            <label
+                                                                                style={{
+                                                                                    fontSize: '13px',
+                                                                                    fontWeight: 500,
+                                                                                    color: '#374151',
+                                                                                }}
+                                                                            >
+                                                                                {field.label ?? field.key}
+                                                                            </label>
+                                                                            {field.hint ? (
+                                                                                <span
+                                                                                    style={{
+                                                                                        fontSize: '12px',
+                                                                                        color: '#9ca3af',
+                                                                                    }}
+                                                                                >
+                                                                                    {field.hint}
+                                                                                </span>
+                                                                            ) : null}
+                                                                            <div
+                                                                                style={{
+                                                                                    display: 'flex',
+                                                                                    flexWrap: 'wrap',
+                                                                                    gap: '14px',
+                                                                                    alignItems: 'flex-start',
+                                                                                }}
+                                                                            >
+                                                                                <div
+                                                                                    style={{
+                                                                                        width:
+                                                                                            field.key ===
+                                                                                            'summary_logo_url'
+                                                                                                ? '120px'
+                                                                                                : 'min(100%, 200px)',
+                                                                                        maxWidth: '220px',
+                                                                                        minHeight:
+                                                                                            field.key ===
+                                                                                            'summary_logo_url'
+                                                                                                ? '80px'
+                                                                                                : '110px',
+                                                                                        borderRadius: '12px',
+                                                                                        border: '1px dashed #d1d5db',
+                                                                                        background: '#f9fafb',
+                                                                                        overflow: 'hidden',
+                                                                                        display: 'flex',
+                                                                                        alignItems: 'center',
+                                                                                        justifyContent: 'center',
+                                                                                        boxSizing: 'border-box',
+                                                                                    }}
+                                                                                >
+                                                                                    {thumb ? (
+                                                                                        // eslint-disable-next-line jsx-a11y/alt-text -- превью ассета
+                                                                                        <img
+                                                                                            src={thumb}
+                                                                                            alt=""
+                                                                                            style={{
+                                                                                                maxWidth: '100%',
+                                                                                                maxHeight: '120px',
+                                                                                                objectFit: 'contain',
+                                                                                                display: 'block',
+                                                                                            }}
+                                                                                        />
+                                                                                    ) : (
+                                                                                        <span
+                                                                                            style={{
+                                                                                                fontSize: '12px',
+                                                                                                color: '#9ca3af',
+                                                                                                padding: '10px',
+                                                                                                textAlign: 'center',
+                                                                                                lineHeight: 1.35,
+                                                                                            }}
+                                                                                        >
+                                                                                            Нет своего файла — в PDF
+                                                                                            дефолт с бэка
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                                <div
+                                                                                    style={{
+                                                                                        display: 'flex',
+                                                                                        flexDirection: 'column',
+                                                                                        gap: '8px',
+                                                                                    }}
+                                                                                >
+                                                                                    <label
+                                                                                        style={{
+                                                                                            fontSize: '12px',
+                                                                                            color: '#4b5563',
+                                                                                            cursor:
+                                                                                                busy || uploadBusy
+                                                                                                    ? 'wait'
+                                                                                                    : 'pointer',
+                                                                                            padding: '8px 14px',
+                                                                                            borderRadius: '999px',
+                                                                                            border: '1px solid #d1d5db',
+                                                                                            background: '#fff',
+                                                                                            alignSelf: 'flex-start',
+                                                                                        }}
+                                                                                    >
+                                                                                        {busy
+                                                                                            ? 'Загрузка…'
+                                                                                            : 'Загрузить'}
+                                                                                        <input
+                                                                                            type="file"
+                                                                                            accept={acceptMimeToInputAccept(
+                                                                                                field.upload?.accept_mime
+                                                                                            )}
+                                                                                            onChange={(ev) =>
+                                                                                                void handlePdfSummaryImageChange(
+                                                                                                    field,
+                                                                                                    ev
+                                                                                                )
+                                                                                            }
+                                                                                            style={{ display: 'none' }}
+                                                                                            disabled={
+                                                                                                pdfSaving ||
+                                                                                                uploadBusy
+                                                                                            }
+                                                                                        />
+                                                                                    </label>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        disabled={
+                                                                                            pdfSaving ||
+                                                                                            busy ||
+                                                                                            uploadBusy ||
+                                                                                            !thumb
+                                                                                        }
+                                                                                        onClick={() =>
+                                                                                            void resetPdfSummaryImage(
+                                                                                                field
+                                                                                            )
+                                                                                        }
+                                                                                        style={{
+                                                                                            padding: '8px 14px',
+                                                                                            borderRadius: '999px',
+                                                                                            border: '1px solid #fecaca',
+                                                                                            background: '#fef2f2',
+                                                                                            fontSize: '12px',
+                                                                                            cursor:
+                                                                                                pdfSaving || busy
+                                                                                                    ? 'wait'
+                                                                                                    : 'pointer',
+                                                                                            color: '#b91c1c',
+                                                                                            alignSelf: 'flex-start',
+                                                                                        }}
+                                                                                    >
+                                                                                        Сбросить
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                }
+                                                                if (
+                                                                    field.type === 'color' &&
+                                                                    field.key === 'summary_chart_color'
+                                                                ) {
+                                                                    const effectiveHex =
+                                                                        /^#[0-9A-Fa-f]{6}$/.test(
+                                                                            pdfDraft.summary_chart_color.trim()
+                                                                        )
+                                                                            ? pdfDraft.summary_chart_color.trim()
+                                                                            : /^#[0-9A-Fa-f]{6}$/.test(
+                                                                                    String(
+                                                                                        pdfSettings?.summary_chart_color ??
+                                                                                            ''
+                                                                                    ).trim()
+                                                                                )
+                                                                              ? String(
+                                                                                    pdfSettings?.summary_chart_color
+                                                                                ).trim()
+                                                                              : '#8b5cf6';
+                                                                    return (
+                                                                        <div
+                                                                            key={field.key}
+                                                                            style={{
+                                                                                marginBottom: '16px',
+                                                                                display: 'flex',
+                                                                                flexDirection: 'column',
+                                                                                gap: '8px',
+                                                                            }}
+                                                                        >
+                                                                            <label
+                                                                                style={{
+                                                                                    fontSize: '13px',
+                                                                                    fontWeight: 500,
+                                                                                    color: '#374151',
+                                                                                }}
+                                                                            >
+                                                                                {field.label ?? 'Цвет графиков'}
+                                                                            </label>
+                                                                            {field.hint ? (
+                                                                                <span
+                                                                                    style={{
+                                                                                        fontSize: '12px',
+                                                                                        color: '#9ca3af',
+                                                                                    }}
+                                                                                >
+                                                                                    {field.hint}
+                                                                                </span>
+                                                                            ) : null}
+                                                                            <div
+                                                                                style={{
+                                                                                    display: 'flex',
+                                                                                    gap: '10px',
+                                                                                    alignItems: 'center',
+                                                                                    flexWrap: 'wrap',
+                                                                                }}
+                                                                            >
+                                                                                <input
+                                                                                    type="color"
+                                                                                    value={effectiveHex}
+                                                                                    onChange={(e) =>
+                                                                                        setPdfDraft((d) => ({
+                                                                                            ...d,
+                                                                                            summary_chart_color:
+                                                                                                e.target.value,
+                                                                                        }))
+                                                                                    }
+                                                                                    style={{
+                                                                                        width: 44,
+                                                                                        height: 36,
+                                                                                        padding: 0,
+                                                                                        border: '1px solid #d1d5db',
+                                                                                        borderRadius: 8,
+                                                                                        cursor: 'pointer',
+                                                                                    }}
+                                                                                />
+                                                                                <input
+                                                                                    type="text"
+                                                                                    value={pdfDraft.summary_chart_color}
+                                                                                    onChange={(e) =>
+                                                                                        setPdfDraft((d) => ({
+                                                                                            ...d,
+                                                                                            summary_chart_color:
+                                                                                                e.target.value,
+                                                                                        }))
+                                                                                    }
+                                                                                    placeholder="#RRGGBB"
+                                                                                    style={{
+                                                                                        flex: 1,
+                                                                                        minWidth: '120px',
+                                                                                        padding: '8px 10px',
+                                                                                        borderRadius: '10px',
+                                                                                        border: '1px solid #d1d5db',
+                                                                                        fontSize: '13px',
+                                                                                        fontFamily: 'monospace',
+                                                                                    }}
+                                                                                />
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                }
+                                                                return null;
+                                                            })}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => void savePdfSummaryBrandingDraft()}
+                                                                disabled={
+                                                                    pdfSaving ||
+                                                                    pdfUploading ||
+                                                                    !!pdfSummaryUploadKey
+                                                                }
+                                                                style={{
+                                                                    padding: '10px 20px',
+                                                                    borderRadius: '999px',
+                                                                    border: 'none',
+                                                                    background:
+                                                                        'linear-gradient(135deg, #D946EF, #8B5CF6)',
+                                                                    color: '#fff',
+                                                                    fontSize: '13px',
+                                                                    fontWeight: 600,
+                                                                    cursor:
+                                                                        pdfSaving ||
+                                                                        pdfUploading ||
+                                                                        pdfSummaryUploadKey
+                                                                            ? 'wait'
+                                                                            : 'pointer',
+                                                                    marginTop: '4px',
+                                                                }}
+                                                            >
+                                                                {pdfSaving
+                                                                    ? 'Сохранение…'
+                                                                    : 'Сохранить цвет (#RRGGBB)'}
                                                             </button>
                                                         </div>
                                                     </div>

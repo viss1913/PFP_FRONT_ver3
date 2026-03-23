@@ -242,9 +242,31 @@ export interface PdfCoverSettings {
      * read-only с бэка; см. `normalizePdfCoverLayout` на фронте.
      */
     cover_layout?: Record<string, unknown> | null;
+    /** Страница «Сводная информация» (брендинг). */
+    summary_background_url?: string | null;
+    summary_logo_url?: string | null;
+    summary_chart_color?: string | null;
+    summary_layout?: Record<string, unknown> | null;
 }
 
 export type PdfCoverFieldType = 'image' | 'text' | 'color' | 'readonly';
+
+export interface PdfEditorImageUploadSpec {
+    method?: string;
+    path?: string;
+    form_field?: string;
+    max_size_mb?: number;
+    accept_mime?: string[];
+}
+
+export interface PdfEditorReadUrlSpec {
+    method?: string;
+    path?: string;
+}
+
+export interface PdfEditorFieldResetSpec {
+    patch_key?: string;
+}
 
 export interface PdfCoverEditorField {
     /** Ключ для PATCH / состояния (с бэка: patch_key или id). */
@@ -254,6 +276,9 @@ export interface PdfCoverEditorField {
     hint?: string;
     /** Для readonly: поле в ответе settings (например date_preview). */
     value_key?: string;
+    upload?: PdfEditorImageUploadSpec;
+    read_url?: PdfEditorReadUrlSpec;
+    reset?: PdfEditorFieldResetSpec;
 }
 
 export interface PdfCoverEditorSchema {
@@ -270,10 +295,34 @@ export interface PdfCoverSettingsPatch {
     cover_title?: string | null;
     title_band_color?: string | null;
     cover_background_url?: string | null;
+    summary_background_url?: string | null;
+    summary_logo_url?: string | null;
+    summary_chart_color?: string | null;
 }
 
 export interface PdfCoverBackgroundUploadResponse extends PdfCoverSettingsResponse {
     url: string;
+    storage?: 'r2' | 'local_disk' | string;
+}
+
+/** Ответ GET *-image для превью в ЛК (direct / signed R2). */
+export interface PdfSettingsImageReadMeta {
+    url: string;
+    access: 'direct' | 'signed' | string;
+    expires_in?: number | null;
+    expires_at?: string | null;
+}
+
+/** Собрать абсолютный URL эндпоинта из `path` в editor_schema (upload / read_url). */
+export function resolveAgentPdfApiUrl(path: string): string {
+    const p = path.trim();
+    if (!p) return `${API_BASE}/pdf-settings`;
+    if (/^https?:\/\//i.test(p)) return p;
+    if (p.startsWith('/api/pfp/')) return `${API_BASE_URL}${p}`;
+    const noLead = p.replace(/^\//, '');
+    if (noLead.startsWith('api/pfp/')) return `${API_BASE_URL}/${noLead}`;
+    if (noLead.startsWith('pdf-settings/')) return `${API_BASE}/${noLead}`;
+    return `${API_BASE}/pdf-settings/${noLead.replace(/^pdf-settings\//, '')}`;
 }
 
 // --- Стратегии Comon (автоследование, ЛК агента) ---
@@ -668,6 +717,84 @@ export const agentLkApi = {
             }
         );
         return response.data;
+    },
+
+    /**
+     * Загрузка картинки по пути из editor_schema (upload.path), поле формы из upload.form_field или `image`.
+     */
+    uploadPdfSettingsImage: async (
+        uploadPath: string,
+        file: File,
+        formField = 'image'
+    ): Promise<PdfCoverBackgroundUploadResponse> => {
+        const formData = new FormData();
+        formData.append(formField, file);
+        const token = localStorage.getItem('token');
+        const url = resolveAgentPdfApiUrl(uploadPath);
+        const response = await axios.post<PdfCoverBackgroundUploadResponse>(url, formData, {
+            headers: {
+                Authorization: token ? `Bearer ${token}` : '',
+                'X-Project-Key': PROJECT_KEY,
+            },
+        });
+        return response.data;
+    },
+
+    /**
+     * GET read_url из схемы — JSON { url, access, expires_at } для <img> (не сырой R2 URL из настроек).
+     * 404 → null (файл ещё не грузили).
+     */
+    getPdfSettingsImageReadMeta: async (readPath: string): Promise<PdfSettingsImageReadMeta | null> => {
+        const token = localStorage.getItem('token');
+        const base = resolveAgentPdfApiUrl(readPath);
+        const join = base.includes('?') ? '&' : '?';
+        const url = `${base}${join}_cb=${Date.now()}`;
+        const r = await fetch(url, {
+            method: 'GET',
+            headers: {
+                Authorization: token ? `Bearer ${token}` : '',
+                'X-Project-Key': PROJECT_KEY,
+            },
+        });
+        if (r.status === 404) return null;
+        if (!r.ok) {
+            let msg = r.statusText;
+            try {
+                msg = (await r.text()).slice(0, 400);
+            } catch {
+                /* ignore */
+            }
+            throw new Error(`pdf-settings read_url ${r.status}: ${msg}`);
+        }
+        const j = (await r.json()) as PdfSettingsImageReadMeta;
+        if (typeof j?.url !== 'string' || !j.url) {
+            throw new Error('read_url: в JSON нет поля url');
+        }
+        return j;
+    },
+
+    /** HTML-превью страницы «Сводная информация» (Bearer + x-project-key; для iframe — fetch + srcdoc). */
+    getPdfSummaryPreviewHtml: async (): Promise<string> => {
+        const token = localStorage.getItem('token');
+        const url = `${API_BASE}/pdf-settings/summary-preview-html?_cb=${Date.now()}`;
+        const r = await fetch(url, {
+            method: 'GET',
+            headers: {
+                Authorization: token ? `Bearer ${token}` : '',
+                'X-Project-Key': PROJECT_KEY,
+                Accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
+            },
+        });
+        if (!r.ok) {
+            let msg = r.statusText;
+            try {
+                msg = (await r.text()).slice(0, 400);
+            } catch {
+                /* ignore */
+            }
+            throw new Error(`summary-preview-html ${r.status}: ${msg}`);
+        }
+        return r.text();
     },
 
     /**
