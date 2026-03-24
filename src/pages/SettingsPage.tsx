@@ -454,7 +454,12 @@ body {
  * подгоняем размер iframe под весь контент (без внутренних скроллбаров), снаружи — scale в рамку.
  * Иначе при фиксированных 794×1123 внутри остаётся overflow → полосы прокрутки даже при внешнем scale.
  */
-const SummaryHtmlPreview: React.FC<{ html: string | null; loading: boolean }> = ({ html, loading }) => {
+const SummaryHtmlPreview: React.FC<{
+    html: string | null;
+    loading: boolean;
+    /** modal — шире/выше под окно просмотра */
+    variant?: 'inline' | 'modal';
+}> = ({ html, loading, variant = 'inline' }) => {
     const boxRef = useRef<HTMLDivElement>(null);
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const [intrinsic, setIntrinsic] = useState({
@@ -509,14 +514,17 @@ const SummaryHtmlPreview: React.FC<{ html: string | null; loading: boolean }> = 
         } catch {
             /* ignore */
         }
-        const maxH = Math.min(580, typeof window !== 'undefined' ? window.innerHeight * 0.52 : 580);
+        const maxH =
+            variant === 'modal'
+                ? Math.min(820, typeof window !== 'undefined' ? window.innerHeight * 0.76 : 820)
+                : Math.min(580, typeof window !== 'undefined' ? window.innerHeight * 0.52 : 580);
         const scaleW = cw / iw;
         const scaleH = maxH / ih;
         /** Сначала тянем по ширине карточки — иначе длинная A4 даёт крошечную колонку и чёрные поля по бокам. */
         let s = ih * scaleW <= maxH ? scaleW : scaleH;
         s = Math.min(Math.max(s, 0.2), 1);
         setLayoutScale(s);
-    }, []);
+    }, [variant]);
 
     useLayoutEffect(() => {
         const box = boxRef.current;
@@ -528,12 +536,12 @@ const SummaryHtmlPreview: React.FC<{ html: string | null; loading: boolean }> = 
             ro.disconnect();
             window.removeEventListener('resize', measureAndFit);
         };
-    }, [measureAndFit, html]);
+    }, [measureAndFit, html, variant]);
 
     useEffect(() => {
         if (!html) return;
         setIntrinsic({ w: PDF_SUMMARY_PREVIEW_BASE_W, h: PDF_SUMMARY_PREVIEW_BASE_H });
-    }, [html]);
+    }, [html, variant]);
 
     const onIframeLoad = () => {
         const run = () => measureAndFit();
@@ -589,7 +597,7 @@ const SummaryHtmlPreview: React.FC<{ html: string | null; loading: boolean }> = 
                 borderRadius: 12,
                 background: 'linear-gradient(180deg, #eef0f4 0%, #e8eaef 100%)',
                 border: '1px solid #e2e5eb',
-                padding: '14px 12px',
+                padding: variant === 'modal' ? '18px 16px' : '14px 12px',
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
@@ -625,7 +633,7 @@ const SummaryHtmlPreview: React.FC<{ html: string | null; loading: boolean }> = 
                         padding: 0,
                         transform: `scale(${layoutScale})`,
                         transformOrigin: 'top left',
-                        pointerEvents: 'none',
+                        pointerEvents: variant === 'modal' ? 'auto' : 'none',
                     }}
                 />
             </div>
@@ -672,6 +680,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     const [summaryLogoThumbUrl, setSummaryLogoThumbUrl] = useState<string | null>(null);
     const [summaryPreviewHtml, setSummaryPreviewHtml] = useState<string | null>(null);
     const [summaryPreviewLoading, setSummaryPreviewLoading] = useState(false);
+    const [summaryPreviewModalOpen, setSummaryPreviewModalOpen] = useState(false);
 
     const renderTabLabel = (tab: SettingsTab) => {
         switch (tab) {
@@ -990,6 +999,21 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             if (timer) clearTimeout(timer);
         };
     }, [activeTab, reportSubPage, pdfLoading, pdfSettings?.summary_logo_url, pdfSettings?.editor_schema]);
+
+    useEffect(() => {
+        if (!summaryPreviewModalOpen) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setSummaryPreviewModalOpen(false);
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [summaryPreviewModalOpen]);
+
+    useEffect(() => {
+        if (activeTab !== 'report' || reportSubPage !== 'summary') {
+            setSummaryPreviewModalOpen(false);
+        }
+    }, [activeTab, reportSubPage]);
 
     const [isProductModalOpen, setIsProductModalOpen] = useState(false);
     const [productForm, setProductForm] = useState<{
@@ -3698,6 +3722,66 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                         Клиент, цели и текст ИИ подставит бэк при генерации PDF. Ниже —
                                                         превью и брендинг: фон, логотип, цвет акцента.
                                                     </p>
+                                                    <div
+                                                        style={{
+                                                            display: 'flex',
+                                                            justifyContent: 'flex-end',
+                                                            marginBottom: '10px',
+                                                        }}
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            disabled={
+                                                                !summaryPreviewHtml || summaryPreviewLoading
+                                                            }
+                                                            onClick={() => setSummaryPreviewModalOpen(true)}
+                                                            aria-label="Открыть превью крупно"
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '8px',
+                                                                padding: '8px 14px',
+                                                                borderRadius: '999px',
+                                                                border: '1px solid #e5e7eb',
+                                                                background: '#fff',
+                                                                fontSize: '13px',
+                                                                fontWeight: 600,
+                                                                color: '#4b5563',
+                                                                cursor:
+                                                                    !summaryPreviewHtml || summaryPreviewLoading
+                                                                        ? 'not-allowed'
+                                                                        : 'pointer',
+                                                                opacity:
+                                                                    !summaryPreviewHtml || summaryPreviewLoading
+                                                                        ? 0.55
+                                                                        : 1,
+                                                            }}
+                                                        >
+                                                            <svg
+                                                                width="18"
+                                                                height="18"
+                                                                viewBox="0 0 24 24"
+                                                                fill="none"
+                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                aria-hidden
+                                                            >
+                                                                <circle
+                                                                    cx="10.5"
+                                                                    cy="10.5"
+                                                                    r="6.5"
+                                                                    stroke="currentColor"
+                                                                    strokeWidth="2"
+                                                                />
+                                                                <path
+                                                                    d="M15.5 15.5L21 21"
+                                                                    stroke="currentColor"
+                                                                    strokeWidth="2"
+                                                                    strokeLinecap="round"
+                                                                />
+                                                            </svg>
+                                                            Крупный просмотр
+                                                        </button>
+                                                    </div>
                                                     <SummaryHtmlPreview
                                                         html={summaryPreviewHtml}
                                                         loading={summaryPreviewLoading}
@@ -4310,6 +4394,90 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                         </>
                     )}
                 </div>
+
+                {summaryPreviewModalOpen && summaryPreviewHtml && (
+                    <div
+                        onClick={() => setSummaryPreviewModalOpen(false)}
+                        style={{
+                            position: 'fixed',
+                            inset: 0,
+                            background: 'rgba(15,23,42,0.5)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 1350,
+                            padding: '20px 14px',
+                        }}
+                    >
+                        <div
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                                width: 'min(1180px, 100%)',
+                                maxHeight: '94vh',
+                                overflow: 'auto',
+                                background: '#fff',
+                                borderRadius: '20px',
+                                boxShadow: '0 24px 80px rgba(15,23,42,0.35)',
+                                padding: '18px 22px 22px',
+                                boxSizing: 'border-box',
+                            }}
+                        >
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    marginBottom: '12px',
+                                    gap: '12px',
+                                    flexWrap: 'wrap',
+                                }}
+                            >
+                                <h2
+                                    style={{
+                                        margin: 0,
+                                        fontSize: '17px',
+                                        fontWeight: 700,
+                                        color: '#111827',
+                                    }}
+                                >
+                                    Превью: сводная страница
+                                </h2>
+                                <button
+                                    type="button"
+                                    onClick={() => setSummaryPreviewModalOpen(false)}
+                                    aria-label="Закрыть"
+                                    style={{
+                                        border: 'none',
+                                        background: 'transparent',
+                                        cursor: 'pointer',
+                                        fontSize: '26px',
+                                        lineHeight: 1,
+                                        color: '#6b7280',
+                                        padding: '2px 8px',
+                                    }}
+                                >
+                                    ×
+                                </button>
+                            </div>
+                            <SummaryHtmlPreview
+                                html={summaryPreviewHtml}
+                                loading={false}
+                                variant="modal"
+                            />
+                            <p
+                                style={{
+                                    fontSize: '12px',
+                                    color: '#9ca3af',
+                                    margin: '14px 0 0',
+                                    textAlign: 'center',
+                                    lineHeight: 1.45,
+                                }}
+                            >
+                                Мок-данные. Закрыть — Esc, крестик или клик по затемнению.
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 {/* Модалка создания продукта */}
                 {activeTab === 'products' && isProductModalOpen && (
