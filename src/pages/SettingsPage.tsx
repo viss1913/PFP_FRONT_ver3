@@ -33,7 +33,6 @@ import {
     type PassiveIncomeYieldLine,
     type PdfCoverSettingsResponse,
     type PdfCoverEditorField,
-    type PdfGoalCardAssetItem,
     type AgentComonStrategyCard,
     type AgentComonStrategyCreatePayload,
     type AgentComonStrategyPatchPayload,
@@ -225,8 +224,72 @@ function pdfFormFieldsForTemplate(schema: unknown, templateId: string): PdfCover
 function resolveAgentLkAssetUrl(url: string | null | undefined): string | null {
     if (url == null || String(url).trim() === '') return null;
     const u = String(url).trim();
+    if (u.startsWith('//')) {
+        if (typeof window !== 'undefined' && window.location?.protocol) {
+            return `${window.location.protocol}${u}`;
+        }
+        return `https:${u}`;
+    }
     if (u.startsWith('http://') || u.startsWith('https://')) return u;
     return `${API_BASE_URL}${u.startsWith('/') ? '' : '/'}${u}`;
+}
+
+/** Какие поля пробуем для ссылки на картинку (бэк ≠ всегда `public_url`). */
+const PDF_GOAL_CARD_IMAGE_URL_KEYS = [
+    'public_url',
+    'publicUrl',
+    'url',
+    'image_url',
+    'imageUrl',
+    'cdn_url',
+    'cdnUrl',
+    'href',
+] as const;
+
+function pickGoalCardImageRaw(card: Record<string, unknown>): string | null {
+    for (const k of PDF_GOAL_CARD_IMAGE_URL_KEYS) {
+        const v = card[k];
+        if (typeof v === 'string' && v.trim()) return v.trim();
+    }
+    return null;
+}
+
+function resolveGoalCardImgSrc(card: Record<string, unknown>): string | null {
+    return resolveAgentLkAssetUrl(pickGoalCardImageRaw(card));
+}
+
+function goalCardTypeLabel(card: Record<string, unknown>): string {
+    const gt = card.goal_type ?? card.goalType;
+    return typeof gt === 'string' && gt.trim() ? gt.trim() : '—';
+}
+
+function goalCardFilename(card: Record<string, unknown>): string {
+    const fn = card.filename ?? card.fileName;
+    return typeof fn === 'string' ? fn : '';
+}
+
+/**
+ * Манифест целей с бэка: snake_case / camelCase, `cards` или `items`.
+ */
+function normalizePdfGoalCardManifest(
+    settings: PdfCoverSettingsResponse | null
+): { hint?: string; cards: Record<string, unknown>[] } | null {
+    if (!settings) return null;
+    const r = settings as Record<string, unknown>;
+    const raw = r.goal_card_assets ?? r.goalCardAssets;
+    if (!raw || typeof raw !== 'object') return null;
+    const o = raw as Record<string, unknown>;
+    let list: unknown = o.cards;
+    if (!Array.isArray(list) && Array.isArray(o.items)) list = o.items;
+    if (!Array.isArray(list) && list && typeof list === 'object') {
+        list = Object.values(list as Record<string, unknown>);
+    }
+    if (!Array.isArray(list)) return null;
+    const cards = list.filter((x): x is Record<string, unknown> => x != null && typeof x === 'object');
+    return {
+        hint: typeof o.hint === 'string' ? o.hint : undefined,
+        cards,
+    };
 }
 
 /** Байты → data URL для стабильного показа в img (в отличие от background + blob URL). */
@@ -490,6 +553,77 @@ body {
     doc.head.appendChild(el);
 }
 
+/** Превью одной карточки цели: R2/CDN часто режут по Referer — no-referrer; onError — подсказка. */
+const PdfGoalCardThumb: React.FC<{
+    cardKey: string;
+    src: string | null;
+    /** Для aria и отладки */
+    typeLabel: string;
+}> = ({ cardKey, src, typeLabel }) => {
+    const [broken, setBroken] = useState(false);
+    useEffect(() => {
+        setBroken(false);
+    }, [src, cardKey]);
+    return (
+        <div
+            style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: 72,
+                background: '#f3f4f6',
+            }}
+        >
+            {!src ? (
+                <span
+                    style={{
+                        fontSize: '11px',
+                        color: '#9ca3af',
+                        textAlign: 'center',
+                        padding: '8px',
+                        lineHeight: 1.35,
+                    }}
+                >
+                    Нет ссылки в ответе
+                    <br />
+                    (ожидали public_url / url)
+                </span>
+            ) : broken ? (
+                <span
+                    style={{
+                        fontSize: '10px',
+                        color: '#b45309',
+                        textAlign: 'center',
+                        padding: '8px',
+                        lineHeight: 1.35,
+                    }}
+                >
+                    Не загрузилось
+                    <br />
+                    <span style={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{src.slice(0, 72)}…</span>
+                </span>
+            ) : (
+                // eslint-disable-next-line jsx-a11y/alt-text -- подпись типа снизу
+                <img
+                    key={cardKey}
+                    src={src}
+                    alt=""
+                    aria-label={typeLabel}
+                    referrerPolicy="no-referrer"
+                    onError={() => setBroken(true)}
+                    style={{
+                        maxWidth: '100%',
+                        maxHeight: 88,
+                        objectFit: 'contain',
+                        display: 'block',
+                    }}
+                />
+            )}
+        </div>
+    );
+};
+
 /**
  * Превью HTML сводной: после load меряем scrollWidth/scrollHeight документа в iframe,
  * подгоняем размер iframe под весь контент (без внутренних скроллбаров), снаружи — scale в рамку.
@@ -728,6 +862,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     const [summaryPreviewHtml, setSummaryPreviewHtml] = useState<string | null>(null);
     const [summaryPreviewLoading, setSummaryPreviewLoading] = useState(false);
     const [summaryPreviewModalOpen, setSummaryPreviewModalOpen] = useState(false);
+
+    const pdfGoalCardsManifest = useMemo(() => normalizePdfGoalCardManifest(pdfSettings), [pdfSettings]);
 
     const renderTabLabel = (tab: SettingsTab) => {
         switch (tab) {
@@ -4178,7 +4314,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                 : 'Сохранить цвет (#RRGGBB)'}
                                                         </button>
                                                     </div>
-                                                    {pdfSettings?.goal_card_assets ? (
+                                                    {pdfGoalCardsManifest ? (
                                                         <div
                                                             style={{
                                                                 marginTop: '20px',
@@ -4204,13 +4340,16 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                     lineHeight: 1.5,
                                                                 }}
                                                             >
-                                                                Только просмотр: картинки по типу цели задаются релизом/seed на
-                                                                бэке, в PATCH не уходят. В превью выше HTML уже подмешивает
-                                                                брендинг; здесь — список{' '}
-                                                                <code style={{ fontSize: '11px' }}>public_url</code> для
-                                                                проверки CDN.
-                                                                {pdfSettings.goal_card_assets.hint
-                                                                    ? ` ${pdfSettings.goal_card_assets.hint}`
+                                                                Только просмотр: ссылки не в PATCH. Берём поле ссылки в порядке{' '}
+                                                                <code style={{ fontSize: '11px' }}>
+                                                                    public_url → url → image_url …
+                                                                </code>
+                                                                , относительные пути дописываем к API. У{' '}
+                                                                <code style={{ fontSize: '11px' }}>img</code> стоит{' '}
+                                                                <code style={{ fontSize: '11px' }}>referrerPolicy=no-referrer</code>{' '}
+                                                                (часто из‑за Referer режет Cloudflare).
+                                                                {pdfGoalCardsManifest.hint
+                                                                    ? ` ${pdfGoalCardsManifest.hint}`
                                                                     : null}
                                                             </p>
                                                             <div
@@ -4221,77 +4360,45 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                     gap: '12px',
                                                                 }}
                                                             >
-                                                                {pdfSettings.goal_card_assets.cards?.map(
-                                                                    (card: PdfGoalCardAssetItem) => {
-                                                                        const src = card.public_url?.trim();
-                                                                        return (
+                                                                {pdfGoalCardsManifest.cards.map((card, idx) => {
+                                                                    const typeLabel = goalCardTypeLabel(card);
+                                                                    const fn = goalCardFilename(card);
+                                                                    const rowKey = `${typeLabel}-${fn || idx}`;
+                                                                    const src = resolveGoalCardImgSrc(card);
+                                                                    return (
+                                                                        <div
+                                                                            key={rowKey}
+                                                                            style={{
+                                                                                borderRadius: '12px',
+                                                                                border: '1px solid #e5e7eb',
+                                                                                background: '#fafafa',
+                                                                                overflow: 'hidden',
+                                                                                display: 'flex',
+                                                                                flexDirection: 'column',
+                                                                                minHeight: 100,
+                                                                            }}
+                                                                        >
+                                                                            <PdfGoalCardThumb
+                                                                                cardKey={rowKey}
+                                                                                src={src}
+                                                                                typeLabel={typeLabel}
+                                                                            />
                                                                             <div
-                                                                                key={`${card.goal_type}-${card.filename}`}
                                                                                 style={{
-                                                                                    borderRadius: '12px',
-                                                                                    border: '1px solid #e5e7eb',
-                                                                                    background: '#fafafa',
-                                                                                    overflow: 'hidden',
-                                                                                    display: 'flex',
-                                                                                    flexDirection: 'column',
-                                                                                    minHeight: 100,
+                                                                                    fontSize: '10px',
+                                                                                    fontWeight: 600,
+                                                                                    color: '#374151',
+                                                                                    padding: '8px 8px 10px',
+                                                                                    fontFamily: 'monospace',
+                                                                                    borderTop: '1px solid #eef0f4',
+                                                                                    background: '#fff',
                                                                                 }}
                                                                             >
-                                                                                <div
-                                                                                    style={{
-                                                                                        flex: 1,
-                                                                                        display: 'flex',
-                                                                                        alignItems: 'center',
-                                                                                        justifyContent: 'center',
-                                                                                        minHeight: 72,
-                                                                                        background: '#f3f4f6',
-                                                                                    }}
-                                                                                >
-                                                                                    {src ? (
-                                                                                        // eslint-disable-next-line jsx-a11y/alt-text -- подпись снизу
-                                                                                        <img
-                                                                                            src={src}
-                                                                                            alt=""
-                                                                                            style={{
-                                                                                                maxWidth: '100%',
-                                                                                                maxHeight: 88,
-                                                                                                objectFit: 'contain',
-                                                                                                display: 'block',
-                                                                                            }}
-                                                                                        />
-                                                                                    ) : (
-                                                                                        <span
-                                                                                            style={{
-                                                                                                fontSize: '11px',
-                                                                                                color: '#9ca3af',
-                                                                                                textAlign: 'center',
-                                                                                                padding: '8px',
-                                                                                                lineHeight: 1.35,
-                                                                                            }}
-                                                                                        >
-                                                                                            Нет URL
-                                                                                            <br />
-                                                                                            (CDN / seed)
-                                                                                        </span>
-                                                                                    )}
-                                                                                </div>
-                                                                                <div
-                                                                                    style={{
-                                                                                        fontSize: '10px',
-                                                                                        fontWeight: 600,
-                                                                                        color: '#374151',
-                                                                                        padding: '8px 8px 10px',
-                                                                                        fontFamily: 'monospace',
-                                                                                        borderTop: '1px solid #eef0f4',
-                                                                                        background: '#fff',
-                                                                                    }}
-                                                                                >
-                                                                                    {card.goal_type}
-                                                                                </div>
+                                                                                {typeLabel}
                                                                             </div>
-                                                                        );
-                                                                    }
-                                                                )}
+                                                                        </div>
+                                                                    );
+                                                                })}
                                                             </div>
                                                         </div>
                                                     ) : null}

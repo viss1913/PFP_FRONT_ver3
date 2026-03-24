@@ -236,8 +236,11 @@ export interface PdfGoalCardAssetItem {
     filename: string;
     r2_object_key: string;
     repo_relative_path: string;
-    /** null — CDN не настроен / seed не залит. */
+    /** По спеке — публичный CDN; бэк может дублировать в `url` / camelCase. */
     public_url?: string | null;
+    url?: string | null;
+    image_url?: string | null;
+    [key: string]: unknown;
 }
 
 /** Манифест иллюстраций целей для превью ЛК; не редактируется агентом. */
