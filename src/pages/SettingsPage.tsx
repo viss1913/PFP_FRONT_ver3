@@ -424,6 +424,31 @@ function getEmptyPortfolioForm(): {
 const PDF_SUMMARY_PREVIEW_BASE_W = 794;
 const PDF_SUMMARY_PREVIEW_BASE_H = 1123;
 
+const LK_SUMMARY_PREVIEW_STYLE_ID = 'lk-summary-preview-fit';
+
+/**
+ * В превью ЛК документ с бэка часто: широкий body с фоном, узкая «страница» у левого края → справа чёрная полоса.
+ * Лёгкая правка раскладки только для srcdoc-превью (id стиля фиксированный, повторно не дублируем).
+ */
+function injectSummaryPreviewLayoutFix(doc: Document | null | undefined): void {
+    if (!doc?.head) return;
+    if (doc.getElementById(LK_SUMMARY_PREVIEW_STYLE_ID)) return;
+    const el = doc.createElement('style');
+    el.id = LK_SUMMARY_PREVIEW_STYLE_ID;
+    el.textContent = `
+html { margin: 0 !important; }
+body {
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  box-sizing: border-box !important;
+}
+`;
+    doc.head.appendChild(el);
+}
+
 /**
  * Превью HTML сводной: после load меряем scrollWidth/scrollHeight документа в iframe,
  * подгоняем размер iframe под весь контент (без внутренних скроллбаров), снаружи — scale в рамку.
@@ -449,6 +474,7 @@ const SummaryHtmlPreview: React.FC<{ html: string | null; loading: boolean }> = 
         try {
             const doc = iframe.contentDocument;
             if (doc?.documentElement) {
+                injectSummaryPreviewLayoutFix(doc);
                 const root = doc.documentElement;
                 const body = doc.body;
                 iw = Math.ceil(
@@ -472,7 +498,17 @@ const SummaryHtmlPreview: React.FC<{ html: string | null; loading: boolean }> = 
 
         setIntrinsic({ w: iw, h: ih });
 
-        const cw = Math.max(1, box.clientWidth || iw);
+        let cw = Math.max(1, box.clientWidth || iw);
+        try {
+            const cs = typeof window !== 'undefined' ? window.getComputedStyle(box) : null;
+            if (cs) {
+                const pl = parseFloat(cs.paddingLeft) || 0;
+                const pr = parseFloat(cs.paddingRight) || 0;
+                cw = Math.max(1, box.clientWidth - pl - pr);
+            }
+        } catch {
+            /* ignore */
+        }
         const maxH = Math.min(580, typeof window !== 'undefined' ? window.innerHeight * 0.52 : 580);
         const scaleW = cw / iw;
         const scaleH = maxH / ih;
@@ -568,8 +604,8 @@ const SummaryHtmlPreview: React.FC<{ html: string | null; loading: boolean }> = 
                     maxWidth: '100%',
                     overflow: 'hidden',
                     borderRadius: 10,
-                    boxShadow: '0 12px 40px rgba(15, 23, 42, 0.12)',
-                    background: '#0f1118',
+                    boxShadow: '0 12px 40px rgba(15, 23, 42, 0.1)',
+                    background: 'transparent',
                 }}
             >
                 <iframe
