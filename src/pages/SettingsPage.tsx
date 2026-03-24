@@ -514,10 +514,16 @@ const SummaryHtmlPreview: React.FC<{
         } catch {
             /* ignore */
         }
-        const maxH =
-            variant === 'modal'
-                ? Math.min(820, typeof window !== 'undefined' ? window.innerHeight * 0.76 : 820)
-                : Math.min(580, typeof window !== 'undefined' ? window.innerHeight * 0.52 : 580);
+
+        if (variant === 'modal') {
+            /** В модалке — только ширина контейнера; высота страницы целиком, вертикальный скролл снаружи. */
+            const raw = cw / iw;
+            const s = Math.min(Math.max(raw, 0.28), 1.5);
+            setLayoutScale(s);
+            return;
+        }
+
+        const maxH = Math.min(580, typeof window !== 'undefined' ? window.innerHeight * 0.52 : 580);
         const scaleW = cw / iw;
         const scaleH = maxH / ih;
         /** Сначала тянем по ширине карточки — иначе длинная A4 даёт крошечную колонку и чёрные поля по бокам. */
@@ -597,10 +603,10 @@ const SummaryHtmlPreview: React.FC<{
                 borderRadius: 12,
                 background: 'linear-gradient(180deg, #eef0f4 0%, #e8eaef 100%)',
                 border: '1px solid #e2e5eb',
-                padding: variant === 'modal' ? '18px 16px' : '14px 12px',
+                padding: variant === 'modal' ? '12px 10px' : '14px 12px',
                 display: 'flex',
                 justifyContent: 'center',
-                alignItems: 'center',
+                alignItems: variant === 'modal' ? 'flex-start' : 'center',
                 boxSizing: 'border-box',
             }}
         >
@@ -4403,22 +4409,24 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                             inset: 0,
                             background: 'rgba(15,23,42,0.5)',
                             display: 'flex',
-                            alignItems: 'center',
+                            alignItems: 'flex-start',
                             justifyContent: 'center',
                             zIndex: 1350,
-                            padding: '20px 14px',
+                            padding: '16px 10px 24px',
+                            overflowY: 'auto',
                         }}
                     >
                         <div
                             onClick={(e) => e.stopPropagation()}
                             style={{
-                                width: 'min(1180px, 100%)',
-                                maxHeight: '94vh',
-                                overflow: 'auto',
+                                width: 'min(1320px, calc(100vw - 20px))',
+                                maxWidth: '100%',
+                                marginTop: '12px',
+                                marginBottom: '24px',
                                 background: '#fff',
                                 borderRadius: '20px',
                                 boxShadow: '0 24px 80px rgba(15,23,42,0.35)',
-                                padding: '18px 22px 22px',
+                                padding: '16px 16px 20px',
                                 boxSizing: 'border-box',
                             }}
                         >
@@ -4473,7 +4481,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                     lineHeight: 1.45,
                                 }}
                             >
-                                Мок-данные. Закрыть — Esc, крестик или клик по затемнению.
+                                Мок-данные. Листай вниз, если страница длинная. Закрыть — Esc, крестик или клик по
+                                затемнению.
                             </p>
                         </div>
                     </div>
