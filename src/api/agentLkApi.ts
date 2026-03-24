@@ -230,6 +230,26 @@ export interface AiB2cStageUpdate {
     priority?: number;
 }
 
+/** Одна картинка карточки цели в PDF (read-only, не PATCH). См. `PDFsettings.yaml`. */
+export interface PdfGoalCardAssetItem {
+    goal_type: string;
+    filename: string;
+    r2_object_key: string;
+    repo_relative_path: string;
+    /** null — CDN не настроен / seed не залит. */
+    public_url?: string | null;
+}
+
+/** Манифест иллюстраций целей для превью ЛК; не редактируется агентом. */
+export interface PdfGoalCardAssetsManifest {
+    version: number;
+    editable: false;
+    r2_key_prefix: string;
+    directory_repo_relative: string;
+    hint?: string;
+    cards: PdfGoalCardAssetItem[];
+}
+
 /** Настройки первой страницы PDF-отчёта (обложка агента). */
 export interface PdfCoverSettings {
     cover_background_url?: string | null;
@@ -247,6 +267,8 @@ export interface PdfCoverSettings {
     summary_logo_url?: string | null;
     summary_chart_color?: string | null;
     summary_layout?: Record<string, unknown> | null;
+    /** Иллюстрации по goal_type — только отображение в ЛК. */
+    goal_card_assets?: PdfGoalCardAssetsManifest | null;
 }
 
 export type PdfCoverFieldType = 'image' | 'text' | 'color' | 'readonly';
@@ -284,6 +306,8 @@ export interface PdfCoverEditorField {
 export interface PdfCoverEditorSchema {
     template?: string;
     fields?: PdfCoverEditorField[];
+    /** Дефолты полей PATCH (подмешивать, если в корне ответа null/пусто). */
+    defaults?: Record<string, string | number | boolean | null>;
     [key: string]: unknown;
 }
 

@@ -33,6 +33,7 @@ import {
     type PassiveIncomeYieldLine,
     type PdfCoverSettingsResponse,
     type PdfCoverEditorField,
+    type PdfGoalCardAssetItem,
     type AgentComonStrategyCard,
     type AgentComonStrategyCreatePayload,
     type AgentComonStrategyPatchPayload,
@@ -243,6 +244,46 @@ const DEFAULT_COVER_TITLE_TEXT = 'персональное финансовое 
 
 function pdfFormFieldsFromSchema(schema: unknown): PdfCoverEditorField[] {
     return pdfFormFieldsForTemplate(schema, PDF_COVER_TEMPLATE_ID);
+}
+
+/** Строковые дефолты из `editor_schema.defaults` (тот же GET, что и схема полей). */
+function pdfStringDefaultsFromEditorSchema(schema: unknown): Record<string, string> {
+    if (!schema || typeof schema !== 'object') return {};
+    const raw = (schema as Record<string, unknown>).defaults;
+    if (!raw || typeof raw !== 'object') return {};
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(raw)) {
+        if (v === null || v === undefined) continue;
+        out[k] = typeof v === 'string' ? v : String(v);
+    }
+    return out;
+}
+
+function buildPdfDraftFromPdfResponse(res: PdfCoverSettingsResponse): {
+    cover_title: string;
+    title_band_color: string;
+    cover_background_url: string;
+    summary_chart_color: string;
+    summary_background_url: string;
+    summary_logo_url: string;
+} {
+    const def = pdfStringDefaultsFromEditorSchema(res.editor_schema);
+    return {
+        cover_title: res.cover_title != null ? String(res.cover_title) : def.cover_title ?? '',
+        title_band_color: res.title_band_color != null ? String(res.title_band_color) : def.title_band_color ?? '',
+        cover_background_url:
+            res.cover_background_url != null
+                ? String(res.cover_background_url)
+                : def.cover_background_url ?? '',
+        summary_chart_color:
+            res.summary_chart_color != null ? String(res.summary_chart_color) : def.summary_chart_color ?? '',
+        summary_background_url:
+            res.summary_background_url != null
+                ? String(res.summary_background_url)
+                : def.summary_background_url ?? '',
+        summary_logo_url:
+            res.summary_logo_url != null ? String(res.summary_logo_url) : def.summary_logo_url ?? '',
+    };
 }
 
 const RISK_PROFILE_TYPES: Array<'CONSERVATIVE' | 'BALANCED' | 'AGGRESSIVE'> = ['CONSERVATIVE', 'BALANCED', 'AGGRESSIVE'];
@@ -816,14 +857,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                 setPdfError(null);
                 const res = await agentLkApi.getPdfCoverSettings();
                 setPdfSettings(res);
-                setPdfDraft({
-                    cover_title: res.cover_title ?? '',
-                    title_band_color: res.title_band_color ?? '',
-                    cover_background_url: res.cover_background_url ?? '',
-                    summary_chart_color: res.summary_chart_color ?? '',
-                    summary_background_url: res.summary_background_url ?? '',
-                    summary_logo_url: res.summary_logo_url ?? '',
-                });
+                setPdfDraft(buildPdfDraftFromPdfResponse(res));
             } catch (e) {
                 console.error('Failed to load PDF settings:', e);
                 setPdfError('Не удалось загрузить настройки PDF-отчёта. Нужен JWT с agent_id и доступ к API.');
@@ -2183,14 +2217,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
 
     const applyPdfSettingsResponse = (res: PdfCoverSettingsResponse) => {
         setPdfSettings(res);
-        setPdfDraft({
-            cover_title: res.cover_title ?? '',
-            title_band_color: res.title_band_color ?? '',
-            cover_background_url: res.cover_background_url ?? '',
-            summary_chart_color: res.summary_chart_color ?? '',
-            summary_background_url: res.summary_background_url ?? '',
-            summary_logo_url: res.summary_logo_url ?? '',
-        });
+        setPdfDraft(buildPdfDraftFromPdfResponse(res));
     };
 
     const savePdfCoverDraft = async () => {
@@ -4151,6 +4178,123 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                 : 'Сохранить цвет (#RRGGBB)'}
                                                         </button>
                                                     </div>
+                                                    {pdfSettings?.goal_card_assets ? (
+                                                        <div
+                                                            style={{
+                                                                marginTop: '20px',
+                                                                paddingTop: '18px',
+                                                                borderTop: '1px solid #eef0f4',
+                                                            }}
+                                                        >
+                                                            <h3
+                                                                style={{
+                                                                    fontSize: '14px',
+                                                                    fontWeight: 700,
+                                                                    color: '#111827',
+                                                                    margin: '0 0 6px 0',
+                                                                }}
+                                                            >
+                                                                Иллюстрации целей в PDF
+                                                            </h3>
+                                                            <p
+                                                                style={{
+                                                                    fontSize: '12px',
+                                                                    color: '#6b7280',
+                                                                    margin: '0 0 14px',
+                                                                    lineHeight: 1.5,
+                                                                }}
+                                                            >
+                                                                Только просмотр: картинки по типу цели задаются релизом/seed на
+                                                                бэке, в PATCH не уходят. В превью выше HTML уже подмешивает
+                                                                брендинг; здесь — список{' '}
+                                                                <code style={{ fontSize: '11px' }}>public_url</code> для
+                                                                проверки CDN.
+                                                                {pdfSettings.goal_card_assets.hint
+                                                                    ? ` ${pdfSettings.goal_card_assets.hint}`
+                                                                    : null}
+                                                            </p>
+                                                            <div
+                                                                style={{
+                                                                    display: 'grid',
+                                                                    gridTemplateColumns:
+                                                                        'repeat(auto-fill, minmax(120px, 1fr))',
+                                                                    gap: '12px',
+                                                                }}
+                                                            >
+                                                                {pdfSettings.goal_card_assets.cards?.map(
+                                                                    (card: PdfGoalCardAssetItem) => {
+                                                                        const src = card.public_url?.trim();
+                                                                        return (
+                                                                            <div
+                                                                                key={`${card.goal_type}-${card.filename}`}
+                                                                                style={{
+                                                                                    borderRadius: '12px',
+                                                                                    border: '1px solid #e5e7eb',
+                                                                                    background: '#fafafa',
+                                                                                    overflow: 'hidden',
+                                                                                    display: 'flex',
+                                                                                    flexDirection: 'column',
+                                                                                    minHeight: 100,
+                                                                                }}
+                                                                            >
+                                                                                <div
+                                                                                    style={{
+                                                                                        flex: 1,
+                                                                                        display: 'flex',
+                                                                                        alignItems: 'center',
+                                                                                        justifyContent: 'center',
+                                                                                        minHeight: 72,
+                                                                                        background: '#f3f4f6',
+                                                                                    }}
+                                                                                >
+                                                                                    {src ? (
+                                                                                        // eslint-disable-next-line jsx-a11y/alt-text -- подпись снизу
+                                                                                        <img
+                                                                                            src={src}
+                                                                                            alt=""
+                                                                                            style={{
+                                                                                                maxWidth: '100%',
+                                                                                                maxHeight: 88,
+                                                                                                objectFit: 'contain',
+                                                                                                display: 'block',
+                                                                                            }}
+                                                                                        />
+                                                                                    ) : (
+                                                                                        <span
+                                                                                            style={{
+                                                                                                fontSize: '11px',
+                                                                                                color: '#9ca3af',
+                                                                                                textAlign: 'center',
+                                                                                                padding: '8px',
+                                                                                                lineHeight: 1.35,
+                                                                                            }}
+                                                                                        >
+                                                                                            Нет URL
+                                                                                            <br />
+                                                                                            (CDN / seed)
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                                <div
+                                                                                    style={{
+                                                                                        fontSize: '10px',
+                                                                                        fontWeight: 600,
+                                                                                        color: '#374151',
+                                                                                        padding: '8px 8px 10px',
+                                                                                        fontFamily: 'monospace',
+                                                                                        borderTop: '1px solid #eef0f4',
+                                                                                        background: '#fff',
+                                                                                    }}
+                                                                                >
+                                                                                    {card.goal_type}
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ) : null}
                                                 </div>
                                             )}
                                         </>
