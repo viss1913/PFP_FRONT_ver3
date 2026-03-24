@@ -457,7 +457,7 @@ body {
 const SummaryHtmlPreview: React.FC<{
     html: string | null;
     loading: boolean;
-    /** modal — шире/выше под окно просмотра */
+    /** modal — 1:1 размер документа, без scale; скролл у пользователя */
     variant?: 'inline' | 'modal';
 }> = ({ html, loading, variant = 'inline' }) => {
     const boxRef = useRef<HTMLDivElement>(null);
@@ -516,10 +516,8 @@ const SummaryHtmlPreview: React.FC<{
         }
 
         if (variant === 'modal') {
-            /** В модалке — только ширина контейнера; высота страницы целиком, вертикальный скролл снаружи. */
-            const raw = cw / iw;
-            const s = Math.min(Math.max(raw, 0.28), 1.5);
-            setLayoutScale(s);
+            /** В модалке — без уменьшения: натуральный размер HTML (как отдал бэк), скроллит сам агент. */
+            setLayoutScale(1);
             return;
         }
 
@@ -592,6 +590,7 @@ const SummaryHtmlPreview: React.FC<{
         );
     }
 
+    const isModal = variant === 'modal';
     const clipW = intrinsic.w * layoutScale;
     const clipH = intrinsic.h * layoutScale;
 
@@ -603,20 +602,20 @@ const SummaryHtmlPreview: React.FC<{
                 borderRadius: 12,
                 background: 'linear-gradient(180deg, #eef0f4 0%, #e8eaef 100%)',
                 border: '1px solid #e2e5eb',
-                padding: variant === 'modal' ? '12px 10px' : '14px 12px',
+                padding: isModal ? '12px 10px' : '14px 12px',
                 display: 'flex',
                 justifyContent: 'center',
-                alignItems: variant === 'modal' ? 'flex-start' : 'center',
+                alignItems: isModal ? 'flex-start' : 'center',
                 boxSizing: 'border-box',
             }}
         >
             <div
                 style={{
-                    position: 'relative',
+                    position: isModal ? 'static' : 'relative',
                     width: clipW,
                     height: clipH,
-                    maxWidth: '100%',
-                    overflow: 'hidden',
+                    maxWidth: isModal ? 'none' : '100%',
+                    overflow: isModal ? 'visible' : 'hidden',
                     borderRadius: 10,
                     boxShadow: '0 12px 40px rgba(15, 23, 42, 0.1)',
                     background: 'transparent',
@@ -629,17 +628,18 @@ const SummaryHtmlPreview: React.FC<{
                     srcDoc={html}
                     onLoad={onIframeLoad}
                     style={{
-                        position: 'absolute',
-                        left: 0,
-                        top: 0,
+                        position: isModal ? 'static' : 'absolute',
+                        left: isModal ? undefined : 0,
+                        top: isModal ? undefined : 0,
                         width: intrinsic.w,
                         height: intrinsic.h,
                         border: 'none',
                         margin: 0,
                         padding: 0,
-                        transform: `scale(${layoutScale})`,
+                        display: 'block',
+                        transform: isModal ? 'none' : `scale(${layoutScale})`,
                         transformOrigin: 'top left',
-                        pointerEvents: variant === 'modal' ? 'auto' : 'none',
+                        pointerEvents: isModal ? 'auto' : 'none',
                     }}
                 />
             </div>
@@ -4428,6 +4428,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                 boxShadow: '0 24px 80px rgba(15,23,42,0.35)',
                                 padding: '16px 16px 20px',
                                 boxSizing: 'border-box',
+                                overflow: 'auto',
                             }}
                         >
                             <div
@@ -4481,8 +4482,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                     lineHeight: 1.45,
                                 }}
                             >
-                                Мок-данные. Листай вниз, если страница длинная. Закрыть — Esc, крестик или клик по
-                                затемнению.
+                                Натуральный размер страницы (без уменьшения). Листай внутри окна или всего экрана.
+                                Закрыть — Esc, крестик или клик по затемнению.
                             </p>
                         </div>
                     </div>
