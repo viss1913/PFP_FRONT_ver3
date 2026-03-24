@@ -472,10 +472,14 @@ const SummaryHtmlPreview: React.FC<{ html: string | null; loading: boolean }> = 
 
         setIntrinsic({ w: iw, h: ih });
 
-        const cw = box.clientWidth || iw;
-        const maxH = Math.min(520, typeof window !== 'undefined' ? window.innerHeight * 0.48 : 520);
-        const s = Math.min(cw / iw, maxH / ih, 1);
-        setLayoutScale(Math.max(0.22, s));
+        const cw = Math.max(1, box.clientWidth || iw);
+        const maxH = Math.min(580, typeof window !== 'undefined' ? window.innerHeight * 0.52 : 580);
+        const scaleW = cw / iw;
+        const scaleH = maxH / ih;
+        /** Сначала тянем по ширине карточки — иначе длинная A4 даёт крошечную колонку и чёрные поля по бокам. */
+        let s = ih * scaleW <= maxH ? scaleW : scaleH;
+        s = Math.min(Math.max(s, 0.2), 1);
+        setLayoutScale(s);
     }, []);
 
     useLayoutEffect(() => {
@@ -542,17 +546,30 @@ const SummaryHtmlPreview: React.FC<{ html: string | null; loading: boolean }> = 
     const clipH = intrinsic.h * layoutScale;
 
     return (
-        <div ref={boxRef} style={{ width: '100%' }}>
+        <div
+            ref={boxRef}
+            style={{
+                width: '100%',
+                borderRadius: 12,
+                background: 'linear-gradient(180deg, #eef0f4 0%, #e8eaef 100%)',
+                border: '1px solid #e2e5eb',
+                padding: '14px 12px',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                boxSizing: 'border-box',
+            }}
+        >
             <div
                 style={{
+                    position: 'relative',
                     width: clipW,
                     height: clipH,
                     maxWidth: '100%',
-                    margin: '0 auto',
                     overflow: 'hidden',
                     borderRadius: 10,
-                    boxShadow: '0 10px 40px rgba(15, 23, 42, 0.14)',
-                    background: '#0c0c0f',
+                    boxShadow: '0 12px 40px rgba(15, 23, 42, 0.12)',
+                    background: '#0f1118',
                 }}
             >
                 <iframe
@@ -562,12 +579,17 @@ const SummaryHtmlPreview: React.FC<{ html: string | null; loading: boolean }> = 
                     srcDoc={html}
                     onLoad={onIframeLoad}
                     style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
                         width: intrinsic.w,
                         height: intrinsic.h,
                         border: 'none',
-                        display: 'block',
+                        margin: 0,
+                        padding: 0,
                         transform: `scale(${layoutScale})`,
                         transformOrigin: 'top left',
+                        pointerEvents: 'none',
                     }}
                 />
             </div>
