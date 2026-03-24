@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from 'react';
 import Header from '../components/Header';
 import { API_BASE_URL } from '../api/config';
 import { normalizePdfCoverLayout } from '../utils/pdfCoverLayout';
@@ -419,6 +419,161 @@ function getEmptyPortfolioForm(): {
         })),
     };
 }
+
+/** Запасной размер, пока не измерили реальный документ в iframe. */
+const PDF_SUMMARY_PREVIEW_BASE_W = 794;
+const PDF_SUMMARY_PREVIEW_BASE_H = 1123;
+
+/**
+ * Превью HTML сводной: после load меряем scrollWidth/scrollHeight документа в iframe,
+ * подгоняем размер iframe под весь контент (без внутренних скроллбаров), снаружи — scale в рамку.
+ * Иначе при фиксированных 794×1123 внутри остаётся overflow → полосы прокрутки даже при внешнем scale.
+ */
+const SummaryHtmlPreview: React.FC<{ html: string | null; loading: boolean }> = ({ html, loading }) => {
+    const boxRef = useRef<HTMLDivElement>(null);
+    const iframeRef = useRef<HTMLIFrameElement>(null);
+    const [intrinsic, setIntrinsic] = useState({
+        w: PDF_SUMMARY_PREVIEW_BASE_W,
+        h: PDF_SUMMARY_PREVIEW_BASE_H,
+    });
+    const [layoutScale, setLayoutScale] = useState(0.4);
+
+    const measureAndFit = useCallback(() => {
+        const box = boxRef.current;
+        const iframe = iframeRef.current;
+        if (!box || !iframe) return;
+
+        let iw = PDF_SUMMARY_PREVIEW_BASE_W;
+        let ih = PDF_SUMMARY_PREVIEW_BASE_H;
+
+        try {
+            const doc = iframe.contentDocument;
+            if (doc?.documentElement) {
+                const root = doc.documentElement;
+                const body = doc.body;
+                iw = Math.ceil(
+                    Math.max(
+                        root.scrollWidth,
+                        body?.scrollWidth ?? 0,
+                        PDF_SUMMARY_PREVIEW_BASE_W,
+                    ) + 2,
+                );
+                ih = Math.ceil(
+                    Math.max(
+                        root.scrollHeight,
+                        body?.scrollHeight ?? 0,
+                        PDF_SUMMARY_PREVIEW_BASE_H,
+                    ) + 2,
+                );
+            }
+        } catch {
+            /* sandbox / политика — остаёмся на базовых размерах */
+        }
+
+        setIntrinsic({ w: iw, h: ih });
+
+        const cw = box.clientWidth || iw;
+        const maxH = Math.min(520, typeof window !== 'undefined' ? window.innerHeight * 0.48 : 520);
+        const s = Math.min(cw / iw, maxH / ih, 1);
+        setLayoutScale(Math.max(0.22, s));
+    }, []);
+
+    useLayoutEffect(() => {
+        const box = boxRef.current;
+        if (!box) return;
+        const ro = new ResizeObserver(() => measureAndFit());
+        ro.observe(box);
+        window.addEventListener('resize', measureAndFit);
+        return () => {
+            ro.disconnect();
+            window.removeEventListener('resize', measureAndFit);
+        };
+    }, [measureAndFit, html]);
+
+    useEffect(() => {
+        if (!html) return;
+        setIntrinsic({ w: PDF_SUMMARY_PREVIEW_BASE_W, h: PDF_SUMMARY_PREVIEW_BASE_H });
+    }, [html]);
+
+    const onIframeLoad = () => {
+        const run = () => measureAndFit();
+        requestAnimationFrame(() => requestAnimationFrame(run));
+        window.setTimeout(run, 100);
+        window.setTimeout(run, 350);
+    };
+
+    if (loading) {
+        return (
+            <div
+                style={{
+                    padding: '40px 20px',
+                    textAlign: 'center',
+                    color: '#6b7280',
+                    fontSize: 14,
+                    background: '#f9fafb',
+                    borderRadius: 12,
+                    border: '1px dashed #e5e7eb',
+                }}
+            >
+                Грузим превью…
+            </div>
+        );
+    }
+    if (!html) {
+        return (
+            <div
+                style={{
+                    padding: '24px 16px',
+                    color: '#6b7280',
+                    fontSize: 14,
+                    background: '#f9fafb',
+                    borderRadius: 12,
+                    border: '1px dashed #e5e7eb',
+                    textAlign: 'center',
+                }}
+            >
+                Превью недоступно — проверь эндпоинт{' '}
+                <code style={{ fontSize: 12 }}>summary-preview-html</code>.
+            </div>
+        );
+    }
+
+    const clipW = intrinsic.w * layoutScale;
+    const clipH = intrinsic.h * layoutScale;
+
+    return (
+        <div ref={boxRef} style={{ width: '100%' }}>
+            <div
+                style={{
+                    width: clipW,
+                    height: clipH,
+                    maxWidth: '100%',
+                    margin: '0 auto',
+                    overflow: 'hidden',
+                    borderRadius: 10,
+                    boxShadow: '0 10px 40px rgba(15, 23, 42, 0.14)',
+                    background: '#0c0c0f',
+                }}
+            >
+                <iframe
+                    ref={iframeRef}
+                    title="Превью сводной страницы PDF"
+                    sandbox="allow-same-origin allow-scripts"
+                    srcDoc={html}
+                    onLoad={onIframeLoad}
+                    style={{
+                        width: intrinsic.w,
+                        height: intrinsic.h,
+                        border: 'none',
+                        display: 'block',
+                        transform: `scale(${layoutScale})`,
+                        transformOrigin: 'top left',
+                    }}
+                />
+            </div>
+        </div>
+    );
+};
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>('products');
@@ -3454,99 +3609,74 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                             {pdfLoading ? (
                                                 <p style={{ color: '#6b7280' }}>Загрузка…</p>
                                             ) : (
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                                                    <div
+                                                <div
+                                                    style={{
+                                                        background: '#fff',
+                                                        borderRadius: '20px',
+                                                        border: '1px solid #e8e8ec',
+                                                        boxShadow: '0 4px 24px rgba(0,0,0,0.05)',
+                                                        padding: '22px 22px 18px',
+                                                        maxWidth: '920px',
+                                                    }}
+                                                >
+                                                    <h2
                                                         style={{
-                                                            display: 'flex',
-                                                            gap: '24px',
-                                                            flexWrap: 'wrap',
-                                                            alignItems: 'flex-start',
+                                                            fontSize: '17px',
+                                                            fontWeight: 700,
+                                                            color: '#111827',
+                                                            margin: '0 0 6px 0',
                                                         }}
                                                     >
-                                                        <div style={{ flex: '1 1 300px', minWidth: 'min(100%, 280px)' }}>
-                                                            <p
-                                                                style={{
-                                                                    fontSize: '12px',
-                                                                    fontWeight: 600,
-                                                                    color: '#6b7280',
-                                                                    margin: '0 0 8px 0',
-                                                                }}
-                                                            >
-                                                                Превью страницы (мок с бэка)
-                                                            </p>
-                                                            {summaryPreviewLoading ? (
-                                                                <p style={{ color: '#6b7280', fontSize: '14px' }}>
-                                                                    Грузим HTML…
-                                                                </p>
-                                                            ) : summaryPreviewHtml ? (
-                                                                <iframe
-                                                                    title="Превью сводной страницы PDF"
-                                                                    sandbox="allow-same-origin allow-scripts"
-                                                                    srcDoc={summaryPreviewHtml}
-                                                                    style={{
-                                                                        width: '100%',
-                                                                        minHeight: '560px',
-                                                                        border: '1px solid #e5e7eb',
-                                                                        borderRadius: '14px',
-                                                                        background: '#fff',
-                                                                        boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
-                                                                    }}
-                                                                />
-                                                            ) : (
-                                                                <p style={{ color: '#6b7280', fontSize: '14px' }}>
-                                                                    Превью недоступно — проверь эндпоинт{' '}
-                                                                    <code style={{ fontSize: '12px' }}>
-                                                                        summary-preview-html
-                                                                    </code>
-                                                                    .
-                                                                </p>
-                                                            )}
-                                                            <p
-                                                                style={{
-                                                                    fontSize: '11px',
-                                                                    color: '#9ca3af',
-                                                                    margin: '10px 0 0 0',
-                                                                    lineHeight: 1.45,
-                                                                }}
-                                                            >
-                                                                iframe с <code style={{ fontSize: '11px' }}>src</code> не
-                                                                шлёт JWT — поэтому делаем fetch с Authorization и{' '}
-                                                                <code style={{ fontSize: '11px' }}>srcDoc</code>.
-                                                            </p>
-                                                        </div>
-                                                        <div
-                                                            style={{
-                                                                flex: '1 1 260px',
-                                                                minWidth: 'min(100%, 240px)',
-                                                                maxWidth: '520px',
-                                                            }}
-                                                        >
-                                                            <h2
-                                                                style={{
-                                                                    fontSize: '16px',
-                                                                    fontWeight: 600,
-                                                                    color: '#111827',
-                                                                    margin: '0 0 8px 0',
-                                                                }}
-                                                            >
-                                                                Сводная информация
-                                                            </h2>
-                                                            <p
-                                                                style={{
-                                                                    fontSize: '13px',
-                                                                    color: '#6b7280',
-                                                                    marginBottom: '16px',
-                                                                    lineHeight: 1.5,
-                                                                }}
-                                                            >
-                                                                Клиент, цели и текст ИИ на этой странице подставляет бэк при
-                                                                генерации PDF. Здесь только брендинг: фон, логотип и цвет
-                                                                графиков.
-                                                            </p>
-                                                            {pdfFormFieldsForTemplate(
-                                                                pdfSettings?.editor_schema,
-                                                                PDF_SUMMARY_TEMPLATE_ID
-                                                            ).map((field) => {
+                                                        Сводная информация
+                                                    </h2>
+                                                    <p
+                                                        style={{
+                                                            fontSize: '13px',
+                                                            color: '#6b7280',
+                                                            margin: '0 0 18px',
+                                                            lineHeight: 1.5,
+                                                        }}
+                                                    >
+                                                        Клиент, цели и текст ИИ подставит бэк при генерации PDF. Ниже —
+                                                        превью и брендинг: фон, логотип, цвет акцента.
+                                                    </p>
+                                                    <SummaryHtmlPreview
+                                                        html={summaryPreviewHtml}
+                                                        loading={summaryPreviewLoading}
+                                                    />
+                                                    <p
+                                                        style={{
+                                                            fontSize: '11px',
+                                                            color: '#9ca3af',
+                                                            margin: '10px 0 0',
+                                                            textAlign: 'center',
+                                                            lineHeight: 1.45,
+                                                        }}
+                                                    >
+                                                        Мок-данные на превью. HTML с бэка показываем через{' '}
+                                                        <code style={{ fontSize: '11px' }}>srcdoc</code> (JWT в iframe по{' '}
+                                                        <code style={{ fontSize: '11px' }}>src</code> не передать).
+                                                    </p>
+                                                    <div
+                                                        style={{
+                                                            height: '1px',
+                                                            background: '#eef0f4',
+                                                            margin: '20px 0 16px',
+                                                        }}
+                                                    />
+                                                    <div
+                                                        style={{
+                                                            display: 'grid',
+                                                            gridTemplateColumns:
+                                                                'repeat(auto-fit, minmax(240px, 1fr))',
+                                                            gap: '14px',
+                                                            alignItems: 'start',
+                                                        }}
+                                                    >
+                                                        {pdfFormFieldsForTemplate(
+                                                            pdfSettings?.editor_schema,
+                                                            PDF_SUMMARY_TEMPLATE_ID
+                                                        ).map((field) => {
                                                                 if (field.type === 'image') {
                                                                     const thumb =
                                                                         field.key === 'summary_background_url'
@@ -3560,7 +3690,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                         <div
                                                                             key={field.key}
                                                                             style={{
-                                                                                marginBottom: '18px',
+                                                                                background: '#fafbfc',
+                                                                                borderRadius: '14px',
+                                                                                padding: '14px',
+                                                                                border: '1px solid #eef0f4',
+                                                                                minWidth: 0,
                                                                                 display: 'flex',
                                                                                 flexDirection: 'column',
                                                                                 gap: '8px',
@@ -3569,7 +3703,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                             <label
                                                                                 style={{
                                                                                     fontSize: '13px',
-                                                                                    fontWeight: 500,
+                                                                                    fontWeight: 600,
                                                                                     color: '#374151',
                                                                                 }}
                                                                             >
@@ -3580,6 +3714,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                                     style={{
                                                                                         fontSize: '12px',
                                                                                         color: '#9ca3af',
+                                                                                        lineHeight: 1.4,
                                                                                     }}
                                                                                 >
                                                                                     {field.hint}
@@ -3589,8 +3724,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                                 style={{
                                                                                     display: 'flex',
                                                                                     flexWrap: 'wrap',
-                                                                                    gap: '14px',
-                                                                                    alignItems: 'flex-start',
+                                                                                    gap: '12px',
+                                                                                    alignItems: 'center',
                                                                                 }}
                                                                             >
                                                                                 <div
@@ -3598,17 +3733,17 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                                         width:
                                                                                             field.key ===
                                                                                             'summary_logo_url'
-                                                                                                ? '120px'
-                                                                                                : 'min(100%, 200px)',
-                                                                                        maxWidth: '220px',
+                                                                                                ? '100px'
+                                                                                                : 'min(100%, 160px)',
+                                                                                        maxWidth: '200px',
                                                                                         minHeight:
                                                                                             field.key ===
                                                                                             'summary_logo_url'
-                                                                                                ? '80px'
-                                                                                                : '110px',
+                                                                                                ? '72px'
+                                                                                                : '96px',
                                                                                         borderRadius: '12px',
                                                                                         border: '1px dashed #d1d5db',
-                                                                                        background: '#f9fafb',
+                                                                                        background: '#fff',
                                                                                         overflow: 'hidden',
                                                                                         display: 'flex',
                                                                                         alignItems: 'center',
@@ -3743,7 +3878,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                         <div
                                                                             key={field.key}
                                                                             style={{
-                                                                                marginBottom: '16px',
+                                                                                background: '#fafbfc',
+                                                                                borderRadius: '14px',
+                                                                                padding: '14px',
+                                                                                border: '1px solid #eef0f4',
+                                                                                minWidth: 0,
                                                                                 display: 'flex',
                                                                                 flexDirection: 'column',
                                                                                 gap: '8px',
@@ -3752,7 +3891,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                             <label
                                                                                 style={{
                                                                                     fontSize: '13px',
-                                                                                    fontWeight: 500,
+                                                                                    fontWeight: 600,
                                                                                     color: '#374151',
                                                                                 }}
                                                                             >
@@ -3763,6 +3902,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                                     style={{
                                                                                         fontSize: '12px',
                                                                                         color: '#9ca3af',
+                                                                                        lineHeight: 1.4,
                                                                                     }}
                                                                                 >
                                                                                     {field.hint}
@@ -3814,6 +3954,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                                         border: '1px solid #d1d5db',
                                                                                         fontSize: '13px',
                                                                                         fontFamily: 'monospace',
+                                                                                        background: '#fff',
                                                                                     }}
                                                                                 />
                                                                             </div>
@@ -3822,37 +3963,45 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                 }
                                                                 return null;
                                                             })}
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => void savePdfSummaryBrandingDraft()}
-                                                                disabled={
+                                                    </div>
+                                                    <div
+                                                        style={{
+                                                            marginTop: '4px',
+                                                            paddingTop: '14px',
+                                                            borderTop: '1px solid #eef0f4',
+                                                            display: 'flex',
+                                                            justifyContent: 'flex-end',
+                                                        }}
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => void savePdfSummaryBrandingDraft()}
+                                                            disabled={
+                                                                pdfSaving ||
+                                                                pdfUploading ||
+                                                                !!pdfSummaryUploadKey
+                                                            }
+                                                            style={{
+                                                                padding: '10px 22px',
+                                                                borderRadius: '999px',
+                                                                border: 'none',
+                                                                background:
+                                                                    'linear-gradient(135deg, #D946EF, #8B5CF6)',
+                                                                color: '#fff',
+                                                                fontSize: '13px',
+                                                                fontWeight: 600,
+                                                                cursor:
                                                                     pdfSaving ||
                                                                     pdfUploading ||
                                                                     !!pdfSummaryUploadKey
-                                                                }
-                                                                style={{
-                                                                    padding: '10px 20px',
-                                                                    borderRadius: '999px',
-                                                                    border: 'none',
-                                                                    background:
-                                                                        'linear-gradient(135deg, #D946EF, #8B5CF6)',
-                                                                    color: '#fff',
-                                                                    fontSize: '13px',
-                                                                    fontWeight: 600,
-                                                                    cursor:
-                                                                        pdfSaving ||
-                                                                        pdfUploading ||
-                                                                        pdfSummaryUploadKey
-                                                                            ? 'wait'
-                                                                            : 'pointer',
-                                                                    marginTop: '4px',
-                                                                }}
-                                                            >
-                                                                {pdfSaving
-                                                                    ? 'Сохранение…'
-                                                                    : 'Сохранить цвет (#RRGGBB)'}
-                                                            </button>
-                                                        </div>
+                                                                        ? 'wait'
+                                                                        : 'pointer',
+                                                            }}
+                                                        >
+                                                            {pdfSaving
+                                                                ? 'Сохранение…'
+                                                                : 'Сохранить цвет (#RRGGBB)'}
+                                                        </button>
                                                     </div>
                                                 </div>
                                             )}
