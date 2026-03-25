@@ -805,7 +805,6 @@ const SummaryHtmlPreview: React.FC<{
                 <iframe
                     ref={iframeRef}
                     title="Превью сводной страницы PDF"
-                    sandbox="allow-same-origin allow-scripts"
                     srcDoc={html}
                     onLoad={onIframeLoad}
                     style={{
@@ -1090,6 +1089,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         (async () => {
             try {
                 const html = await agentLkApi.getPdfSummaryPreviewHtml();
+                // Debug: HTML превью должен содержать base64-картинки (data:image) или хотя бы нужные фрагменты,
+                // иначе внутри iframe изображения не отобразятся.
+                // eslint-disable-next-line no-console
+                console.log('[pdf-summary-preview-html]', {
+                    len: html?.length ?? 0,
+                    hasDataImage: typeof html === 'string' ? html.includes('data:image') : false,
+                    hasGoalCardBg: typeof html === 'string' ? html.includes('goal-card__bg') : false,
+                    hasImgTag: typeof html === 'string' ? html.includes('<img') : false,
+                });
                 if (!cancelled) setSummaryPreviewHtml(html);
             } catch (e) {
                 console.warn('[pdf-summary preview html]', e);
