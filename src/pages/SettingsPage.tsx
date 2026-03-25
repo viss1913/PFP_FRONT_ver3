@@ -611,7 +611,13 @@ const PdfGoalCardThumb: React.FC<{
                     alt=""
                     aria-label={typeLabel}
                     referrerPolicy="no-referrer"
-                    onError={() => setBroken(true)}
+                    onError={(e) => {
+                        // Чтобы быстро понять "почему не грузится" (Referer/CDN/public_url=null/signed-url expiry)
+                        // достаточно открыть DevTools Console и увидеть src + тип карточки.
+                        // eslint-disable-next-line no-console
+                        console.warn('goal_card_assets img failed', { src, typeLabel, cardKey, eventType: e?.type });
+                        setBroken(true);
+                    }}
                     style={{
                         maxWidth: '100%',
                         maxHeight: 88,
