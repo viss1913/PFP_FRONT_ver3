@@ -275,7 +275,7 @@ function normalizePdfGoalCardManifest(
     settings: PdfCoverSettingsResponse | null
 ): { hint?: string; cards: Record<string, unknown>[] } | null {
     if (!settings) return null;
-    const r = settings as Record<string, unknown>;
+    const r = settings as unknown as Record<string, unknown>;
     const raw = r.goal_card_assets ?? r.goalCardAssets;
     if (!raw || typeof raw !== 'object') return null;
     const o = raw as Record<string, unknown>;
