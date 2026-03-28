@@ -1,0 +1,10 @@
+---
+description: Тема PDF-отчёта в ЛК агента — укажи skill и контракты
+alwaysApply: true
+---
+
+# Когда речь про PDF-настройки в ЛК агента
+
+Если запрос про обложку/сводную отчёта, `pdf-settings`, `editor_schema`, превью `summary-preview-html`, загрузку картинок, `SettingsPage` / `agentLkApi` — **прочитай** `.cursor/skills/pdf-report-settings-lk/SKILL.md` и при необходимости `api_docs/PDFsettings.yaml`, `docs/report_page2_sum_front_contract.md`.
+
+Правило с globs на конкретные файлы: `pdf-report-settings-lk.mdc`.

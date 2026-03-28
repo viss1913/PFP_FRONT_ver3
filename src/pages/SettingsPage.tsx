@@ -48,12 +48,7 @@ interface SettingsPageProps {
 
 type SettingsTab = 'products' | 'portfolios' | 'plans' | 'ai-b2c' | 'report' | 'comon-strategies';
 
-/** Подстраницы раздела «Отчёт» (id совпадают с шаблонами editor_schema, где есть). */
-const REPORT_SUBPAGE_ITEMS = [
-    { id: 'cover' as const, label: 'Обложка PDF' },
-    { id: 'summary' as const, label: 'Сводная информация' },
-];
-type ReportSubPage = (typeof REPORT_SUBPAGE_ITEMS)[number]['id'];
+type ReportSubPage = string;
 
 const PDF_SUMMARY_TEMPLATE_ID = 'report_summary_overview';
 const PDF_COVER_TEMPLATE_ID = 'report_cover';
@@ -67,9 +62,15 @@ const DEFAULT_PDF_FORM_FIELDS: PdfCoverEditorField[] = [
 ];
 
 type PdfEditorTemplateBlock = { id: string; label?: string; fields: PdfCoverEditorField[] };
+type ReportEditorTemplateItem = {
+    id: string;
+    label: string;
+    fields: PdfCoverEditorField[];
+    pageType: 'SUMMARY' | 'FIN_RESERVE' | 'LIFE' | 'INVESTMENT' | 'OTHER' | null;
+};
 
-/** Фолбэк, если бэк ещё не прислал шаблон сводной в editor_schema.templates. */
-const DEFAULT_SUMMARY_PDF_FIELDS: PdfCoverEditorField[] = [
+/** Общие поля брендинга для сводной и страниц целей (shared `summary_*` в PATCH). */
+const DEFAULT_BRANDING_SUMMARY_FIELDS: PdfCoverEditorField[] = [
     {
         key: 'summary_background_url',
         type: 'image',
@@ -92,7 +93,60 @@ const DEFAULT_SUMMARY_PDF_FIELDS: PdfCoverEditorField[] = [
         label: 'Цвет графиков и акцента',
         reset: { patch_key: 'summary_chart_color' },
     },
+    {
+        key: 'summary_background_darkness_percent',
+        type: 'text',
+        label: 'Затемнение фона',
+        hint: 'Проценты от 0 до 100; пусто — сброс к значению по умолчанию на бэке.',
+        reset: { patch_key: 'summary_background_darkness_percent' },
+    },
+    {
+        key: 'summary_text_color',
+        type: 'color',
+        label: 'Цвет текста',
+        reset: { patch_key: 'summary_text_color' },
+    },
+    {
+        key: 'summary_line_color',
+        type: 'color',
+        label: 'Цвет линий и бордеров',
+        reset: { patch_key: 'summary_line_color' },
+    },
+    {
+        key: 'summary_background_overlay_opacity',
+        type: 'text',
+        label: 'Прозрачность оверлея',
+        hint: 'Число от 0 до 1; пусто — сброс к значению по умолчанию.',
+        reset: { patch_key: 'summary_background_overlay_opacity' },
+    },
 ];
+
+const GOAL_REPORT_TEMPLATE_IDS: readonly string[] = [
+    'report_fin_reserve',
+    'report_life',
+    'report_investment',
+    'report_other',
+];
+
+const FIXED_REPORT_NAV_ORDER: readonly string[] = [
+    PDF_COVER_TEMPLATE_ID,
+    PDF_SUMMARY_TEMPLATE_ID,
+    ...GOAL_REPORT_TEMPLATE_IDS,
+];
+
+function isBrandingSummaryTemplateId(id: string): boolean {
+    return id === PDF_SUMMARY_TEMPLATE_ID || GOAL_REPORT_TEMPLATE_IDS.includes(id);
+}
+
+function resolveReportTemplateFields(id: string, block: PdfEditorTemplateBlock | undefined): PdfCoverEditorField[] {
+    if (id === PDF_COVER_TEMPLATE_ID) {
+        return block?.fields?.length ? block.fields : DEFAULT_PDF_FORM_FIELDS;
+    }
+    if (isBrandingSummaryTemplateId(id)) {
+        return block?.fields?.length ? block.fields : DEFAULT_BRANDING_SUMMARY_FIELDS;
+    }
+    return block?.fields?.length ? block.fields : [];
+}
 
 function formatPdfUploadError(err: unknown): string {
     const ax = err as {
@@ -211,14 +265,91 @@ function pdfEditorTemplatesFromSchema(schema: unknown): PdfEditorTemplateBlock[]
     return [];
 }
 
-/** Поля одного логического шаблона из editor_schema (или дефолты для сводной). */
+function reportTemplateLabelById(id: string): string {
+    switch (id) {
+        case PDF_COVER_TEMPLATE_ID:
+            return 'Обложка PDF';
+        case PDF_SUMMARY_TEMPLATE_ID:
+            return 'Сводная информация';
+        case 'report_fin_reserve':
+            return 'Финансовый резерв';
+        case 'report_life':
+            return 'Защита жизни';
+        case 'report_investment':
+            return 'Сохранить и приумножить';
+        case 'report_other':
+            return 'Прочая цель';
+        default:
+            return id;
+    }
+}
+
+function reportTemplatePageTypeById(id: string): ReportEditorTemplateItem['pageType'] {
+    switch (id) {
+        case PDF_SUMMARY_TEMPLATE_ID:
+            return 'SUMMARY';
+        case 'report_fin_reserve':
+            return 'FIN_RESERVE';
+        case 'report_life':
+            return 'LIFE';
+        case 'report_investment':
+            return 'INVESTMENT';
+        case 'report_other':
+            return 'OTHER';
+        default:
+            return null;
+    }
+}
+
+function reportTemplatesFromSchema(schema: unknown): ReportEditorTemplateItem[] {
+    const blocks = pdfEditorTemplatesFromSchema(schema);
+    if (!blocks.length) {
+        return [
+            {
+                id: PDF_COVER_TEMPLATE_ID,
+                label: reportTemplateLabelById(PDF_COVER_TEMPLATE_ID),
+                fields: DEFAULT_PDF_FORM_FIELDS,
+                pageType: null,
+            },
+            {
+                id: PDF_SUMMARY_TEMPLATE_ID,
+                label: reportTemplateLabelById(PDF_SUMMARY_TEMPLATE_ID),
+                fields: DEFAULT_BRANDING_SUMMARY_FIELDS,
+                pageType: 'SUMMARY',
+            },
+            ...GOAL_REPORT_TEMPLATE_IDS.map((gid) => ({
+                id: gid,
+                label: reportTemplateLabelById(gid),
+                fields: DEFAULT_BRANDING_SUMMARY_FIELDS,
+                pageType: reportTemplatePageTypeById(gid),
+            })),
+        ];
+    }
+    const map = new Map<string, PdfEditorTemplateBlock>();
+    for (const b of blocks) map.set(b.id, b);
+
+    const orderedIds = [...FIXED_REPORT_NAV_ORDER];
+    const rest = blocks.map((b) => b.id).filter((id) => !orderedIds.includes(id));
+    const allIds = [...orderedIds, ...rest];
+
+    return allIds.map((id) => {
+        const block = map.get(id);
+        return {
+            id,
+            label: block?.label || reportTemplateLabelById(id),
+            fields: resolveReportTemplateFields(id, block),
+            pageType: reportTemplatePageTypeById(id),
+        };
+    });
+}
+
+/** Поля одного логического шаблона из editor_schema (или дефолты ЛК). */
 function pdfFormFieldsForTemplate(schema: unknown, templateId: string): PdfCoverEditorField[] {
     const blocks = pdfEditorTemplatesFromSchema(schema);
     const hit = blocks.find((b) => b.id === templateId);
     if (hit?.fields.length) return hit.fields;
     if (templateId === PDF_COVER_TEMPLATE_ID && blocks[0]?.fields.length) return blocks[0].fields;
-    if (templateId === PDF_SUMMARY_TEMPLATE_ID) return DEFAULT_SUMMARY_PDF_FIELDS;
-    return templateId === PDF_COVER_TEMPLATE_ID ? DEFAULT_PDF_FORM_FIELDS : [];
+    return resolveReportTemplateFields(templateId, hit);
 }
 
 function resolveAgentLkAssetUrl(url: string | null | undefined): string | null {
@@ -322,31 +453,47 @@ function pdfStringDefaultsFromEditorSchema(schema: unknown): Record<string, stri
     return out;
 }
 
-function buildPdfDraftFromPdfResponse(res: PdfCoverSettingsResponse): {
-    cover_title: string;
-    title_band_color: string;
-    cover_background_url: string;
-    summary_chart_color: string;
-    summary_background_url: string;
-    summary_logo_url: string;
-} {
+function buildPdfDraftFromPdfResponse(res: PdfCoverSettingsResponse): Record<string, string> {
     const def = pdfStringDefaultsFromEditorSchema(res.editor_schema);
-    return {
-        cover_title: res.cover_title != null ? String(res.cover_title) : def.cover_title ?? '',
-        title_band_color: res.title_band_color != null ? String(res.title_band_color) : def.title_band_color ?? '',
-        cover_background_url:
-            res.cover_background_url != null
-                ? String(res.cover_background_url)
-                : def.cover_background_url ?? '',
-        summary_chart_color:
-            res.summary_chart_color != null ? String(res.summary_chart_color) : def.summary_chart_color ?? '',
-        summary_background_url:
-            res.summary_background_url != null
-                ? String(res.summary_background_url)
-                : def.summary_background_url ?? '',
-        summary_logo_url:
-            res.summary_logo_url != null ? String(res.summary_logo_url) : def.summary_logo_url ?? '',
-    };
+    const out: Record<string, string> = { ...def };
+    for (const [k, v] of Object.entries(res as unknown as Record<string, unknown>)) {
+        if (v === null || v === undefined) continue;
+        if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+            out[k] = String(v);
+        }
+    }
+    return out;
+}
+
+const HEX6_COLOR_RE = /^#[0-9A-Fa-f]{6}$/;
+
+function parseNumericField(raw: string): number | null {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    const n = Number(trimmed.replace(',', '.'));
+    if (!Number.isFinite(n)) return null;
+    return n;
+}
+
+function validatePdfFieldValue(field: PdfCoverEditorField, value: string): string | null {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (field.type === 'color' && !HEX6_COLOR_RE.test(trimmed)) {
+        return `Поле «${field.label ?? field.key}»: нужен формат #RRGGBB.`;
+    }
+    if (field.key === 'summary_background_darkness_percent') {
+        const n = parseNumericField(trimmed);
+        if (n == null || n < 0 || n > 100) {
+            return 'Степень затемнения фона должна быть числом от 0 до 100.';
+        }
+    }
+    if (field.key === 'summary_background_overlay_opacity') {
+        const n = parseNumericField(trimmed);
+        if (n == null || n < 0 || n > 1) {
+            return 'Прозрачность оверлея должна быть числом от 0 до 1.';
+        }
+    }
+    return null;
 }
 
 const RISK_PROFILE_TYPES: Array<'CONSERVATIVE' | 'BALANCED' | 'AGGRESSIVE'> = ['CONSERVATIVE', 'BALANCED', 'AGGRESSIVE'];
@@ -844,15 +991,19 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     const [plansLoading, setPlansLoading] = useState(false);
     const [plansSaving, setPlansSaving] = useState<string | null>(null);
 
-    const [reportSubPage, setReportSubPage] = useState<ReportSubPage>('cover');
+    const [reportSubPage, setReportSubPage] = useState<ReportSubPage>(PDF_COVER_TEMPLATE_ID);
     const [pdfSettings, setPdfSettings] = useState<PdfCoverSettingsResponse | null>(null);
-    const [pdfDraft, setPdfDraft] = useState({
+    const [pdfDraft, setPdfDraft] = useState<Record<string, string>>({
         cover_title: '',
         title_band_color: '',
         cover_background_url: '',
         summary_chart_color: '',
         summary_background_url: '',
         summary_logo_url: '',
+        summary_background_darkness_percent: '',
+        summary_background_overlay_opacity: '',
+        summary_text_color: '',
+        summary_line_color: '',
     });
     const [pdfLoading, setPdfLoading] = useState(false);
     const [pdfSaving, setPdfSaving] = useState(false);
@@ -862,13 +1013,27 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     /** Превью фона: data:… (скачали и встроили) или в конце прямой https для img. */
     const [pdfCoverPreviewUrl, setPdfCoverPreviewUrl] = useState<string | null>(null);
     /** Превью картинок сводной через GET *-image (url из JSON, не сырой storage URL). */
-    const [summaryBgThumbUrl, setSummaryBgThumbUrl] = useState<string | null>(null);
-    const [summaryLogoThumbUrl, setSummaryLogoThumbUrl] = useState<string | null>(null);
+    const [pdfImageThumbByKey, setPdfImageThumbByKey] = useState<Record<string, string | null>>({});
     const [summaryPreviewHtml, setSummaryPreviewHtml] = useState<string | null>(null);
     const [summaryPreviewLoading, setSummaryPreviewLoading] = useState(false);
     const [summaryPreviewModalOpen, setSummaryPreviewModalOpen] = useState(false);
 
     const pdfGoalCardsManifest = useMemo(() => normalizePdfGoalCardManifest(pdfSettings), [pdfSettings]);
+    const reportTemplateItems = useMemo(
+        () => reportTemplatesFromSchema(pdfSettings?.editor_schema),
+        [pdfSettings?.editor_schema]
+    );
+    const activeReportTemplate = useMemo(
+        () => reportTemplateItems.find((x) => x.id === reportSubPage) ?? reportTemplateItems[0] ?? null,
+        [reportSubPage, reportTemplateItems]
+    );
+
+    useEffect(() => {
+        if (!reportTemplateItems.length) return;
+        if (!reportTemplateItems.some((x) => x.id === reportSubPage)) {
+            setReportSubPage(reportTemplateItems[0].id);
+        }
+    }, [reportSubPage, reportTemplateItems]);
 
     const renderTabLabel = (tab: SettingsTab) => {
         switch (tab) {
@@ -1011,7 +1176,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     }, [activeTab]);
 
     useEffect(() => {
-        if (activeTab !== 'report' || reportSubPage !== 'cover') {
+        if (activeTab !== 'report' || reportSubPage !== PDF_COVER_TEMPLATE_ID) {
             setPdfCoverPreviewUrl(null);
             return;
         }
@@ -1079,7 +1244,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     }, [activeTab, reportSubPage, pdfLoading, pdfSettings?.cover_background_url]);
 
     useEffect(() => {
-        if (activeTab !== 'report' || reportSubPage !== 'summary' || !pdfSettings || pdfLoading) {
+        const pageType = activeReportTemplate?.pageType;
+        if (activeTab !== 'report' || !pageType || !pdfSettings || pdfLoading) {
             setSummaryPreviewHtml(null);
             setSummaryPreviewLoading(false);
             return;
@@ -1088,19 +1254,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         setSummaryPreviewLoading(true);
         (async () => {
             try {
-                const html = await agentLkApi.getPdfSummaryPreviewHtml();
-                // Debug: HTML превью должен содержать base64-картинки (data:image) или хотя бы нужные фрагменты,
-                // иначе внутри iframe изображения не отобразятся.
-                // eslint-disable-next-line no-console
-                console.log('[pdf-summary-preview-html]', {
-                    len: html?.length ?? 0,
-                    hasDataImage: typeof html === 'string' ? html.includes('data:image') : false,
-                    hasGoalCardBg: typeof html === 'string' ? html.includes('goal-card__bg') : false,
-                    hasImgTag: typeof html === 'string' ? html.includes('<img') : false,
-                });
+                const html = await agentLkApi.getPdfPagePreviewHtml(pageType);
                 if (!cancelled) setSummaryPreviewHtml(html);
             } catch (e) {
-                console.warn('[pdf-summary preview html]', e);
+                console.warn('[pdf-page preview html]', e);
                 if (!cancelled) setSummaryPreviewHtml(null);
             } finally {
                 if (!cancelled) setSummaryPreviewLoading(false);
@@ -1109,86 +1266,46 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         return () => {
             cancelled = true;
         };
-    }, [
-        activeTab,
-        reportSubPage,
-        pdfLoading,
-        pdfSettings?.summary_background_url,
-        pdfSettings?.summary_logo_url,
-        pdfSettings?.summary_chart_color,
-    ]);
+    }, [activeTab, activeReportTemplate, pdfLoading, pdfSettings, reportSubPage]);
 
     useEffect(() => {
-        if (activeTab !== 'report' || reportSubPage !== 'summary' || !pdfSettings || pdfLoading) {
-            setSummaryBgThumbUrl(null);
+        if (activeTab !== 'report' || !activeReportTemplate || !pdfSettings || pdfLoading) {
+            setPdfImageThumbByKey({});
             return;
         }
-        const fields = pdfFormFieldsForTemplate(pdfSettings.editor_schema, PDF_SUMMARY_TEMPLATE_ID);
-        const f = fields.find((x) => x.key === 'summary_background_url' && x.type === 'image');
-        const readPath = f?.read_url?.path ?? 'pdf-settings/summary-background-image';
-
-        let cancelled = false;
-        let timer: ReturnType<typeof setTimeout> | undefined;
-
-        const run = async () => {
-            try {
-                const meta = await agentLkApi.getPdfSettingsImageReadMeta(readPath);
-                if (cancelled) return;
-                if (!meta) {
-                    setSummaryBgThumbUrl(null);
-                    return;
-                }
-                setSummaryBgThumbUrl(meta.url);
-                if (meta.access === 'signed' && meta.expires_at) {
-                    const ms = new Date(meta.expires_at).getTime() - Date.now() - 60_000;
-                    if (ms > 5_000) timer = window.setTimeout(run, ms);
-                }
-            } catch {
-                if (!cancelled) setSummaryBgThumbUrl(null);
-            }
-        };
-        void run();
-        return () => {
-            cancelled = true;
-            if (timer) clearTimeout(timer);
-        };
-    }, [activeTab, reportSubPage, pdfLoading, pdfSettings?.summary_background_url, pdfSettings?.editor_schema]);
-
-    useEffect(() => {
-        if (activeTab !== 'report' || reportSubPage !== 'summary' || !pdfSettings || pdfLoading) {
-            setSummaryLogoThumbUrl(null);
+        const imageFields = activeReportTemplate.fields.filter((x) => x.type === 'image');
+        if (!imageFields.length) {
+            setPdfImageThumbByKey({});
             return;
         }
-        const fields = pdfFormFieldsForTemplate(pdfSettings.editor_schema, PDF_SUMMARY_TEMPLATE_ID);
-        const f = fields.find((x) => x.key === 'summary_logo_url' && x.type === 'image');
-        const readPath = f?.read_url?.path ?? 'pdf-settings/summary-logo-image';
-
         let cancelled = false;
-        let timer: ReturnType<typeof setTimeout> | undefined;
-
-        const run = async () => {
-            try {
-                const meta = await agentLkApi.getPdfSettingsImageReadMeta(readPath);
-                if (cancelled) return;
-                if (!meta) {
-                    setSummaryLogoThumbUrl(null);
-                    return;
+        (async () => {
+            const next: Record<string, string | null> = {};
+            for (const field of imageFields) {
+                const fallbackReadPath =
+                    field.key === 'summary_background_url'
+                        ? 'pdf-settings/summary-background-image'
+                        : field.key === 'summary_logo_url'
+                          ? 'pdf-settings/summary-logo-image'
+                          : null;
+                const readPath = field.read_url?.path ?? fallbackReadPath;
+                if (!readPath) {
+                    next[field.key] = null;
+                    continue;
                 }
-                setSummaryLogoThumbUrl(meta.url);
-                if (meta.access === 'signed' && meta.expires_at) {
-                    const ms = new Date(meta.expires_at).getTime() - Date.now() - 60_000;
-                    if (ms > 5_000) timer = window.setTimeout(run, ms);
+                try {
+                    const meta = await agentLkApi.getPdfSettingsImageReadMeta(readPath);
+                    next[field.key] = meta?.url ?? null;
+                } catch {
+                    next[field.key] = null;
                 }
-            } catch {
-                if (!cancelled) setSummaryLogoThumbUrl(null);
             }
-        };
-        void run();
+            if (!cancelled) setPdfImageThumbByKey(next);
+        })();
         return () => {
             cancelled = true;
-            if (timer) clearTimeout(timer);
         };
-    }, [activeTab, reportSubPage, pdfLoading, pdfSettings?.summary_logo_url, pdfSettings?.editor_schema]);
+    }, [activeTab, activeReportTemplate, pdfLoading, pdfSettings, reportSubPage]);
 
     useEffect(() => {
         if (!summaryPreviewModalOpen) return;
@@ -1200,10 +1317,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     }, [summaryPreviewModalOpen]);
 
     useEffect(() => {
-        if (activeTab !== 'report' || reportSubPage !== 'summary') {
+        if (activeTab !== 'report' || !activeReportTemplate?.pageType) {
             setSummaryPreviewModalOpen(false);
         }
-    }, [activeTab, reportSubPage]);
+    }, [activeTab, activeReportTemplate, reportSubPage]);
 
     const [isProductModalOpen, setIsProductModalOpen] = useState(false);
     const [productForm, setProductForm] = useState<{
@@ -2371,6 +2488,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     };
 
     const savePdfCoverDraft = async () => {
+        const coverFields = pdfFormFieldsForTemplate(pdfSettings?.editor_schema, PDF_COVER_TEMPLATE_ID);
+        for (const field of coverFields) {
+            if (field.type === 'readonly' || field.type === 'image') continue;
+            const err = validatePdfFieldValue(field, pdfDraft[field.key] ?? '');
+            if (err) {
+                setPdfError(err);
+                return;
+            }
+        }
         setPdfSaving(true);
         try {
             const res = await agentLkApi.patchPdfCoverSettings({
@@ -2388,17 +2514,29 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         }
     };
 
-    const savePdfSummaryBrandingDraft = async () => {
+    const saveActiveReportTemplateDraft = async () => {
+        if (!activeReportTemplate || activeReportTemplate.id === PDF_COVER_TEMPLATE_ID) return;
+        const payload: Record<string, string> = {};
+        for (const field of activeReportTemplate.fields) {
+            if (field.type === 'readonly' || field.type === 'image') continue;
+            const err = validatePdfFieldValue(field, pdfDraft[field.key] ?? '');
+            if (err) {
+                setPdfError(err);
+                return;
+            }
+            const patchKey = field.reset?.patch_key ?? field.key;
+            if (!patchKey) continue;
+            payload[patchKey] = (pdfDraft[field.key] ?? '').trim();
+        }
+        if (!Object.keys(payload).length) return;
         setPdfSaving(true);
         try {
-            const res = await agentLkApi.patchPdfCoverSettings({
-                summary_chart_color: pdfDraft.summary_chart_color.trim() || '',
-            });
+            const res = await agentLkApi.patchPdfCoverSettings(payload);
             applyPdfSettingsResponse(res);
             setPdfError(null);
         } catch (e) {
             console.error(e);
-            setPdfError('Не удалось сохранить цвет сводной страницы.');
+            setPdfError('Не удалось сохранить настройки страницы отчёта.');
         } finally {
             setPdfSaving(false);
         }
@@ -2418,19 +2556,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         }
     };
 
-    const resetPdfSummaryImage = async (field: PdfCoverEditorField) => {
+    const resetPdfTemplateImage = async (field: PdfCoverEditorField) => {
         const pk = field.reset?.patch_key ?? field.key;
         setPdfSaving(true);
         try {
-            let res: PdfCoverSettingsResponse;
-            if (pk === 'summary_background_url') {
-                res = await agentLkApi.patchPdfCoverSettings({ summary_background_url: '' });
-            } else if (pk === 'summary_logo_url') {
-                res = await agentLkApi.patchPdfCoverSettings({ summary_logo_url: '' });
-            } else {
-                setPdfError('Сброс для этого поля не поддерживается.');
-                return;
-            }
+            const res = await agentLkApi.patchPdfCoverSettings({ [pk]: '' });
             applyPdfSettingsResponse(res);
             setPdfError(null);
         } catch (e) {
@@ -2472,7 +2602,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         }
     };
 
-    const handlePdfSummaryImageChange = async (field: PdfCoverEditorField, e: React.ChangeEvent<HTMLInputElement>) => {
+    const handlePdfTemplateImageChange = async (field: PdfCoverEditorField, e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         e.target.value = '';
         if (!file) return;
@@ -3260,8 +3390,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                 {renderTabLabel(activeTab)}
                             </h1>
                             <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '24px' }}>
-                                Настройки PDF-отчёта для клиентов: обложка и страница «Сводная информация». Поля формы
-                                строятся из <code style={{ fontSize: '12px' }}>editor_schema</code> с бэка.
+                                Настройки PDF-отчёта для клиентов: обложка, сводная и страницы целей. Фон, лого и цвета
+                                для сводной и страниц целей общие (<code style={{ fontSize: '12px' }}>summary_*</code> в
+                                API). Поля формы приходят из{' '}
+                                <code style={{ fontSize: '12px' }}>editor_schema.templates[]</code>; если список полей
+                                пустой, ЛК подставляет дефолтный набор.
                             </p>
                             {pdfError && (
                                 <div
@@ -3288,7 +3421,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                     }}
                                     aria-label="Разделы отчёта"
                                 >
-                                    {REPORT_SUBPAGE_ITEMS.map((item) => (
+                                    {reportTemplateItems.map((item) => (
                                         <button
                                             key={item.id}
                                             type="button"
@@ -3311,7 +3444,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                     ))}
                                 </nav>
                                 <div style={{ flex: 1, minWidth: 'min(100%, 320px)' }}>
-                                    {reportSubPage === 'cover' && (
+                                    {activeReportTemplate?.id === PDF_COVER_TEMPLATE_ID && (
                                         <>
                                             {pdfLoading ? (
                                                 <p style={{ color: '#6b7280' }}>Загрузка…</p>
@@ -3869,7 +4002,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                             )}
                                         </>
                                     )}
-                                    {reportSubPage === 'summary' && (
+                                    {activeReportTemplate && activeReportTemplate.id !== PDF_COVER_TEMPLATE_ID && (
                                         <>
                                             {pdfLoading ? (
                                                 <p style={{ color: '#6b7280' }}>Загрузка…</p>
@@ -3892,7 +4025,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                             margin: '0 0 6px 0',
                                                         }}
                                                     >
-                                                        Сводная информация
+                                                        {activeReportTemplate?.label ?? 'Страница отчёта'}
                                                     </h2>
                                                     <p
                                                         style={{
@@ -3902,8 +4035,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                             lineHeight: 1.5,
                                                         }}
                                                     >
-                                                        Клиент, цели и текст ИИ подставит бэк при генерации PDF. Ниже —
-                                                        превью и брендинг: фон, логотип, цвет акцента.
+                                                        Превью HTML и настройки брендинга/цветов для выбранной страницы.
                                                     </p>
                                                     <div
                                                         style={{
@@ -3978,7 +4110,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                             lineHeight: 1.45,
                                                         }}
                                                     >
-                                                        Мок-данные на превью. HTML с бэка показываем через{' '}
+                                                        Превью рендерится бэком. HTML показываем через{' '}
                                                         <code style={{ fontSize: '11px' }}>srcdoc</code> (JWT в iframe по{' '}
                                                         <code style={{ fontSize: '11px' }}>src</code> не передать).
                                                     </p>
@@ -3998,296 +4130,365 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                             alignItems: 'start',
                                                         }}
                                                     >
-                                                        {pdfFormFieldsForTemplate(
-                                                            pdfSettings?.editor_schema,
-                                                            PDF_SUMMARY_TEMPLATE_ID
-                                                        ).map((field) => {
-                                                                if (field.type === 'image') {
-                                                                    const thumb =
-                                                                        field.key === 'summary_background_url'
-                                                                            ? summaryBgThumbUrl
-                                                                            : field.key === 'summary_logo_url'
-                                                                              ? summaryLogoThumbUrl
-                                                                              : null;
-                                                                    const busy = pdfSummaryUploadKey === field.key;
-                                                                    const uploadBusy = !!pdfSummaryUploadKey;
-                                                                    return (
-                                                                        <div
-                                                                            key={field.key}
+                                                        {(activeReportTemplate?.fields ?? []).map((field) => {
+                                                            const draftValue = pdfDraft[field.key] ?? '';
+                                                            if (field.type === 'image') {
+                                                                const thumb = pdfImageThumbByKey[field.key] ?? null;
+                                                                const busy = pdfSummaryUploadKey === field.key;
+                                                                const uploadBusy = !!pdfSummaryUploadKey;
+                                                                return (
+                                                                    <div
+                                                                        key={field.key}
+                                                                        style={{
+                                                                            background: '#fafbfc',
+                                                                            borderRadius: '14px',
+                                                                            padding: '14px',
+                                                                            border: '1px solid #eef0f4',
+                                                                            minWidth: 0,
+                                                                            display: 'flex',
+                                                                            flexDirection: 'column',
+                                                                            gap: '8px',
+                                                                        }}
+                                                                    >
+                                                                        <label
                                                                             style={{
-                                                                                background: '#fafbfc',
-                                                                                borderRadius: '14px',
-                                                                                padding: '14px',
-                                                                                border: '1px solid #eef0f4',
-                                                                                minWidth: 0,
-                                                                                display: 'flex',
-                                                                                flexDirection: 'column',
-                                                                                gap: '8px',
+                                                                                fontSize: '13px',
+                                                                                fontWeight: 600,
+                                                                                color: '#374151',
                                                                             }}
                                                                         >
-                                                                            <label
+                                                                            {field.label ?? field.key}
+                                                                        </label>
+                                                                        {field.hint ? (
+                                                                            <span
                                                                                 style={{
-                                                                                    fontSize: '13px',
-                                                                                    fontWeight: 600,
-                                                                                    color: '#374151',
+                                                                                    fontSize: '12px',
+                                                                                    color: '#9ca3af',
+                                                                                    lineHeight: 1.4,
                                                                                 }}
                                                                             >
-                                                                                {field.label ?? field.key}
-                                                                            </label>
-                                                                            {field.hint ? (
-                                                                                <span
-                                                                                    style={{
-                                                                                        fontSize: '12px',
-                                                                                        color: '#9ca3af',
-                                                                                        lineHeight: 1.4,
-                                                                                    }}
-                                                                                >
-                                                                                    {field.hint}
-                                                                                </span>
-                                                                            ) : null}
+                                                                                {field.hint}
+                                                                            </span>
+                                                                        ) : null}
+                                                                        <div
+                                                                            style={{
+                                                                                display: 'flex',
+                                                                                flexWrap: 'wrap',
+                                                                                gap: '12px',
+                                                                                alignItems: 'center',
+                                                                            }}
+                                                                        >
+                                                                            <div
+                                                                                style={{
+                                                                                    width:
+                                                                                        field.key === 'summary_logo_url'
+                                                                                            ? '100px'
+                                                                                            : 'min(100%, 160px)',
+                                                                                    maxWidth: '200px',
+                                                                                    minHeight:
+                                                                                        field.key === 'summary_logo_url'
+                                                                                            ? '72px'
+                                                                                            : '96px',
+                                                                                    borderRadius: '12px',
+                                                                                    border: '1px dashed #d1d5db',
+                                                                                    background: '#fff',
+                                                                                    overflow: 'hidden',
+                                                                                    display: 'flex',
+                                                                                    alignItems: 'center',
+                                                                                    justifyContent: 'center',
+                                                                                    boxSizing: 'border-box',
+                                                                                }}
+                                                                            >
+                                                                                {thumb ? (
+                                                                                    // eslint-disable-next-line jsx-a11y/alt-text -- превью ассета
+                                                                                    <img
+                                                                                        src={thumb}
+                                                                                        alt=""
+                                                                                        style={{
+                                                                                            maxWidth: '100%',
+                                                                                            maxHeight: '120px',
+                                                                                            objectFit: 'contain',
+                                                                                            display: 'block',
+                                                                                        }}
+                                                                                    />
+                                                                                ) : (
+                                                                                    <span
+                                                                                        style={{
+                                                                                            fontSize: '12px',
+                                                                                            color: '#9ca3af',
+                                                                                            padding: '10px',
+                                                                                            textAlign: 'center',
+                                                                                            lineHeight: 1.35,
+                                                                                        }}
+                                                                                    >
+                                                                                        Нет своего файла — в PDF дефолт с бэка
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
                                                                             <div
                                                                                 style={{
                                                                                     display: 'flex',
-                                                                                    flexWrap: 'wrap',
-                                                                                    gap: '12px',
-                                                                                    alignItems: 'center',
+                                                                                    flexDirection: 'column',
+                                                                                    gap: '8px',
                                                                                 }}
                                                                             >
-                                                                                <div
+                                                                                <label
                                                                                     style={{
-                                                                                        width:
-                                                                                            field.key ===
-                                                                                            'summary_logo_url'
-                                                                                                ? '100px'
-                                                                                                : 'min(100%, 160px)',
-                                                                                        maxWidth: '200px',
-                                                                                        minHeight:
-                                                                                            field.key ===
-                                                                                            'summary_logo_url'
-                                                                                                ? '72px'
-                                                                                                : '96px',
-                                                                                        borderRadius: '12px',
-                                                                                        border: '1px dashed #d1d5db',
+                                                                                        fontSize: '12px',
+                                                                                        color: '#4b5563',
+                                                                                        cursor:
+                                                                                            busy || uploadBusy
+                                                                                                ? 'wait'
+                                                                                                : 'pointer',
+                                                                                        padding: '8px 14px',
+                                                                                        borderRadius: '999px',
+                                                                                        border: '1px solid #d1d5db',
                                                                                         background: '#fff',
-                                                                                        overflow: 'hidden',
-                                                                                        display: 'flex',
-                                                                                        alignItems: 'center',
-                                                                                        justifyContent: 'center',
-                                                                                        boxSizing: 'border-box',
+                                                                                        alignSelf: 'flex-start',
                                                                                     }}
                                                                                 >
-                                                                                    {thumb ? (
-                                                                                        // eslint-disable-next-line jsx-a11y/alt-text -- превью ассета
-                                                                                        <img
-                                                                                            src={thumb}
-                                                                                            alt=""
-                                                                                            style={{
-                                                                                                maxWidth: '100%',
-                                                                                                maxHeight: '120px',
-                                                                                                objectFit: 'contain',
-                                                                                                display: 'block',
-                                                                                            }}
-                                                                                        />
-                                                                                    ) : (
-                                                                                        <span
-                                                                                            style={{
-                                                                                                fontSize: '12px',
-                                                                                                color: '#9ca3af',
-                                                                                                padding: '10px',
-                                                                                                textAlign: 'center',
-                                                                                                lineHeight: 1.35,
-                                                                                            }}
-                                                                                        >
-                                                                                            Нет своего файла — в PDF
-                                                                                            дефолт с бэка
-                                                                                        </span>
-                                                                                    )}
-                                                                                </div>
-                                                                                <div
-                                                                                    style={{
-                                                                                        display: 'flex',
-                                                                                        flexDirection: 'column',
-                                                                                        gap: '8px',
-                                                                                    }}
-                                                                                >
-                                                                                    <label
-                                                                                        style={{
-                                                                                            fontSize: '12px',
-                                                                                            color: '#4b5563',
-                                                                                            cursor:
-                                                                                                busy || uploadBusy
-                                                                                                    ? 'wait'
-                                                                                                    : 'pointer',
-                                                                                            padding: '8px 14px',
-                                                                                            borderRadius: '999px',
-                                                                                            border: '1px solid #d1d5db',
-                                                                                            background: '#fff',
-                                                                                            alignSelf: 'flex-start',
-                                                                                        }}
-                                                                                    >
-                                                                                        {busy
-                                                                                            ? 'Загрузка…'
-                                                                                            : 'Загрузить'}
-                                                                                        <input
-                                                                                            type="file"
-                                                                                            accept={acceptMimeToInputAccept(
-                                                                                                field.upload?.accept_mime
-                                                                                            )}
-                                                                                            onChange={(ev) =>
-                                                                                                void handlePdfSummaryImageChange(
-                                                                                                    field,
-                                                                                                    ev
-                                                                                                )
-                                                                                            }
-                                                                                            style={{ display: 'none' }}
-                                                                                            disabled={
-                                                                                                pdfSaving ||
-                                                                                                uploadBusy
-                                                                                            }
-                                                                                        />
-                                                                                    </label>
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        disabled={
-                                                                                            pdfSaving ||
-                                                                                            busy ||
-                                                                                            uploadBusy ||
-                                                                                            !thumb
-                                                                                        }
-                                                                                        onClick={() =>
-                                                                                            void resetPdfSummaryImage(
-                                                                                                field
+                                                                                    {busy ? 'Загрузка…' : 'Загрузить'}
+                                                                                    <input
+                                                                                        type="file"
+                                                                                        accept={acceptMimeToInputAccept(
+                                                                                            field.upload?.accept_mime
+                                                                                        )}
+                                                                                        onChange={(ev) =>
+                                                                                            void handlePdfTemplateImageChange(
+                                                                                                field,
+                                                                                                ev
                                                                                             )
                                                                                         }
-                                                                                        style={{
-                                                                                            padding: '8px 14px',
-                                                                                            borderRadius: '999px',
-                                                                                            border: '1px solid #fecaca',
-                                                                                            background: '#fef2f2',
-                                                                                            fontSize: '12px',
-                                                                                            cursor:
-                                                                                                pdfSaving || busy
-                                                                                                    ? 'wait'
-                                                                                                    : 'pointer',
-                                                                                            color: '#b91c1c',
-                                                                                            alignSelf: 'flex-start',
-                                                                                        }}
-                                                                                    >
-                                                                                        Сбросить
-                                                                                    </button>
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    );
-                                                                }
-                                                                if (
-                                                                    field.type === 'color' &&
-                                                                    field.key === 'summary_chart_color'
-                                                                ) {
-                                                                    const effectiveHex =
-                                                                        /^#[0-9A-Fa-f]{6}$/.test(
-                                                                            pdfDraft.summary_chart_color.trim()
-                                                                        )
-                                                                            ? pdfDraft.summary_chart_color.trim()
-                                                                            : /^#[0-9A-Fa-f]{6}$/.test(
-                                                                                    String(
-                                                                                        pdfSettings?.summary_chart_color ??
-                                                                                            ''
-                                                                                    ).trim()
-                                                                                )
-                                                                              ? String(
-                                                                                    pdfSettings?.summary_chart_color
-                                                                                ).trim()
-                                                                              : '#8b5cf6';
-                                                                    return (
-                                                                        <div
-                                                                            key={field.key}
-                                                                            style={{
-                                                                                background: '#fafbfc',
-                                                                                borderRadius: '14px',
-                                                                                padding: '14px',
-                                                                                border: '1px solid #eef0f4',
-                                                                                minWidth: 0,
-                                                                                display: 'flex',
-                                                                                flexDirection: 'column',
-                                                                                gap: '8px',
-                                                                            }}
-                                                                        >
-                                                                            <label
-                                                                                style={{
-                                                                                    fontSize: '13px',
-                                                                                    fontWeight: 600,
-                                                                                    color: '#374151',
-                                                                                }}
-                                                                            >
-                                                                                {field.label ?? 'Цвет графиков'}
-                                                                            </label>
-                                                                            {field.hint ? (
-                                                                                <span
+                                                                                        style={{ display: 'none' }}
+                                                                                        disabled={pdfSaving || uploadBusy}
+                                                                                    />
+                                                                                </label>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    disabled={
+                                                                                        pdfSaving ||
+                                                                                        busy ||
+                                                                                        uploadBusy ||
+                                                                                        !thumb
+                                                                                    }
+                                                                                    onClick={() =>
+                                                                                        void resetPdfTemplateImage(field)
+                                                                                    }
                                                                                     style={{
+                                                                                        padding: '8px 14px',
+                                                                                        borderRadius: '999px',
+                                                                                        border: '1px solid #fecaca',
+                                                                                        background: '#fef2f2',
                                                                                         fontSize: '12px',
-                                                                                        color: '#9ca3af',
-                                                                                        lineHeight: 1.4,
+                                                                                        cursor:
+                                                                                            pdfSaving || busy
+                                                                                                ? 'wait'
+                                                                                                : 'pointer',
+                                                                                        color: '#b91c1c',
+                                                                                        alignSelf: 'flex-start',
                                                                                     }}
                                                                                 >
-                                                                                    {field.hint}
-                                                                                </span>
-                                                                            ) : null}
-                                                                            <div
-                                                                                style={{
-                                                                                    display: 'flex',
-                                                                                    gap: '10px',
-                                                                                    alignItems: 'center',
-                                                                                    flexWrap: 'wrap',
-                                                                                }}
-                                                                            >
-                                                                                <input
-                                                                                    type="color"
-                                                                                    value={effectiveHex}
-                                                                                    onChange={(e) =>
-                                                                                        setPdfDraft((d) => ({
-                                                                                            ...d,
-                                                                                            summary_chart_color:
-                                                                                                e.target.value,
-                                                                                        }))
-                                                                                    }
-                                                                                    style={{
-                                                                                        width: 44,
-                                                                                        height: 36,
-                                                                                        padding: 0,
-                                                                                        border: '1px solid #d1d5db',
-                                                                                        borderRadius: 8,
-                                                                                        cursor: 'pointer',
-                                                                                    }}
-                                                                                />
-                                                                                <input
-                                                                                    type="text"
-                                                                                    value={pdfDraft.summary_chart_color}
-                                                                                    onChange={(e) =>
-                                                                                        setPdfDraft((d) => ({
-                                                                                            ...d,
-                                                                                            summary_chart_color:
-                                                                                                e.target.value,
-                                                                                        }))
-                                                                                    }
-                                                                                    placeholder="#RRGGBB"
-                                                                                    style={{
-                                                                                        flex: 1,
-                                                                                        minWidth: '120px',
-                                                                                        padding: '8px 10px',
-                                                                                        borderRadius: '10px',
-                                                                                        border: '1px solid #d1d5db',
-                                                                                        fontSize: '13px',
-                                                                                        fontFamily: 'monospace',
-                                                                                        background: '#fff',
-                                                                                    }}
-                                                                                />
+                                                                                    Сбросить
+                                                                                </button>
                                                                             </div>
                                                                         </div>
-                                                                    );
-                                                                }
-                                                                return null;
-                                                            })}
+                                                                    </div>
+                                                                );
+                                                            }
+                                                            if (field.type === 'color') {
+                                                                const effectiveHex = /^#[0-9A-Fa-f]{6}$/.test(draftValue.trim())
+                                                                    ? draftValue.trim()
+                                                                    : '#8b5cf6';
+                                                                return (
+                                                                    <div
+                                                                        key={field.key}
+                                                                        style={{
+                                                                            background: '#fafbfc',
+                                                                            borderRadius: '14px',
+                                                                            padding: '14px',
+                                                                            border: '1px solid #eef0f4',
+                                                                            minWidth: 0,
+                                                                            display: 'flex',
+                                                                            flexDirection: 'column',
+                                                                            gap: '8px',
+                                                                        }}
+                                                                    >
+                                                                        <label
+                                                                            style={{
+                                                                                fontSize: '13px',
+                                                                                fontWeight: 600,
+                                                                                color: '#374151',
+                                                                            }}
+                                                                        >
+                                                                            {field.label ?? field.key}
+                                                                        </label>
+                                                                        {field.hint ? (
+                                                                            <span
+                                                                                style={{
+                                                                                    fontSize: '12px',
+                                                                                    color: '#9ca3af',
+                                                                                    lineHeight: 1.4,
+                                                                                }}
+                                                                            >
+                                                                                {field.hint}
+                                                                            </span>
+                                                                        ) : null}
+                                                                        <div
+                                                                            style={{
+                                                                                display: 'flex',
+                                                                                gap: '10px',
+                                                                                alignItems: 'center',
+                                                                                flexWrap: 'wrap',
+                                                                            }}
+                                                                        >
+                                                                            <input
+                                                                                type="color"
+                                                                                value={effectiveHex}
+                                                                                onChange={(e) =>
+                                                                                    setPdfDraft((d) => ({
+                                                                                        ...d,
+                                                                                        [field.key]: e.target.value,
+                                                                                    }))
+                                                                                }
+                                                                                style={{
+                                                                                    width: 44,
+                                                                                    height: 36,
+                                                                                    padding: 0,
+                                                                                    border: '1px solid #d1d5db',
+                                                                                    borderRadius: 8,
+                                                                                    cursor: 'pointer',
+                                                                                }}
+                                                                            />
+                                                                            <input
+                                                                                type="text"
+                                                                                value={draftValue}
+                                                                                onChange={(e) =>
+                                                                                    setPdfDraft((d) => ({
+                                                                                        ...d,
+                                                                                        [field.key]: e.target.value,
+                                                                                    }))
+                                                                                }
+                                                                                placeholder="#RRGGBB"
+                                                                                style={{
+                                                                                    flex: 1,
+                                                                                    minWidth: '120px',
+                                                                                    padding: '8px 10px',
+                                                                                    borderRadius: '10px',
+                                                                                    border: '1px solid #d1d5db',
+                                                                                    fontSize: '13px',
+                                                                                    fontFamily: 'monospace',
+                                                                                    background: '#fff',
+                                                                                }}
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            }
+                                                            if (field.type === 'text') {
+                                                                return (
+                                                                    <div
+                                                                        key={field.key}
+                                                                        style={{
+                                                                            background: '#fafbfc',
+                                                                            borderRadius: '14px',
+                                                                            padding: '14px',
+                                                                            border: '1px solid #eef0f4',
+                                                                            minWidth: 0,
+                                                                            display: 'flex',
+                                                                            flexDirection: 'column',
+                                                                            gap: '8px',
+                                                                        }}
+                                                                    >
+                                                                        <label
+                                                                            style={{
+                                                                                fontSize: '13px',
+                                                                                fontWeight: 600,
+                                                                                color: '#374151',
+                                                                            }}
+                                                                        >
+                                                                            {field.label ?? field.key}
+                                                                        </label>
+                                                                        {field.hint ? (
+                                                                            <span
+                                                                                style={{
+                                                                                    fontSize: '12px',
+                                                                                    color: '#9ca3af',
+                                                                                    lineHeight: 1.4,
+                                                                                }}
+                                                                            >
+                                                                                {field.hint}
+                                                                            </span>
+                                                                        ) : null}
+                                                                        <input
+                                                                            type="text"
+                                                                            value={draftValue}
+                                                                            onChange={(e) =>
+                                                                                setPdfDraft((d) => ({
+                                                                                    ...d,
+                                                                                    [field.key]: e.target.value,
+                                                                                }))
+                                                                            }
+                                                                            style={{
+                                                                                width: '100%',
+                                                                                padding: '10px 12px',
+                                                                                borderRadius: '10px',
+                                                                                border: '1px solid #d1d5db',
+                                                                                fontSize: '13px',
+                                                                                background: '#fff',
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                );
+                                                            }
+                                                            if (field.type === 'readonly') {
+                                                                const valueKey = field.value_key || field.key;
+                                                                const readonlyVal = String(
+                                                                    (pdfSettings as unknown as Record<string, unknown>)?.[
+                                                                        valueKey
+                                                                    ] ?? ''
+                                                                );
+                                                                return (
+                                                                    <div
+                                                                        key={field.key}
+                                                                        style={{
+                                                                            background: '#fafbfc',
+                                                                            borderRadius: '14px',
+                                                                            padding: '14px',
+                                                                            border: '1px solid #eef0f4',
+                                                                            minWidth: 0,
+                                                                            display: 'flex',
+                                                                            flexDirection: 'column',
+                                                                            gap: '8px',
+                                                                        }}
+                                                                    >
+                                                                        <label
+                                                                            style={{
+                                                                                fontSize: '13px',
+                                                                                fontWeight: 600,
+                                                                                color: '#374151',
+                                                                            }}
+                                                                        >
+                                                                            {field.label ?? field.key}
+                                                                        </label>
+                                                                        <input
+                                                                            type="text"
+                                                                            value={readonlyVal}
+                                                                            disabled
+                                                                            style={{
+                                                                                width: '100%',
+                                                                                padding: '10px 12px',
+                                                                                borderRadius: '10px',
+                                                                                border: '1px solid #d1d5db',
+                                                                                fontSize: '13px',
+                                                                                background: '#f3f4f6',
+                                                                                color: '#6b7280',
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                );
+                                                            }
+                                                            return null;
+                                                        })}
                                                     </div>
                                                     <div
                                                         style={{
@@ -4300,7 +4501,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                     >
                                                         <button
                                                             type="button"
-                                                            onClick={() => void savePdfSummaryBrandingDraft()}
+                                                            onClick={() => void saveActiveReportTemplateDraft()}
                                                             disabled={
                                                                 pdfSaving ||
                                                                 pdfUploading ||
@@ -4323,12 +4524,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                         : 'pointer',
                                                             }}
                                                         >
-                                                            {pdfSaving
-                                                                ? 'Сохранение…'
-                                                                : 'Сохранить цвет (#RRGGBB)'}
+                                                            {pdfSaving ? 'Сохранение…' : 'Сохранить настройки страницы'}
                                                         </button>
                                                     </div>
-                                                    {pdfGoalCardsManifest ? (
+                                                    {activeReportTemplate?.pageType === 'SUMMARY' && pdfGoalCardsManifest ? (
                                                         <div
                                                             style={{
                                                                 marginTop: '20px',

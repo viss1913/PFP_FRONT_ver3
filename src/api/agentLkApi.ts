@@ -269,6 +269,10 @@ export interface PdfCoverSettings {
     summary_background_url?: string | null;
     summary_logo_url?: string | null;
     summary_chart_color?: string | null;
+    summary_background_darkness_percent?: number | string | null;
+    summary_background_overlay_opacity?: number | string | null;
+    summary_text_color?: string | null;
+    summary_line_color?: string | null;
     summary_layout?: Record<string, unknown> | null;
     /** Иллюстрации по goal_type — только отображение в ЛК. */
     goal_card_assets?: PdfGoalCardAssetsManifest | null;
@@ -325,7 +329,14 @@ export interface PdfCoverSettingsPatch {
     summary_background_url?: string | null;
     summary_logo_url?: string | null;
     summary_chart_color?: string | null;
+    summary_background_darkness_percent?: number | string | null;
+    summary_background_overlay_opacity?: number | string | null;
+    summary_text_color?: string | null;
+    summary_line_color?: string | null;
+    [key: string]: string | number | boolean | null | undefined;
 }
+
+export type PdfEditorPageType = 'SUMMARY' | 'FIN_RESERVE' | 'LIFE' | 'INVESTMENT' | 'OTHER';
 
 export interface PdfCoverBackgroundUploadResponse extends PdfCoverSettingsResponse {
     url: string;
@@ -820,6 +831,33 @@ export const agentLkApi = {
                 /* ignore */
             }
             throw new Error(`summary-preview-html ${r.status}: ${msg}`);
+        }
+        return r.text();
+    },
+
+    /** HTML-превью страницы редактора по типу (без clientId). */
+    getPdfPagePreviewHtml: async (pageType: PdfEditorPageType): Promise<string> => {
+        if (pageType === 'SUMMARY') {
+            return agentLkApi.getPdfSummaryPreviewHtml();
+        }
+        const token = localStorage.getItem('token');
+        const url = `${API_BASE}/pdf-settings/pages/${encodeURIComponent(pageType)}/preview-html?_cb=${Date.now()}`;
+        const r = await fetch(url, {
+            method: 'GET',
+            headers: {
+                Authorization: token ? `Bearer ${token}` : '',
+                'X-Project-Key': PROJECT_KEY,
+                Accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
+            },
+        });
+        if (!r.ok) {
+            let msg = r.statusText;
+            try {
+                msg = (await r.text()).slice(0, 400);
+            } catch {
+                /* ignore */
+            }
+            throw new Error(`pdf-page-preview ${pageType} ${r.status}: ${msg}`);
         }
         return r.text();
     },

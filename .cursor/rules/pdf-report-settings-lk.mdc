@@ -1,0 +1,26 @@
+---
+description: ЛК агента — настройки PDF (обложка, сводная, превью, agentLkApi)
+globs:
+  - src/pages/SettingsPage.tsx
+  - src/api/agentLkApi.ts
+  - api_docs/PDFsettings.yaml
+  - docs/report_page2_sum_front_contract.md
+alwaysApply: false
+---
+
+# PDF-настройки отчёта (ЛК агента)
+
+Полный контекст и чеклисты — в project skill `.cursor/skills/pdf-report-settings-lk/SKILL.md` (прочитай при смене API, превью, загрузки картинок).
+
+**Ключевые файлы**
+
+- UI: `src/pages/SettingsPage.tsx`
+- API/types: `src/api/agentLkApi.ts`
+- OpenAPI: `api_docs/PDFsettings.yaml`
+- Контракт сводной (стр. 2): `docs/report_page2_sum_front_contract.md`
+
+**Коротко**
+
+- Форма из `editor_schema.templates` (`report_cover`, `report_summary_overview` и др.); сохранение через `PATCH` по `field.patch_key`.
+- Превью сводной: `GET …/summary-preview-html` → `fetch` + `iframe srcdoc`, не прямой `iframe.src` с JWT.
+- Пустой `src` в HTML от бэка — сначала проверять ответ сервера, не обвинять только фронт.
