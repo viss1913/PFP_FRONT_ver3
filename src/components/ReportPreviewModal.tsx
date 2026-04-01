@@ -75,7 +75,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
     }, [isOpen, clientId]);
 
     useEffect(() => {
-        if (!isOpen) return;
+        if (!isOpen || clientId == null) return;
 
         let cancelled = false;
         setReportState((prev) => ({ ...prev, loading: true, error: null }));
