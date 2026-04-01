@@ -4,6 +4,7 @@ import { ChatWidget } from './ai/ChatWidget';
 import { aiService } from '../services/aiService';
 import type { AiMessage } from '../types/ai';
 import { useState } from 'react';
+import ReportPreviewModal from './ReportPreviewModal';
 
 interface ResultPageProps {
     data: any;
@@ -19,6 +20,11 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
     const [messages, setMessages] = useState<AiMessage[]>([]);
     const [isTyping, setIsTyping] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
+    const [isReportPreviewOpen, setIsReportPreviewOpen] = useState(false);
+
+    const resolveClientId = () => {
+        return client?.id || (client as any)?.client_id || data?.client_id || data?.client?.id || null;
+    };
 
     const handleSendMessage = async (text: string) => {
         const userMsg: AiMessage = {
@@ -78,24 +84,21 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
                 onDeleteGoal={onDeleteGoal}
                 onRestart={onRestart}
                 onGoToReport={() => {
-                    const clientId =
-                        client?.id ||
-                        (client as any)?.client_id ||
-                        data?.client_id ||
-                        data?.client?.id;
-
-                    // DEBUG ALERT
-                    alert(`Debug: Trying to open report for Client ID: ${clientId}`);
-
-                    if (clientId) {
-                        window.open(`/?page=preview&clientId=${clientId}`, '_blank');
-                    } else {
+                    const clientId = resolveClientId();
+                    if (!clientId) {
                         console.error('Report Error: Could not resolve Client ID', { client, data });
                         alert('Ошибка: Не удалось определить ID клиента (ID пуст). Обновите страницу.');
+                        return;
                     }
+                    setIsReportPreviewOpen(true);
                 }}
                 onRecalculate={onRecalculate}
                 isCalculating={isCalculating}
+            />
+            <ReportPreviewModal
+                isOpen={isReportPreviewOpen}
+                clientId={resolveClientId()}
+                onClose={() => setIsReportPreviewOpen(false)}
             />
             <ChatWidget
                 messages={messages}

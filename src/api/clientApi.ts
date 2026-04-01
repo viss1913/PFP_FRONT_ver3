@@ -11,6 +11,29 @@ const api = axios.create({
     },
 });
 
+export type ReportPageType = 'SUMMARY' | 'FIN_RESERVE' | 'LIFE' | 'INVESTMENT' | 'OTHER';
+
+export interface ReportPdfQuery {
+    includeCover?: 0 | 1;
+    includeSummary?: 0 | 1;
+    goalTypes?: string[];
+    disposition?: 'attachment';
+}
+
+export interface ReportTocItem {
+    id: string;
+    title: string;
+    order: number;
+    page_start: number;
+    page_count: number;
+}
+
+export interface MyPlanReportPdfUrlResponse {
+    pdf_url: string;
+    toc: ReportTocItem[];
+    generated_at: string;
+}
+
 // Helper to get project_id from localStorage
 const getProjectId = (): number => {
     try {
@@ -141,6 +164,41 @@ export const clientApi = {
     // Report: Get PDF Report Data
     getReport: async (clientId: number): Promise<any> => {
         const response = await api.get(`/pfp/reports/${clientId}`);
+        return response.data;
+    },
+
+    getReportPageHtml: async (clientId: number, pageType: ReportPageType): Promise<string> => {
+        const response = await api.get(`/pfp/reports/${clientId}/pages/${pageType}/html`, {
+            responseType: 'text',
+            headers: {
+                Accept: 'text/html',
+            },
+        });
+        return response.data;
+    },
+
+    getReportPdfBlob: async (clientId: number, query: ReportPdfQuery = {}): Promise<Blob> => {
+        const params: Record<string, string> = {};
+        if (query.includeCover !== undefined) params.includeCover = String(query.includeCover);
+        if (query.includeSummary !== undefined) params.includeSummary = String(query.includeSummary);
+        if (query.goalTypes?.length) params.goalTypes = query.goalTypes.join(',');
+        if (query.disposition) params.disposition = query.disposition;
+
+        const response = await api.get(`/pfp/reports/${clientId}/pdf`, {
+            params,
+            responseType: 'blob',
+            timeout: 120000,
+            headers: {
+                Accept: 'application/pdf',
+            },
+        });
+        return response.data;
+    },
+
+    getMyPlanReportPdfUrl: async (): Promise<MyPlanReportPdfUrlResponse> => {
+        const response = await api.get<MyPlanReportPdfUrlResponse>('/my/plan/report/pdf-url', {
+            timeout: 120000,
+        });
         return response.data;
     }
 };
