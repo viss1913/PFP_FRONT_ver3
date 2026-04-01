@@ -34,6 +34,11 @@ export interface MyPlanReportPdfUrlResponse {
     generated_at: string;
 }
 
+export interface AgentReportPdfUrlQuery {
+    includeCover?: boolean;
+    includeSummary?: boolean;
+}
+
 // Helper to get project_id from localStorage
 const getProjectId = (): number => {
     try {
@@ -195,8 +200,15 @@ export const clientApi = {
         return response.data;
     },
 
-    getMyPlanReportPdfUrl: async (): Promise<MyPlanReportPdfUrlResponse> => {
-        const response = await api.get<MyPlanReportPdfUrlResponse>('/my/plan/report/pdf-url', {
+    getAgentReportPdfUrl: async (
+        clientId: number,
+        query: AgentReportPdfUrlQuery = { includeCover: true, includeSummary: true }
+    ): Promise<MyPlanReportPdfUrlResponse> => {
+        const response = await api.get<MyPlanReportPdfUrlResponse>(`/pfp/reports/${clientId}/pdf-url`, {
+            params: {
+                includeCover: String(query.includeCover ?? true),
+                includeSummary: String(query.includeSummary ?? true),
+            },
             timeout: 120000,
         });
         return response.data;

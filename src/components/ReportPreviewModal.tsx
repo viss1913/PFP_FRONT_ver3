@@ -60,7 +60,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
     const generatedAtLabel = useMemo(() => formatGeneratedAt(reportState.generatedAt), [reportState.generatedAt]);
 
     useEffect(() => {
-        if (!isOpen) return;
+        if (!isOpen || !clientId) return;
         const prevOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
         return () => {
@@ -81,7 +81,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
         setReportState((prev) => ({ ...prev, loading: true, error: null }));
 
         clientApi
-            .getMyPlanReportPdfUrl()
+            .getAgentReportPdfUrl(clientId)
             .then((payload) => {
                 if (cancelled) return;
                 const sortedToc = [...(payload.toc || [])].sort((a, b) => a.order - b.order);
@@ -107,7 +107,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
         return () => {
             cancelled = true;
         };
-    }, [isOpen]);
+    }, [isOpen, clientId]);
 
     useEffect(() => {
         if (!isOpen) return;
