@@ -208,6 +208,8 @@ export interface AiB2cStage {
     stage_key?: string;
     title?: string;
     content?: string;
+    /** Правила роутера (первый ИИ) */
+    command_context_text?: string | null;
     is_active?: boolean;
     priority?: number;
     project_id?: number | null;
@@ -218,6 +220,7 @@ export interface AiB2cStageCreate {
     stage_key: string;
     title: string;
     content: string;
+    command_context_text?: string | null;
     is_active?: boolean;
     priority?: number;
 }
@@ -226,6 +229,7 @@ export interface AiB2cStageUpdate {
     stage_key?: string;
     title?: string;
     content?: string;
+    command_context_text?: string | null;
     is_active?: boolean;
     priority?: number;
 }

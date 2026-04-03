@@ -1452,16 +1452,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     const [editingChatStageId, setEditingChatStageId] = useState<number | string | null>(null);
     const [chatStageForm, setChatStageForm] = useState<{
         stage_key: string;
-        title: string;
-        content: string;
+        classifier: string;
+        response: string;
         is_active: boolean;
-        priority: string;
     }>({
         stage_key: '',
-        title: '',
-        content: '',
+        classifier: '',
+        response: '',
         is_active: true,
-        priority: '100',
     });
     const [savingAiB2c, setSavingAiB2c] = useState(false);
     const [deletingAiB2cId, setDeletingAiB2cId] = useState<string | null>(null);
@@ -2604,23 +2602,22 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
 
     const openChatStageCreate = () => {
         setEditingChatStageId(null);
-        setChatStageForm({ stage_key: '', title: '', content: '', is_active: true, priority: '100' });
+        setChatStageForm({ stage_key: '', classifier: '', response: '', is_active: true });
         setChatStageModalOpen(true);
     };
     const openChatStageEdit = (s: AiB2cStage) => {
         setEditingChatStageId(s.id);
         setChatStageForm({
             stage_key: (s.stage_key ?? '').toString(),
-            title: (s.title ?? '').toString(),
-            content: (s.content ?? '').toString(),
+            classifier: ((s as any).command_context_text ?? '').toString(),
+            response: (s.content ?? '').toString(),
             is_active: s.is_active !== false,
-            priority: String(s.priority ?? 100),
         });
         setChatStageModalOpen(true);
     };
     const saveChatStage = async () => {
-        if (!chatStageForm.stage_key.trim() || !chatStageForm.title.trim()) {
-            setError('Введите ключ и название сценария для чата.');
+        if (!chatStageForm.stage_key.trim()) {
+            setError('Введите ключ сценария для чата.');
             return;
         }
         try {
@@ -2628,10 +2625,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             setError(null);
             const payload: AiB2cStageCreate = {
                 stage_key: chatStageForm.stage_key.trim(),
-                title: chatStageForm.title.trim(),
-                content: chatStageForm.content.trim(),
+                // Для бэка заголовок дублируем из ключа
+                title: chatStageForm.stage_key.trim(),
+                content: chatStageForm.response.trim(),
+                command_context_text: chatStageForm.classifier.trim() || null,
                 is_active: chatStageForm.is_active,
-                priority: Number(chatStageForm.priority) || 0,
+                priority: 0,
             };
             if (editingChatStageId != null) {
                 const updated = await agentLkApi.updateChatStage(editingChatStageId, payload);
@@ -6970,23 +6969,38 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                     />
                                 </div>
                                 <div>
-                                    <label style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Название</label>
-                                    <input
-                                        type="text"
-                                        value={chatStageForm.title}
-                                        onChange={(e) => setChatStageForm((prev) => ({ ...prev, title: e.target.value }))}
-                                        style={{ width: '100%', padding: '8px 10px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '13px' }}
-                                        placeholder="Напр. Диалог по целям клиента"
-                                        required
+                                    <label style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
+                                        Контекст для роутера (classifier)
+                                    </label>
+                                    <textarea
+                                        value={chatStageForm.classifier}
+                                        onChange={(e) =>
+                                            setChatStageForm((prev) => ({ ...prev, classifier: e.target.value }))
+                                        }
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px 14px',
+                                            borderRadius: '10px',
+                                            border: '1px solid #e5e7eb',
+                                            fontSize: '15px',
+                                            lineHeight: 1.5,
+                                            minHeight: '180px',
+                                            resize: 'vertical',
+                                        }}
+                                        placeholder="Правила и команды для ИИ-роутера (classifier)…"
                                     />
                                 </div>
                                 <div>
-                                    <label style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Описание / подсказки для ИИ</label>
+                                    <label style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
+                                        Контекст ответа (response)
+                                    </label>
                                     <textarea
-                                        value={chatStageForm.content}
-                                        onChange={(e) => setChatStageForm((prev) => ({ ...prev, content: e.target.value }))}
+                                        value={chatStageForm.response}
+                                        onChange={(e) =>
+                                            setChatStageForm((prev) => ({ ...prev, response: e.target.value }))
+                                        }
                                         style={{ width: '100%', padding: '12px 14px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '15px', lineHeight: 1.5, minHeight: '300px', resize: 'vertical' }}
-                                        placeholder="Описание чат-сценария и подсказки для ИИ..."
+                                        placeholder="Ответы/шаблоны ответов для этого чат-сценария…"
                                     />
                                 </div>
                                 <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
@@ -6998,15 +7012,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                         />
                                         Активен
                                     </label>
-                                    <div>
-                                        <label style={{ fontSize: '12px', color: '#6b7280', marginRight: '6px' }}>Приоритет</label>
-                                        <input
-                                            type="number"
-                                            value={chatStageForm.priority}
-                                            onChange={(e) => setChatStageForm((prev) => ({ ...prev, priority: e.target.value }))}
-                                            style={{ width: '80px', padding: '6px 8px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '13px' }}
-                                        />
-                                    </div>
                                 </div>
                                 <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                                     <button type="button" onClick={() => !savingAiB2c && setChatStageModalOpen(false)} style={{ padding: '8px 16px', borderRadius: '10px', border: '1px solid #e5e7eb', background: '#fff', fontSize: '13px', cursor: 'pointer' }}>Отмена</button>
