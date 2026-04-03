@@ -6,6 +6,16 @@ info:
     Авторизация происходит через стандартный `/api/auth/login`. 
     Все методы работают с привязкой к `project_id` авторизованного агента.
     Системные (дефолтные) продукты и портфели (где `project_id == null`) доступны Агенту только на чтение и клонирование.
+
+    **Настройки PDF-отчёта** (обложка, сводная, `goal_card_assets` для превью карточек целей): отдельная спека **`openapi/PDFsettings.yaml`**, Swagger UI: `/api-docs-pdf-settings`, префикс путей `/api/pfp/pdf-settings`.
+
+    **AI B2C в ЛК агента — два независимых набора контекстов:**
+    - **Site** — `/pfp/ai-b2c/brain-contexts`, `/pfp/ai-b2c/stages` (клиентский сайт: обычный чат и dynamic-flow).
+    - **chat_AI** — `/pfp/ai-b2c-chat/brain-contexts`, `/pfp/ai-b2c-chat/stages` (отдельный endpoint клиента `POST /my/ai-b2c/chat_AI/stream`, своя история в БД).
+    У **каждой стадии** два поля: `content` (промпт второго ИИ — ответ пользователю) и `command_context_text` (правила первого ИИ — команды `/…` для перехода на другую стадию). Если `command_context_text` пустой, роутер использует глобальный `dynamic_context_text` из `GET/PUT /pfp/ai-b2c/settings`.
+    Схемы тел запросов: **`docs/api/aiB2c.yaml`** (`AiB2cBrainContextCreate`, `AiB2cStageCreate`, …).
+
+    **Конструктор ИИ (бот для клиентов, CJM-команды, brain-contexts):** префикс **`/pfp/constructor`**. Регистрация бота (Telegram / MAX и др.), шаблоны команд сценария (`GET/POST/PUT/DELETE …/commands`), дополнительные контексты (`…/brain-contexts`), клиенты и переписка. Алиасы путей для совместимости: `templates`, `constructor_commands`, `constructor_brain_contexts` — те же обработчики, что и у `commands` / `brain-contexts`. Вебхук MAX: `POST /api/pfp/constructor/webhook/max/{botId}` (без JWT, секрет в заголовке при настройке бота).
   version: 1.0.0
 servers:
   - url: /api
@@ -435,13 +445,18 @@ paths:
   /pfp/ai-b2c/stages:
     get:
       tags: [ "AI B2C (настройки Агента)" ]
-      summary: Список стейджей (сценариев) B2C AI для проекта Агента
+      summary: Список стейджей (сценариев) B2C AI для проекта Агента (site)
+      description: |
+        Каждая запись: `stage_key`, `title`, **`content`** (промпт второго ИИ), **`command_context_text`** (промпт первого ИИ-роутера на этой стадии, опционально),
+        `is_active`, `priority`. Не смешивать с префиксом `/pfp/ai-b2c-chat/…` — там отдельная копия для chat_AI.
       responses:
         '200':
           description: Успешно
     post:
       tags: [ "AI B2C (настройки Агента)" ]
-      summary: Создать новый стейдж
+      summary: Создать новый стейдж (site)
+      description: |
+        Обязательны `stage_key`, `title`, `content`. Опционально `command_context_text` — если задан, первый ИИ в dynamic-flow опирается на него; иначе — на `dynamic_context_text` из `/pfp/ai-b2c/settings`.
       requestBody:
         required: true
         content:
@@ -455,7 +470,9 @@ paths:
   /pfp/ai-b2c/stages/{id}:
     put:
       tags: [ "AI B2C (настройки Агента)" ]
-      summary: Обновить стейдж
+      summary: Обновить стейдж (site)
+      description: |
+        Частичное обновление: можно передать, в том числе, `command_context_text` или обнулить его (роутер тогда снова возьмёт глобальный `dynamic_context_text`).
       parameters:
         - name: id
           in: path
@@ -483,6 +500,481 @@ paths:
       responses:
         '204':
           description: Удалено
+
+  /pfp/ai-b2c-chat/brain-contexts:
+    get:
+      tags: [ "AI B2C (настройки Агента)" ]
+      summary: Список brain-contexts для chat_AI B2C AI в проекте Агента
+      description: |
+        Отдельные записи от site: используются только потоком `POST /my/ai-b2c/chat_AI/stream`. Поля как у site brain-contexts: `title`, `content`, `is_active`, `priority`.
+      responses:
+        '200':
+          description: Успешно
+    post:
+      tags: [ "AI B2C (настройки Агента)" ]
+      summary: Создать новый brain-context для chat_AI B2C AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: './aiB2c.yaml#/components/schemas/AiB2cBrainContextCreate'
+      responses:
+        '201':
+          description: Создано
+
+  /pfp/ai-b2c-chat/brain-contexts/{id}:
+    put:
+      tags: [ "AI B2C (настройки Агента)" ]
+      summary: Обновить brain-context (chat_AI)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: './aiB2c.yaml#/components/schemas/AiB2cBrainContextUpdate'
+      responses:
+        '200':
+          description: Успешно обновлено
+    delete:
+      tags: [ "AI B2C (настройки Агента)" ]
+      summary: Удалить brain-context (chat_AI)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Удалено
+
+  /pfp/ai-b2c-chat/stages:
+    get:
+      tags: [ "AI B2C (настройки Агента)" ]
+      summary: Список стейджей (сценариев) chat_AI B2C AI для проекта Агента
+      description: |
+        Структура как у site stages: **`content`** + **`command_context_text`**. Клиентский чат chat_AI читает только эту таблицу и свою историю.
+      responses:
+        '200':
+          description: Успешно
+    post:
+      tags: [ "AI B2C (настройки Агента)" ]
+      summary: Создать новый стейдж (chat_AI)
+      description: |
+        Как `POST /pfp/ai-b2c/stages`, но для chat_AI. Обязательны `stage_key`, `title`, `content`; опционально `command_context_text`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: './aiB2c.yaml#/components/schemas/AiB2cStageCreate'
+      responses:
+        '201':
+          description: Создано
+
+  /pfp/ai-b2c-chat/stages/{id}:
+    put:
+      tags: [ "AI B2C (настройки Агента)" ]
+      summary: Обновить стейдж (chat_AI)
+      description: |
+        В том числе правка `command_context_text` и `content` независимо друг от друга.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: './aiB2c.yaml#/components/schemas/AiB2cStageUpdate'
+      responses:
+        '200':
+          description: Успешно обновлено
+    delete:
+      tags: [ "AI B2C (настройки Агента)" ]
+      summary: Удалить стейдж (chat_AI)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Удалено
+
+  /pfp/ai-b2c/settings:
+    get:
+      tags: [ "AI B2C (настройки Агента)" ]
+      summary: Получить настройки B2C AI ассистента
+      description: |
+        Возвращает настройки ассистента в рамках проекта агента:
+        `display_name`, `avatar_url`, `tagline` и **`dynamic_context_text`** — глобальный текст для первого ИИ (роутер), если у текущей стадии не задан свой `command_context_text` (см. stages site и chat_AI).
+      responses:
+        '200':
+          description: Настройки или null, если ещё не заданы
+          content:
+            application/json:
+              schema:
+                $ref: './aiB2c.yaml#/components/schemas/AiB2cSettings'
+    put:
+      tags: [ "AI B2C (настройки Агента)" ]
+      summary: Обновить настройки B2C AI ассистента
+      description: |
+        Обновляет бренд и глобальный fallback роутера: `display_name`, `tagline`, **`dynamic_context_text`** (общий для site dynamic-flow и chat_AI, когда у стадии пустой `command_context_text`).
+        `avatar_url` контролируется отдельным эндпоинтом `POST /pfp/ai-b2c/avatar-upload`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                display_name:
+                  type: string
+                tagline:
+                  type: string
+                dynamic_context_text:
+                  type: string
+      responses:
+        '200':
+          description: Настройки обновлены
+          content:
+            application/json:
+              schema:
+                $ref: './aiB2c.yaml#/components/schemas/AiB2cSettings'
+        '201':
+          description: Настройки созданы впервые
+          content:
+            application/json:
+              schema:
+                $ref: './aiB2c.yaml#/components/schemas/AiB2cSettings'
+
+  # ==================== КОНСТРУКТОР ИИ (бот, команды CJM, brain-contexts) ====================
+  /pfp/constructor/bot:
+    post:
+      tags: [ "Конструктор ИИ" ]
+      summary: Зарегистрировать или обновить бота конструктора
+      description: |
+        Одна запись бота на пару (агент, проект, `bot_type`): при повторном вызове — обновление полей и перезапуск бота.
+        Для MAX: задайте `webhook_secret` и укажите вебхук на `POST /api/pfp/constructor/webhook/max/{id}` (id бота из ответа списка/БД).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConstructorBotRegister'
+      responses:
+        '200':
+          description: Бот сохранён и перезапущен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConstructorBotRegisterResponse'
+        '500':
+          description: Ошибка сохранения
+    get:
+      tags: [ "Конструктор ИИ" ]
+      summary: Список ботов агента в проекте (или один по типу)
+      parameters:
+        - name: bot_type
+          in: query
+          required: false
+          schema:
+            type: string
+            example: telegram
+          description: Если указан — в ответе один объект бота или пустой объект `{}`
+      responses:
+        '200':
+          description: Массив ботов или один объект при `bot_type`
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/ConstructorBot'
+                  - $ref: '#/components/schemas/ConstructorBot'
+                  - type: object
+                    description: Пустой объект, если бот с указанным bot_type не найден
+                    additionalProperties: false
+
+  /pfp/constructor/clients:
+    get:
+      tags: [ "Конструктор ИИ" ]
+      summary: Клиенты ботов конструктора
+      parameters:
+        - name: bot_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Фильтр по id бота; иначе — клиенты всех ботов агента
+      responses:
+        '200':
+          description: Список с полями сессии и последним сообщением
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConstructorClientRow'
+
+  /pfp/constructor/messages/{clientId}:
+    get:
+      tags: [ "Конструктор ИИ" ]
+      summary: История сообщений с клиентом
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Сообщения по сессиям клиента
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConstructorChatMessage'
+        '403':
+          description: Клиент не принадлежит боту агента
+
+  /pfp/constructor/send-message:
+    post:
+      tags: [ "Конструктор ИИ" ]
+      summary: Отправить сообщение клиенту из ЛК (текст или медиа)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConstructorSendMessageBody'
+      responses:
+        '200':
+          description: Отправлено
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  messageId: { type: string }
+        '403':
+          description: Нет доступа к клиенту
+        '500':
+          description: Ошибка мессенджера
+
+  /pfp/constructor/broadcast:
+    post:
+      tags: [ "Конструктор ИИ" ]
+      summary: Рассылка всем клиентам первого бота агента
+      description: Берётся первый бот по `agent_id` (как в коде контроллера).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConstructorBroadcastBody'
+      responses:
+        '200':
+          description: Результаты рассылки
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  results:
+                    type: object
+        '404':
+          description: Бот не найден
+
+  /pfp/constructor/bots:
+    get:
+      tags: [ "Конструктор ИИ" ]
+      summary: Список ботов (с email агента)
+      description: |
+        В ЛК агента выборка ограничивается `project_id` из контекста авторизации.
+        Поле `agent_email` приходит из join с `agents`.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  allOf:
+                    - $ref: '#/components/schemas/ConstructorBot'
+                    - type: object
+                      properties:
+                        agent_email: { type: string, nullable: true }
+
+  /pfp/constructor/commands:
+    get:
+      tags: [ "Конструктор ИИ" ]
+      summary: Список команд CJM (шаблоны проекта или привязка к боту)
+      description: |
+        Без `bot_id`: по умолчанию шаблоны (`is_template: true`) текущего `project_id`.
+        С `bot_id` — команды этого бота. С `is_template=true|false` — фильтр по шаблонам и проекту.
+      parameters:
+        - name: bot_id
+          in: query
+          schema: { type: string }
+        - name: is_template
+          in: query
+          schema: { type: boolean }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConstructorCommand'
+    post:
+      tags: [ "Конструктор ИИ" ]
+      summary: Создать команду или шаблон
+      description: |
+        Если не передан `bot_id`, запись создаётся как шаблон проекта (`is_template` по умолчанию true).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConstructorCommandCreate'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer, format: int64 }
+                  success: { type: boolean, example: true }
+
+  /pfp/constructor/commands/{id}:
+    put:
+      tags: [ "Конструктор ИИ" ]
+      summary: Обновить команду
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConstructorCommandUpdate'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+    delete:
+      tags: [ "Конструктор ИИ" ]
+      summary: Удалить команду
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+
+  /pfp/constructor/brain-contexts:
+    get:
+      tags: [ "Конструктор ИИ" ]
+      summary: Список brain-contexts проекта
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConstructorBrainContext'
+    post:
+      tags: [ "Конструктор ИИ" ]
+      summary: Создать brain-context
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConstructorBrainContextCreate'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  id: { type: integer, format: int64 }
+
+  /pfp/constructor/brain-contexts/{id}:
+    put:
+      tags: [ "Конструктор ИИ" ]
+      summary: Обновить brain-context
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConstructorBrainContextUpdate'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+    delete:
+      tags: [ "Конструктор ИИ" ]
+      summary: Удалить brain-context
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
 
   # ==================== COMON (общие, под авторизацией PFP) ====================
   /pfp/comon/maintenance-info:
@@ -636,6 +1128,29 @@ paths:
           description: success true
         "404":
           description: Не найдено
+
+  /pfp/agent/comon-strategies/{id}/preview:
+    get:
+      tags: [ "Стратегии Comon (агент)" ]
+      summary: Экран «посмотреть у себя» — карточка + ряд Comon + метрики (один вызов к Comon)
+      description: Удобно для ЛК агента (график и цифры без трёх отдельных запросов).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: success, data.strategy, data.comon_profit, data.metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentComonStrategyPreviewResponse"
+        "404":
+          description: Не найдено
+        "502":
+          description: Ошибка Comon
 
   /pfp/agent/comon-strategies/{id}/profit:
     get:
@@ -825,6 +1340,188 @@ components:
           type: boolean
         data:
           $ref: "#/components/schemas/AgentComonStrategyCard"
+
+    AgentComonStrategyPreviewResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            strategy:
+              $ref: "#/components/schemas/AgentComonStrategyCard"
+            comon_profit:
+              type: object
+              description: Сырой JSON ответа Comon /api/v2/strategies/.../profit
+            metrics:
+              type: object
+              description: Результат computeComonProfitMetrics (ok, total_return_pct, cagr_annualized_pct, definitions, …)
+
+    ConstructorBotRegister:
+      type: object
+      properties:
+        name:
+          type: string
+        link:
+          type: string
+          nullable: true
+          description: Ссылка на бота (публичная)
+        token:
+          type: string
+          description: Токен Telegram / MAX API
+        webhook_secret:
+          type: string
+          nullable: true
+          description: Секрет для заголовка вебхука MAX (например x-max-bot-api-secret)
+        communication_style:
+          type: string
+          nullable: true
+        base_brain_context:
+          type: string
+          nullable: true
+          description: Базовый системный контекст бота
+        bot_type:
+          type: string
+          default: telegram
+          description: telegram, max и т.д.
+
+    ConstructorBotRegisterResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        message:
+          type: string
+          example: Bot registered and started
+
+    ConstructorBot:
+      type: object
+      description: Строка из `constructor_bots` (в ответе может быть `token` — секрет)
+      properties:
+        id: { type: integer, format: int64 }
+        agent_id: { type: integer, format: int64 }
+        project_id: { type: integer, format: int64, nullable: true }
+        name: { type: string }
+        link: { type: string, nullable: true }
+        token: { type: string }
+        webhook_secret: { type: string, nullable: true }
+        bot_type: { type: string }
+        communication_style: { type: string, nullable: true }
+        base_brain_context: { type: string, nullable: true }
+        is_active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ConstructorClientRow:
+      type: object
+      description: Клиент + join сессии и бота (фактические поля из выборки)
+      properties:
+        id: { type: integer, format: int64 }
+        bot_id: { type: integer, format: int64 }
+        user_id: { type: string }
+        nickname: { type: string, nullable: true }
+        user_context: { type: string, nullable: true }
+        current_stage: { type: string, nullable: true, description: Текст команды (`constructor_commands.command`) }
+        bot_type: { type: string, nullable: true }
+        bot_name: { type: string, nullable: true }
+        last_message: { type: string, nullable: true }
+        last_message_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ConstructorChatMessage:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        user_message: { type: string }
+        assistant_message: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    ConstructorSendMessageBody:
+      type: object
+      required: [clientId]
+      properties:
+        clientId: { type: string }
+        text: { type: string, nullable: true }
+        photo: { type: string, nullable: true }
+        video: { type: string, nullable: true }
+        voice: { type: string, nullable: true }
+        audio: { type: string, nullable: true }
+        document: { type: string, nullable: true }
+
+    ConstructorBroadcastBody:
+      type: object
+      properties:
+        text: { type: string, nullable: true }
+        photo: { type: string, nullable: true }
+        video: { type: string, nullable: true }
+        voice: { type: string, nullable: true }
+        audio: { type: string, nullable: true }
+        document: { type: string, nullable: true }
+
+    ConstructorCommand:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        bot_id: { type: integer, format: int64, nullable: true }
+        project_id: { type: integer, format: int64, nullable: true }
+        command: { type: string, description: Команда/стадия, напр. /start }
+        classifier: { type: string, description: Правила классификации для ИИ }
+        response: { type: string, description: Ответ или шаблон ответа на стадии }
+        section: { type: string, nullable: true }
+        is_template: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ConstructorCommandCreate:
+      type: object
+      required: [command, classifier, response]
+      properties:
+        command: { type: string }
+        classifier: { type: string }
+        response: { type: string }
+        section: { type: string, nullable: true }
+        is_template: { type: boolean }
+        bot_id: { type: string, nullable: true }
+
+    ConstructorCommandUpdate:
+      type: object
+      properties:
+        command: { type: string }
+        classifier: { type: string }
+        response: { type: string }
+        section: { type: string, nullable: true }
+        is_template: { type: boolean }
+        bot_id: { type: string, nullable: true }
+
+    ConstructorBrainContext:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        project_id: { type: integer, format: int64, nullable: true }
+        title: { type: string }
+        content: { type: string }
+        is_active: { type: boolean }
+        priority: { type: integer }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ConstructorBrainContextCreate:
+      type: object
+      required: [title, content]
+      properties:
+        title: { type: string }
+        content: { type: string }
+        is_active: { type: boolean, default: true }
+        priority: { type: integer, default: 0 }
+
+    ConstructorBrainContextUpdate:
+      type: object
+      properties:
+        title: { type: string }
+        content: { type: string }
+        is_active: { type: boolean }
+        priority: { type: integer }
 
   securitySchemes:
     bearerAuth:

@@ -603,6 +603,67 @@ export const agentLkApi = {
         });
     },
 
+    // --- AI B2C chat: brain-contexts ---
+
+    getChatBrainContexts: async (): Promise<AiB2cBrainContext[]> => {
+        const response = await axios.get(`${API_BASE}/ai-b2c-chat/brain-contexts`, {
+            headers: getHeaders(),
+        });
+        return response.data;
+    },
+
+    createChatBrainContext: async (payload: AiB2cBrainContextCreate): Promise<AiB2cBrainContext> => {
+        const response = await axios.post(`${API_BASE}/ai-b2c-chat/brain-contexts`, payload, {
+            headers: getHeaders(),
+        });
+        return response.data;
+    },
+
+    updateChatBrainContext: async (
+        id: number | string,
+        payload: AiB2cBrainContextUpdate,
+    ): Promise<AiB2cBrainContext> => {
+        const response = await axios.put(`${API_BASE}/ai-b2c-chat/brain-contexts/${id}`, payload, {
+            headers: getHeaders(),
+        });
+        return response.data;
+    },
+
+    deleteChatBrainContext: async (id: number | string): Promise<void> => {
+        await axios.delete(`${API_BASE}/ai-b2c-chat/brain-contexts/${id}`, {
+            headers: getHeaders(),
+        });
+    },
+
+    // --- AI B2C chat: stages ---
+
+    getChatStages: async (): Promise<AiB2cStage[]> => {
+        const response = await axios.get(`${API_BASE}/ai-b2c-chat/stages`, {
+            headers: getHeaders(),
+        });
+        return response.data;
+    },
+
+    createChatStage: async (payload: AiB2cStageCreate): Promise<AiB2cStage> => {
+        const response = await axios.post(`${API_BASE}/ai-b2c-chat/stages`, payload, {
+            headers: getHeaders(),
+        });
+        return response.data;
+    },
+
+    updateChatStage: async (id: number | string, payload: AiB2cStageUpdate): Promise<AiB2cStage> => {
+        const response = await axios.put(`${API_BASE}/ai-b2c-chat/stages/${id}`, payload, {
+            headers: getHeaders(),
+        });
+        return response.data;
+    },
+
+    deleteChatStage: async (id: number | string): Promise<void> => {
+        await axios.delete(`${API_BASE}/ai-b2c-chat/stages/${id}`, {
+            headers: getHeaders(),
+        });
+    },
+
     // --- Настройки планов (инфляция, рост расходов, доходность пассивного дохода) ---
 
     /** Список настроек по категории (calculation, pension и т.д.) */

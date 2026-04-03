@@ -46,7 +46,14 @@ interface SettingsPageProps {
     onNavigate: (page: NavPage) => void;
 }
 
-type SettingsTab = 'products' | 'portfolios' | 'plans' | 'ai-b2c' | 'report' | 'comon-strategies';
+type SettingsTab =
+    | 'products'
+    | 'portfolios'
+    | 'plans'
+    | 'ai-b2c-site'
+    | 'ai-b2c-chat'
+    | 'report'
+    | 'comon-strategies';
 
 type ReportSubPage = string;
 
@@ -1043,7 +1050,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                 return 'Портфели';
             case 'plans':
                 return 'Планы и инфляция';
-            case 'ai-b2c':
+            case 'ai-b2c-site':
+                return 'Сайт';
+            case 'ai-b2c-chat':
                 return 'AI B2C';
             case 'report':
                 return 'Отчёт';
@@ -1054,7 +1063,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         }
     };
 
-    const tabs: SettingsTab[] = ['products', 'portfolios', 'plans', 'ai-b2c', 'report', 'comon-strategies'];
+    const tabs: SettingsTab[] = [
+        'products',
+        'portfolios',
+        'plans',
+        'ai-b2c-site',
+        'ai-b2c-chat',
+        'report',
+        'comon-strategies',
+    ];
 
     useEffect(() => {
         const load = async () => {
@@ -1098,7 +1115,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     }, [activeTab, products, portfolios, portfolioClasses, productTypes]);
 
     useEffect(() => {
-        if (activeTab !== 'ai-b2c') return;
+        if (activeTab !== 'ai-b2c-site') return;
         const load = async () => {
             try {
                 setAiB2cLoading(true);
@@ -1124,6 +1141,25 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                 setError('Не удалось загрузить настройки ИИ. Проверьте API.');
             } finally {
                 setAiB2cLoading(false);
+            }
+        };
+        void load();
+    }, [activeTab]);
+
+    useEffect(() => {
+        if (activeTab !== 'ai-b2c-chat') return;
+        const load = async () => {
+            try {
+                setError(null);
+                const [ctx, st] = await Promise.all([
+                    agentLkApi.getChatBrainContexts(),
+                    agentLkApi.getChatStages(),
+                ]);
+                setChatBrainContexts(ctx);
+                setChatStages(st);
+            } catch (e) {
+                console.error('Failed to load AI B2C chat:', e);
+                setError('Не удалось загрузить AI B2C (чат). Проверьте API.');
             }
         };
         void load();
@@ -1379,6 +1415,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     const [brainContexts, setBrainContexts] = useState<AiB2cBrainContext[] | null>(null);
     const [stages, setStages] = useState<AiB2cStage[] | null>(null);
     const [aiB2cLoading, setAiB2cLoading] = useState(false);
+    const [chatBrainContexts, setChatBrainContexts] = useState<AiB2cBrainContext[] | null>(null);
+    const [chatStages, setChatStages] = useState<AiB2cStage[] | null>(null);
     const [brainModalOpen, setBrainModalOpen] = useState(false);
     const [editingBrainId, setEditingBrainId] = useState<number | string | null>(null);
     const [brainForm, setBrainForm] = useState<{ title: string; content: string; is_active: boolean; priority: string }>({
@@ -1390,6 +1428,29 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     const [stageModalOpen, setStageModalOpen] = useState(false);
     const [editingStageId, setEditingStageId] = useState<number | string | null>(null);
     const [stageForm, setStageForm] = useState<{
+        stage_key: string;
+        title: string;
+        content: string;
+        is_active: boolean;
+        priority: string;
+    }>({
+        stage_key: '',
+        title: '',
+        content: '',
+        is_active: true,
+        priority: '100',
+    });
+    const [chatBrainModalOpen, setChatBrainModalOpen] = useState(false);
+    const [editingChatBrainId, setEditingChatBrainId] = useState<number | string | null>(null);
+    const [chatBrainForm, setChatBrainForm] = useState<{ title: string; content: string; is_active: boolean; priority: string }>({
+        title: '',
+        content: '',
+        is_active: true,
+        priority: '10',
+    });
+    const [chatStageModalOpen, setChatStageModalOpen] = useState(false);
+    const [editingChatStageId, setEditingChatStageId] = useState<number | string | null>(null);
+    const [chatStageForm, setChatStageForm] = useState<{
         stage_key: string;
         title: string;
         content: string;
@@ -2482,6 +2543,126 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         }
     };
 
+    const openChatBrainCreate = () => {
+        setEditingChatBrainId(null);
+        setChatBrainForm({ title: '', content: '', is_active: true, priority: '10' });
+        setChatBrainModalOpen(true);
+    };
+    const openChatBrainEdit = (c: AiB2cBrainContext) => {
+        setEditingChatBrainId(c.id);
+        setChatBrainForm({
+            title: (c.title ?? '').toString(),
+            content: (c.content ?? '').toString(),
+            is_active: c.is_active !== false,
+            priority: String(c.priority ?? 10),
+        });
+        setChatBrainModalOpen(true);
+    };
+    const saveChatBrainContext = async () => {
+        if (!chatBrainForm.title.trim()) {
+            setError('Введите название контекста для чата.');
+            return;
+        }
+        try {
+            setSavingAiB2c(true);
+            setError(null);
+            const payload: AiB2cBrainContextCreate = {
+                title: chatBrainForm.title.trim(),
+                content: chatBrainForm.content.trim(),
+                is_active: chatBrainForm.is_active,
+                priority: Number(chatBrainForm.priority) || 0,
+            };
+            if (editingChatBrainId != null) {
+                const updated = await agentLkApi.updateChatBrainContext(editingChatBrainId, payload);
+                setChatBrainContexts((prev) =>
+                    prev ? prev.map((x) => (String(x.id) === String(editingChatBrainId) ? updated : x)) : [updated],
+                );
+            } else {
+                const created = await agentLkApi.createChatBrainContext(payload);
+                setChatBrainContexts((prev) => (prev ? [created, ...prev] : [created]));
+            }
+            setChatBrainModalOpen(false);
+        } catch (e) {
+            console.error('Failed to save chat brain context:', e);
+            setError('Не удалось сохранить чат-контекст. Проверьте API.');
+        } finally {
+            setSavingAiB2c(false);
+        }
+    };
+    const deleteChatBrainContext = async (id: number | string) => {
+        try {
+            setDeletingAiB2cId(String(id));
+            await agentLkApi.deleteChatBrainContext(id);
+            setChatBrainContexts((prev) => (prev ? prev.filter((x) => String(x.id) !== String(id)) : []));
+        } catch (e) {
+            console.error('Failed to delete chat brain context:', e);
+            setError('Не удалось удалить чат-контекст.');
+        } finally {
+            setDeletingAiB2cId(null);
+        }
+    };
+
+    const openChatStageCreate = () => {
+        setEditingChatStageId(null);
+        setChatStageForm({ stage_key: '', title: '', content: '', is_active: true, priority: '100' });
+        setChatStageModalOpen(true);
+    };
+    const openChatStageEdit = (s: AiB2cStage) => {
+        setEditingChatStageId(s.id);
+        setChatStageForm({
+            stage_key: (s.stage_key ?? '').toString(),
+            title: (s.title ?? '').toString(),
+            content: (s.content ?? '').toString(),
+            is_active: s.is_active !== false,
+            priority: String(s.priority ?? 100),
+        });
+        setChatStageModalOpen(true);
+    };
+    const saveChatStage = async () => {
+        if (!chatStageForm.stage_key.trim() || !chatStageForm.title.trim()) {
+            setError('Введите ключ и название сценария для чата.');
+            return;
+        }
+        try {
+            setSavingAiB2c(true);
+            setError(null);
+            const payload: AiB2cStageCreate = {
+                stage_key: chatStageForm.stage_key.trim(),
+                title: chatStageForm.title.trim(),
+                content: chatStageForm.content.trim(),
+                is_active: chatStageForm.is_active,
+                priority: Number(chatStageForm.priority) || 0,
+            };
+            if (editingChatStageId != null) {
+                const updated = await agentLkApi.updateChatStage(editingChatStageId, payload);
+                setChatStages((prev) =>
+                    prev ? prev.map((x) => (String(x.id) === String(editingChatStageId) ? updated : x)) : [updated],
+                );
+            } else {
+                const created = await agentLkApi.createChatStage(payload);
+                setChatStages((prev) => (prev ? [created, ...prev] : [created]));
+            }
+            setChatStageModalOpen(false);
+        } catch (e) {
+            console.error('Failed to save chat stage:', e);
+            setError('Не удалось сохранить чат-сценарий. Проверьте API.');
+        } finally {
+            setSavingAiB2c(false);
+        }
+    };
+    const deleteChatStage = async (id: number | string) => {
+        try {
+            setDeletingAiB2cId(String(id));
+            await agentLkApi.deleteChatStage(id);
+            setChatStages((prev) => (prev ? prev.filter((x) => String(x.id) !== String(id)) : []));
+        } catch (e) {
+            console.error('Failed to delete chat stage:', e);
+            setError('Не удалось удалить чат-сценарий.');
+        } finally {
+            setDeletingAiB2cId(null);
+        }
+    };
+
     const applyPdfSettingsResponse = (res: PdfCoverSettingsResponse) => {
         setPdfSettings(res);
         setPdfDraft(buildPdfDraftFromPdfResponse(res));
@@ -2749,7 +2930,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                         </>
                     )}
 
-                    {activeTab === 'ai-b2c' && (
+                    {activeTab === 'ai-b2c-site' && (
                         <>
                             <h1 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '8px', color: '#111' }}>
                                 Настройка ИИ (B2C)
@@ -3123,6 +3304,307 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                     </section>
                                 </div>
                             )}
+                        </>
+                    )}
+
+                    {activeTab === 'ai-b2c-chat' && (
+                        <>
+                            <h1 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '8px', color: '#111' }}>
+                                AI B2C — чат
+                            </h1>
+                            <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '24px' }}>
+                                Контексты «мозга» и сценарии для потоков chat_AI.
+                            </p>
+                            {error && (
+                                <div
+                                    style={{
+                                        padding: '12px',
+                                        borderRadius: '12px',
+                                        background: '#fef2f2',
+                                        color: '#b91c1c',
+                                        marginBottom: '16px',
+                                        fontSize: '14px',
+                                    }}
+                                >
+                                    {error}
+                                </div>
+                            )}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                                {/* Мозг chat — brain-contexts */}
+                                <section>
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            marginBottom: '12px',
+                                        }}
+                                    >
+                                        <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#374151', margin: 0 }}>
+                                            Чат — мозг (контексты)
+                                        </h2>
+                                        <button
+                                            type="button"
+                                            onClick={openChatBrainCreate}
+                                            style={{
+                                                padding: '8px 14px',
+                                                borderRadius: '999px',
+                                                border: 'none',
+                                                background: 'linear-gradient(135deg, #8B5CF6, #6366F1)',
+                                                color: '#fff',
+                                                fontSize: '13px',
+                                                fontWeight: 600,
+                                                cursor: 'pointer',
+                                            }}
+                                        >
+                                            + Контекст для чата
+                                        </button>
+                                    </div>
+                                    {(chatBrainContexts ?? []).length === 0 ? (
+                                        <p style={{ fontSize: '14px', color: '#9ca3af' }}>
+                                            Нет чат-контекстов. Добавьте первый.
+                                        </p>
+                                    ) : (
+                                        <ul
+                                            style={{
+                                                listStyle: 'none',
+                                                margin: 0,
+                                                padding: 0,
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '10px',
+                                            }}
+                                        >
+                                            {(chatBrainContexts ?? []).map((c) => (
+                                                <li
+                                                    key={String(c.id)}
+                                                    style={{
+                                                        padding: '14px 16px',
+                                                        background: '#f9fafb',
+                                                        borderRadius: '12px',
+                                                        border: '1px solid #e5e7eb',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        flexWrap: 'wrap',
+                                                        gap: '8px',
+                                                    }}
+                                                >
+                                                    <div>
+                                                        <span
+                                                            style={{ fontWeight: 600, color: '#111' }}
+                                                        >
+                                                            {c.title ?? 'Без названия'}
+                                                        </span>
+                                                        {c.priority != null && (
+                                                            <span
+                                                                style={{
+                                                                    marginLeft: '8px',
+                                                                    fontSize: '12px',
+                                                                    color: '#6b7280',
+                                                                }}
+                                                            >
+                                                                приоритет {c.priority}
+                                                            </span>
+                                                        )}
+                                                        {c.is_active === false && (
+                                                            <span
+                                                                style={{
+                                                                    marginLeft: '8px',
+                                                                    fontSize: '12px',
+                                                                    color: '#9ca3af',
+                                                                }}
+                                                            >
+                                                                неактивен
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => openChatBrainEdit(c)}
+                                                            style={{
+                                                                padding: '6px 12px',
+                                                                borderRadius: '8px',
+                                                                border: '1px solid #d1d5db',
+                                                                background: '#fff',
+                                                                fontSize: '12px',
+                                                                cursor: 'pointer',
+                                                                color: '#374151',
+                                                            }}
+                                                        >
+                                                            Изменить
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => deleteChatBrainContext(c.id)}
+                                                            disabled={deletingAiB2cId === String(c.id)}
+                                                            style={{
+                                                                padding: '6px 12px',
+                                                                borderRadius: '8px',
+                                                                border: '1px solid #fecaca',
+                                                                background: '#fef2f2',
+                                                                fontSize: '12px',
+                                                                cursor:
+                                                                    deletingAiB2cId === String(c.id)
+                                                                        ? 'wait'
+                                                                        : 'pointer',
+                                                                color: '#b91c1c',
+                                                            }}
+                                                        >
+                                                            Удалить
+                                                        </button>
+                                                    </div>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </section>
+
+                                {/* Сценарии chat — stages */}
+                                <section>
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            marginBottom: '12px',
+                                        }}
+                                    >
+                                        <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#374151', margin: 0 }}>
+                                            Чат — сценарии (стадии)
+                                        </h2>
+                                        <button
+                                            type="button"
+                                            onClick={openChatStageCreate}
+                                            style={{
+                                                padding: '8px 14px',
+                                                borderRadius: '999px',
+                                                border: 'none',
+                                                background: 'linear-gradient(135deg, #0EA5E9, #0284C7)',
+                                                color: '#fff',
+                                                fontSize: '13px',
+                                                fontWeight: 600,
+                                                cursor: 'pointer',
+                                            }}
+                                        >
+                                            + Сценарий для чата
+                                        </button>
+                                    </div>
+                                    {(chatStages ?? []).length === 0 ? (
+                                        <p style={{ fontSize: '14px', color: '#9ca3af' }}>
+                                            Нет чат-сценариев. Добавьте первый.
+                                        </p>
+                                    ) : (
+                                        <ul
+                                            style={{
+                                                listStyle: 'none',
+                                                margin: 0,
+                                                padding: 0,
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '10px',
+                                            }}
+                                        >
+                                            {(chatStages ?? []).map((s) => (
+                                                <li
+                                                    key={String(s.id)}
+                                                    style={{
+                                                        padding: '14px 16px',
+                                                        background: '#f9fafb',
+                                                        borderRadius: '12px',
+                                                        border: '1px solid #e5e7eb',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        flexWrap: 'wrap',
+                                                        gap: '8px',
+                                                    }}
+                                                >
+                                                    <div>
+                                                        <span
+                                                            style={{
+                                                                fontWeight: 600,
+                                                                color: '#111',
+                                                                fontFamily: 'ui-monospace, monospace',
+                                                            }}
+                                                        >
+                                                            {s.stage_key ?? '—'}
+                                                        </span>
+                                                        <span
+                                                            style={{
+                                                                marginLeft: '8px',
+                                                                fontWeight: 500,
+                                                                color: '#111',
+                                                            }}
+                                                        >
+                                                            {s.title ?? 'Без названия'}
+                                                        </span>
+                                                        {s.priority != null && (
+                                                            <span
+                                                                style={{
+                                                                    marginLeft: '8px',
+                                                                    fontSize: '12px',
+                                                                    color: '#6b7280',
+                                                                }}
+                                                            >
+                                                                приоритет {s.priority}
+                                                            </span>
+                                                        )}
+                                                        {s.is_active === false && (
+                                                            <span
+                                                                style={{
+                                                                    marginLeft: '8px',
+                                                                    fontSize: '12px',
+                                                                    color: '#9ca3af',
+                                                                }}
+                                                            >
+                                                                неактивен
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => openChatStageEdit(s)}
+                                                            style={{
+                                                                padding: '6px 12px',
+                                                                borderRadius: '8px',
+                                                                border: '1px solid #d1d5db',
+                                                                background: '#fff',
+                                                                fontSize: '12px',
+                                                                cursor: 'pointer',
+                                                                color: '#374151',
+                                                            }}
+                                                        >
+                                                            Изменить
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => deleteChatStage(s.id)}
+                                                            disabled={deletingAiB2cId === String(s.id)}
+                                                            style={{
+                                                                padding: '6px 12px',
+                                                                borderRadius: '8px',
+                                                                border: '1px solid #fecaca',
+                                                                background: '#fef2f2',
+                                                                fontSize: '12px',
+                                                                cursor:
+                                                                    deletingAiB2cId === String(s.id)
+                                                                        ? 'wait'
+                                                                        : 'pointer',
+                                                                color: '#b91c1c',
+                                                            }}
+                                                        >
+                                                            Удалить
+                                                        </button>
+                                                    </div>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </section>
+                            </div>
                         </>
                     )}
 
@@ -6334,6 +6816,201 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                 <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                                     <button type="button" onClick={() => !savingAiB2c && setStageModalOpen(false)} style={{ padding: '8px 16px', borderRadius: '10px', border: '1px solid #e5e7eb', background: '#fff', fontSize: '13px', cursor: 'pointer' }}>Отмена</button>
                                     <button type="submit" disabled={savingAiB2c} style={{ padding: '8px 20px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #6366F1, #4F46E5)', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', opacity: savingAiB2c ? 0.7 : 1 }}>{savingAiB2c ? 'Сохранение…' : 'Сохранить'}</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Модалка контекста ИИ (чат) */}
+                {chatBrainModalOpen && (
+                    <div
+                        onClick={() => !savingAiB2c && setChatBrainModalOpen(false)}
+                        style={{
+                            position: 'fixed',
+                            inset: 0,
+                            background: 'rgba(15,23,42,0.45)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 1300,
+                            padding: '16px',
+                        }}
+                    >
+                        <div
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                                width: 'min(1100px, 95vw)',
+                                maxHeight: '90vh',
+                                overflow: 'auto',
+                                background: '#fff',
+                                borderRadius: '24px',
+                                boxShadow: '0 24px 80px rgba(15,23,42,0.35)',
+                                padding: '24px 28px',
+                            }}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
+                                    {editingChatBrainId != null ? 'Редактировать чат-контекст' : 'Новый чат-контекст'}
+                                </h2>
+                                <button
+                                    type="button"
+                                    onClick={() => !savingAiB2c && setChatBrainModalOpen(false)}
+                                    style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '20px', lineHeight: 1, color: '#6b7280' }}
+                                >
+                                    ×
+                                </button>
+                            </div>
+                            <form onSubmit={(e) => { e.preventDefault(); saveChatBrainContext(); }} style={{ display: 'grid', gap: '12px' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Название</label>
+                                    <input
+                                        type="text"
+                                        value={chatBrainForm.title}
+                                        onChange={(e) =>
+                                            setChatBrainForm((prev) => ({ ...prev, title: e.target.value }))
+                                        }
+                                        style={{
+                                            width: '100%',
+                                            padding: '8px 10px',
+                                            borderRadius: '10px',
+                                            border: '1px solid #e5e7eb',
+                                            fontSize: '13px',
+                                        }}
+                                        placeholder="Напр. Поддержка клиентов в чате"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Содержимое (промпт)</label>
+                                    <textarea
+                                        value={chatBrainForm.content}
+                                        onChange={(e) => setChatBrainForm((prev) => ({ ...prev, content: e.target.value }))}
+                                        style={{ width: '100%', padding: '12px 14px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '15px', lineHeight: 1.5, minHeight: '260px', resize: 'vertical' }}
+                                        placeholder="Подробный промпт для чат-ассистента..."
+                                    />
+                                </div>
+                                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={chatBrainForm.is_active}
+                                            onChange={(e) => setChatBrainForm((prev) => ({ ...prev, is_active: e.target.checked }))}
+                                        />
+                                        Активен
+                                    </label>
+                                    <div>
+                                        <label style={{ fontSize: '12px', color: '#6b7280', marginRight: '6px' }}>Приоритет</label>
+                                        <input
+                                            type="number"
+                                            value={chatBrainForm.priority}
+                                            onChange={(e) => setChatBrainForm((prev) => ({ ...prev, priority: e.target.value }))}
+                                            style={{ width: '80px', padding: '6px 8px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '13px' }}
+                                        />
+                                    </div>
+                                </div>
+                                <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                                    <button type="button" onClick={() => !savingAiB2c && setChatBrainModalOpen(false)} style={{ padding: '8px 16px', borderRadius: '10px', border: '1px solid #e5e7eb', background: '#fff', fontSize: '13px', cursor: 'pointer' }}>Отмена</button>
+                                    <button type="submit" disabled={savingAiB2c} style={{ padding: '8px 20px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #8B5CF6, #6366F1)', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', opacity: savingAiB2c ? 0.7 : 1 }}>{savingAiB2c ? 'Сохранение…' : 'Сохранить'}</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Модалка сценария ИИ (чат) */}
+                {chatStageModalOpen && (
+                    <div
+                        onClick={() => !savingAiB2c && setChatStageModalOpen(false)}
+                        style={{
+                            position: 'fixed',
+                            inset: 0,
+                            background: 'rgba(15,23,42,0.45)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 1300,
+                            padding: '16px',
+                        }}
+                    >
+                        <div
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                                width: 'min(1100px, 95vw)',
+                                maxHeight: '90vh',
+                                overflow: 'auto',
+                                background: '#fff',
+                                borderRadius: '24px',
+                                boxShadow: '0 24px 80px rgba(15,23,42,0.35)',
+                                padding: '24px 28px',
+                            }}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
+                                    {editingChatStageId != null ? 'Редактировать чат-сценарий' : 'Новый чат-сценарий'}
+                                </h2>
+                                <button
+                                    type="button"
+                                    onClick={() => !savingAiB2c && setChatStageModalOpen(false)}
+                                    style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '20px', lineHeight: 1, color: '#6b7280' }}
+                                >
+                                    ×
+                                </button>
+                            </div>
+                            <form onSubmit={(e) => { e.preventDefault(); saveChatStage(); }} style={{ display: 'grid', gap: '12px' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Ключ сценария</label>
+                                    <input
+                                        type="text"
+                                        value={chatStageForm.stage_key}
+                                        onChange={(e) => setChatStageForm((prev) => ({ ...prev, stage_key: e.target.value }))}
+                                        style={{ width: '100%', padding: '8px 10px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '13px' }}
+                                        placeholder="Напр. CHAT_PFP1"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Название</label>
+                                    <input
+                                        type="text"
+                                        value={chatStageForm.title}
+                                        onChange={(e) => setChatStageForm((prev) => ({ ...prev, title: e.target.value }))}
+                                        style={{ width: '100%', padding: '8px 10px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '13px' }}
+                                        placeholder="Напр. Диалог по целям клиента"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Описание / подсказки для ИИ</label>
+                                    <textarea
+                                        value={chatStageForm.content}
+                                        onChange={(e) => setChatStageForm((prev) => ({ ...prev, content: e.target.value }))}
+                                        style={{ width: '100%', padding: '12px 14px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '15px', lineHeight: 1.5, minHeight: '300px', resize: 'vertical' }}
+                                        placeholder="Описание чат-сценария и подсказки для ИИ..."
+                                    />
+                                </div>
+                                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={chatStageForm.is_active}
+                                            onChange={(e) => setChatStageForm((prev) => ({ ...prev, is_active: e.target.checked }))}
+                                        />
+                                        Активен
+                                    </label>
+                                    <div>
+                                        <label style={{ fontSize: '12px', color: '#6b7280', marginRight: '6px' }}>Приоритет</label>
+                                        <input
+                                            type="number"
+                                            value={chatStageForm.priority}
+                                            onChange={(e) => setChatStageForm((prev) => ({ ...prev, priority: e.target.value }))}
+                                            style={{ width: '80px', padding: '6px 8px', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '13px' }}
+                                        />
+                                    </div>
+                                </div>
+                                <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                                    <button type="button" onClick={() => !savingAiB2c && setChatStageModalOpen(false)} style={{ padding: '8px 16px', borderRadius: '10px', border: '1px solid #e5e7eb', background: '#fff', fontSize: '13px', cursor: 'pointer' }}>Отмена</button>
+                                    <button type="submit" disabled={savingAiB2c} style={{ padding: '8px 20px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #0EA5E9, #0284C7)', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', opacity: savingAiB2c ? 0.7 : 1 }}>{savingAiB2c ? 'Сохранение…' : 'Сохранить'}</button>
                                 </div>
                             </form>
                         </div>
