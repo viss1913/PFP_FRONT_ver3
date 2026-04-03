@@ -234,6 +234,66 @@ export interface AiB2cStageUpdate {
     priority?: number;
 }
 
+// --- Constructor ИИ (constructor/commands + constructor/brain-contexts) ---
+
+export interface ConstructorBrainContext {
+    id: number | string;
+    project_id?: number | null;
+    title: string;
+    content: string;
+    is_active?: boolean;
+    priority?: number;
+    created_at?: string;
+    updated_at?: string;
+    [key: string]: unknown;
+}
+
+export interface ConstructorBrainContextCreate {
+    title: string;
+    content: string;
+    is_active?: boolean;
+    priority?: number;
+}
+
+export interface ConstructorBrainContextUpdate {
+    title?: string;
+    content?: string;
+    is_active?: boolean;
+    priority?: number;
+}
+
+export interface ConstructorCommand {
+    id: number | string;
+    bot_id?: number | null;
+    project_id?: number | null;
+    command: string;
+    classifier: string;
+    response: string;
+    section?: string | null;
+    is_template?: boolean;
+    created_at?: string;
+    updated_at?: string;
+    [key: string]: unknown;
+}
+
+export interface ConstructorCommandCreate {
+    command: string;
+    classifier: string;
+    response: string;
+    section?: string | null;
+    is_template?: boolean;
+    bot_id?: string | null;
+}
+
+export interface ConstructorCommandUpdate {
+    command?: string;
+    classifier?: string;
+    response?: string;
+    section?: string | null;
+    is_template?: boolean;
+    bot_id?: string | null;
+}
+
 /** Одна картинка карточки цели в PDF (read-only, не PATCH). См. `PDFsettings.yaml`. */
 export interface PdfGoalCardAssetItem {
     goal_type: string;
@@ -607,17 +667,17 @@ export const agentLkApi = {
         });
     },
 
-    // --- AI B2C chat: brain-contexts ---
+    // --- Constructor ИИ: brain-contexts ---
 
-    getChatBrainContexts: async (): Promise<AiB2cBrainContext[]> => {
-        const response = await axios.get(`${API_BASE}/ai-b2c-chat/brain-contexts`, {
+    getChatBrainContexts: async (): Promise<ConstructorBrainContext[]> => {
+        const response = await axios.get(`${API_BASE}/constructor/brain-contexts`, {
             headers: getHeaders(),
         });
         return response.data;
     },
 
-    createChatBrainContext: async (payload: AiB2cBrainContextCreate): Promise<AiB2cBrainContext> => {
-        const response = await axios.post(`${API_BASE}/ai-b2c-chat/brain-contexts`, payload, {
+    createChatBrainContext: async (payload: ConstructorBrainContextCreate): Promise<unknown> => {
+        const response = await axios.post(`${API_BASE}/constructor/brain-contexts`, payload, {
             headers: getHeaders(),
         });
         return response.data;
@@ -625,45 +685,45 @@ export const agentLkApi = {
 
     updateChatBrainContext: async (
         id: number | string,
-        payload: AiB2cBrainContextUpdate,
-    ): Promise<AiB2cBrainContext> => {
-        const response = await axios.put(`${API_BASE}/ai-b2c-chat/brain-contexts/${id}`, payload, {
+        payload: ConstructorBrainContextUpdate,
+    ): Promise<unknown> => {
+        const response = await axios.put(`${API_BASE}/constructor/brain-contexts/${id}`, payload, {
             headers: getHeaders(),
         });
         return response.data;
     },
 
     deleteChatBrainContext: async (id: number | string): Promise<void> => {
-        await axios.delete(`${API_BASE}/ai-b2c-chat/brain-contexts/${id}`, {
+        await axios.delete(`${API_BASE}/constructor/brain-contexts/${id}`, {
             headers: getHeaders(),
         });
     },
 
-    // --- AI B2C chat: stages ---
+    // --- Constructor ИИ: commands (stages) ---
 
-    getChatStages: async (): Promise<AiB2cStage[]> => {
-        const response = await axios.get(`${API_BASE}/ai-b2c-chat/stages`, {
-            headers: getHeaders(),
-        });
-        return response.data;
-    },
-
-    createChatStage: async (payload: AiB2cStageCreate): Promise<AiB2cStage> => {
-        const response = await axios.post(`${API_BASE}/ai-b2c-chat/stages`, payload, {
+    getChatStages: async (): Promise<ConstructorCommand[]> => {
+        const response = await axios.get(`${API_BASE}/constructor/commands`, {
             headers: getHeaders(),
         });
         return response.data;
     },
 
-    updateChatStage: async (id: number | string, payload: AiB2cStageUpdate): Promise<AiB2cStage> => {
-        const response = await axios.put(`${API_BASE}/ai-b2c-chat/stages/${id}`, payload, {
+    createChatStage: async (payload: ConstructorCommandCreate): Promise<unknown> => {
+        const response = await axios.post(`${API_BASE}/constructor/commands`, payload, {
+            headers: getHeaders(),
+        });
+        return response.data;
+    },
+
+    updateChatStage: async (id: number | string, payload: ConstructorCommandUpdate): Promise<unknown> => {
+        const response = await axios.put(`${API_BASE}/constructor/commands/${id}`, payload, {
             headers: getHeaders(),
         });
         return response.data;
     },
 
     deleteChatStage: async (id: number | string): Promise<void> => {
-        await axios.delete(`${API_BASE}/ai-b2c-chat/stages/${id}`, {
+        await axios.delete(`${API_BASE}/constructor/commands/${id}`, {
             headers: getHeaders(),
         });
     },

@@ -27,8 +27,12 @@ import {
     type PortfolioCreateUpdatePayload,
     type AiB2cBrainContext,
     type AiB2cBrainContextCreate,
+    type ConstructorBrainContext,
+    type ConstructorBrainContextCreate,
     type AiB2cStage,
     type AiB2cStageCreate,
+    type ConstructorCommand,
+    type ConstructorCommandCreate,
     type InflationRateRange,
     type PassiveIncomeYieldLine,
     type PdfCoverSettingsResponse,
@@ -1415,8 +1419,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     const [brainContexts, setBrainContexts] = useState<AiB2cBrainContext[] | null>(null);
     const [stages, setStages] = useState<AiB2cStage[] | null>(null);
     const [aiB2cLoading, setAiB2cLoading] = useState(false);
-    const [chatBrainContexts, setChatBrainContexts] = useState<AiB2cBrainContext[] | null>(null);
-    const [chatStages, setChatStages] = useState<AiB2cStage[] | null>(null);
+    const [chatBrainContexts, setChatBrainContexts] = useState<ConstructorBrainContext[] | null>(null);
+    const [chatStages, setChatStages] = useState<ConstructorCommand[] | null>(null);
     const [brainModalOpen, setBrainModalOpen] = useState(false);
     const [editingBrainId, setEditingBrainId] = useState<number | string | null>(null);
     const [brainForm, setBrainForm] = useState<{ title: string; content: string; is_active: boolean; priority: string }>({
@@ -1454,12 +1458,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         stage_key: string;
         classifier: string;
         response: string;
-        is_active: boolean;
     }>({
         stage_key: '',
         classifier: '',
         response: '',
-        is_active: true,
     });
     const [savingAiB2c, setSavingAiB2c] = useState(false);
     const [deletingAiB2cId, setDeletingAiB2cId] = useState<string | null>(null);
@@ -2546,7 +2548,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         setChatBrainForm({ title: '', content: '', is_active: true, priority: '10' });
         setChatBrainModalOpen(true);
     };
-    const openChatBrainEdit = (c: AiB2cBrainContext) => {
+    const openChatBrainEdit = (c: ConstructorBrainContext) => {
         setEditingChatBrainId(c.id);
         setChatBrainForm({
             title: (c.title ?? '').toString(),
@@ -2564,21 +2566,19 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         try {
             setSavingAiB2c(true);
             setError(null);
-            const payload: AiB2cBrainContextCreate = {
+            const payload: ConstructorBrainContextCreate = {
                 title: chatBrainForm.title.trim(),
                 content: chatBrainForm.content.trim(),
                 is_active: chatBrainForm.is_active,
                 priority: Number(chatBrainForm.priority) || 0,
             };
             if (editingChatBrainId != null) {
-                const updated = await agentLkApi.updateChatBrainContext(editingChatBrainId, payload);
-                setChatBrainContexts((prev) =>
-                    prev ? prev.map((x) => (String(x.id) === String(editingChatBrainId) ? updated : x)) : [updated],
-                );
+                await agentLkApi.updateChatBrainContext(editingChatBrainId, payload);
             } else {
-                const created = await agentLkApi.createChatBrainContext(payload);
-                setChatBrainContexts((prev) => (prev ? [created, ...prev] : [created]));
+                await agentLkApi.createChatBrainContext(payload);
             }
+            const ctx = await agentLkApi.getChatBrainContexts();
+            setChatBrainContexts(ctx);
             setChatBrainModalOpen(false);
         } catch (e) {
             console.error('Failed to save chat brain context:', e);
@@ -2591,7 +2591,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         try {
             setDeletingAiB2cId(String(id));
             await agentLkApi.deleteChatBrainContext(id);
-            setChatBrainContexts((prev) => (prev ? prev.filter((x) => String(x.id) !== String(id)) : []));
+            const ctx = await agentLkApi.getChatBrainContexts();
+            setChatBrainContexts(ctx);
         } catch (e) {
             console.error('Failed to delete chat brain context:', e);
             setError('Не удалось удалить чат-контекст.');
@@ -2602,45 +2603,40 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
 
     const openChatStageCreate = () => {
         setEditingChatStageId(null);
-        setChatStageForm({ stage_key: '', classifier: '', response: '', is_active: true });
+        setChatStageForm({ stage_key: '', classifier: '', response: '' });
         setChatStageModalOpen(true);
     };
-    const openChatStageEdit = (s: AiB2cStage) => {
+    const openChatStageEdit = (s: ConstructorCommand) => {
         setEditingChatStageId(s.id);
         setChatStageForm({
-            stage_key: (s.stage_key ?? '').toString(),
-            classifier: ((s as any).command_context_text ?? '').toString(),
-            response: (s.content ?? '').toString(),
-            is_active: s.is_active !== false,
+            stage_key: (s.command ?? '').toString(),
+            classifier: (s.classifier ?? '').toString(),
+            response: (s.response ?? '').toString(),
         });
         setChatStageModalOpen(true);
     };
     const saveChatStage = async () => {
-        if (!chatStageForm.stage_key.trim()) {
+        if (!chatStageForm.stage_key.trim() || !chatStageForm.classifier.trim() || !chatStageForm.response.trim()) {
             setError('Введите ключ сценария для чата.');
             return;
         }
         try {
             setSavingAiB2c(true);
             setError(null);
-            const payload: AiB2cStageCreate = {
-                stage_key: chatStageForm.stage_key.trim(),
-                // Для бэка заголовок дублируем из ключа
-                title: chatStageForm.stage_key.trim(),
-                content: chatStageForm.response.trim(),
-                command_context_text: chatStageForm.classifier.trim() || null,
-                is_active: chatStageForm.is_active,
-                priority: 0,
+            const payload: ConstructorCommandCreate = {
+                command: chatStageForm.stage_key.trim(),
+                classifier: chatStageForm.classifier.trim(),
+                response: chatStageForm.response.trim(),
+                // В настройках без bot_id обычно управляем шаблонами
+                is_template: true,
             };
             if (editingChatStageId != null) {
-                const updated = await agentLkApi.updateChatStage(editingChatStageId, payload);
-                setChatStages((prev) =>
-                    prev ? prev.map((x) => (String(x.id) === String(editingChatStageId) ? updated : x)) : [updated],
-                );
+                await agentLkApi.updateChatStage(editingChatStageId, payload);
             } else {
-                const created = await agentLkApi.createChatStage(payload);
-                setChatStages((prev) => (prev ? [created, ...prev] : [created]));
+                await agentLkApi.createChatStage(payload);
             }
+            const st = await agentLkApi.getChatStages();
+            setChatStages(st);
             setChatStageModalOpen(false);
         } catch (e) {
             console.error('Failed to save chat stage:', e);
@@ -2653,7 +2649,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         try {
             setDeletingAiB2cId(String(id));
             await agentLkApi.deleteChatStage(id);
-            setChatStages((prev) => (prev ? prev.filter((x) => String(x.id) !== String(id)) : []));
+            const st = await agentLkApi.getChatStages();
+            setChatStages(st);
         } catch (e) {
             console.error('Failed to delete chat stage:', e);
             setError('Не удалось удалить чат-сценарий.');
@@ -3528,18 +3525,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                 fontFamily: 'ui-monospace, monospace',
                                                             }}
                                                         >
-                                                            {s.stage_key ?? '—'}
+                                                            {s.command ?? '—'}
                                                         </span>
-                                                        <span
-                                                            style={{
-                                                                marginLeft: '8px',
-                                                                fontWeight: 500,
-                                                                color: '#111',
-                                                            }}
-                                                        >
-                                                            {s.title ?? 'Без названия'}
-                                                        </span>
-                                                        {s.priority != null && (
+                                                        {(s.classifier ?? '').trim() && (
                                                             <span
                                                                 style={{
                                                                     marginLeft: '8px',
@@ -3547,18 +3535,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                     color: '#6b7280',
                                                                 }}
                                                             >
-                                                                приоритет {s.priority}
-                                                            </span>
-                                                        )}
-                                                        {s.is_active === false && (
-                                                            <span
-                                                                style={{
-                                                                    marginLeft: '8px',
-                                                                    fontSize: '12px',
-                                                                    color: '#9ca3af',
-                                                                }}
-                                                            >
-                                                                неактивен
+                                                                правила: {(s.classifier ?? '').trim().slice(0, 48)}
+                                                                {(String(s.classifier ?? '').trim().length > 48) ? '…' : ''}
                                                             </span>
                                                         )}
                                                     </div>
@@ -7002,16 +6980,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                         style={{ width: '100%', padding: '12px 14px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '15px', lineHeight: 1.5, minHeight: '300px', resize: 'vertical' }}
                                         placeholder="Ответы/шаблоны ответов для этого чат-сценария…"
                                     />
-                                </div>
-                                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={chatStageForm.is_active}
-                                            onChange={(e) => setChatStageForm((prev) => ({ ...prev, is_active: e.target.checked }))}
-                                        />
-                                        Активен
-                                    </label>
                                 </div>
                                 <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                                     <button type="button" onClick={() => !savingAiB2c && setChatStageModalOpen(false)} style={{ padding: '8px 16px', borderRadius: '10px', border: '1px solid #e5e7eb', background: '#fff', fontSize: '13px', cursor: 'pointer' }}>Отмена</button>
