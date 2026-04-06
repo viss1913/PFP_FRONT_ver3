@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, User, Calendar, Wallet, ChevronLeft, ChevronRight, Edit2, TrendingUp, FileText } from 'lucide-react';
+import { Search, Plus, User, Calendar, Wallet, ChevronLeft, ChevronRight, Edit2, TrendingUp, FileText, MessageCircle } from 'lucide-react';
 import { clientApi } from '../api/clientApi';
 import type { Client } from '../types/client';
 import StatusDropdown from './StatusDropdown';
+import ClientB2cChatAiModal from './ClientB2cChatAiModal';
 import { getGoalTypeLabel } from '../utils/GoalImages';
 
 
@@ -21,6 +22,7 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
     const [total, setTotal] = useState(0);
     const [limit] = useState(50);
     const [activeDropdownId, setActiveDropdownId] = useState<number | null>(null);
+    const [chatModalClient, setChatModalClient] = useState<Client | null>(null);
 
     // Debounce search
     useEffect(() => {
@@ -33,7 +35,14 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
     const fetchClients = async () => {
         setLoading(true);
         try {
-            const result = await clientApi.getAgentClients({ search, page, limit });
+            const result = await clientApi.getAgentClients({
+                search,
+                page,
+                limit,
+                // Не тянем chat_ai_messages в списке — в модалке отдельный GET /client/:id с include_chat_ai.
+                // Альтернатива: include_chat_ai: true + chat_ai_limit: 1, чтобы заранее знать «есть диалог».
+                include_chat_ai: false,
+            });
             // Handle case where API might just return array or wrapped in data object based on pfp-api.yaml vs real backend
             // Our types say it returns { data: Client[], meta: ... } but let's be safe if it returns array directly
             if (Array.isArray(result)) {
@@ -232,17 +241,41 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
                                     </div>
                                     <div style={{ fontSize: '14px' }}>{formatDate(client.created_at)}</div>
                                 </div>
-                                <div style={{
-                                    width: '36px',
-                                    height: '36px',
-                                    borderRadius: '50%',
-                                    background: 'rgba(255,255,255,0.05)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: 'var(--text-muted)'
-                                }}>
-                                    <Edit2 size={16} />
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <button
+                                        type="button"
+                                        title="История чата B2C AI"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setChatModalClient(client);
+                                        }}
+                                        style={{
+                                            width: '36px',
+                                            height: '36px',
+                                            borderRadius: '50%',
+                                            border: 'none',
+                                            background: 'rgba(255,255,255,0.05)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: 'var(--primary)',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        <MessageCircle size={16} />
+                                    </button>
+                                    <div style={{
+                                        width: '36px',
+                                        height: '36px',
+                                        borderRadius: '50%',
+                                        background: 'rgba(255,255,255,0.05)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: 'var(--text-muted)'
+                                    }}>
+                                        <Edit2 size={16} />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -300,6 +333,12 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
                     </button>
                 </div>
             )}
+            <ClientB2cChatAiModal
+                isOpen={chatModalClient != null}
+                onClose={() => setChatModalClient(null)}
+                clientId={chatModalClient?.id ?? null}
+                clientTitle={`${chatModalClient?.first_name ?? ''} ${chatModalClient?.last_name ?? ''}`}
+            />
         </div>
     );
 };

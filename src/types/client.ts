@@ -1,3 +1,12 @@
+/** Сообщение истории B2C chat_AI (GET /pfp/clients, GET /client/:id) */
+export interface ChatAiMessage {
+    id: number;
+    stage_key?: string;
+    role: 'user' | 'assistant';
+    content: string;
+    created_at: string;
+}
+
 export interface Client {
     id: number;
     first_name: string;
@@ -36,6 +45,9 @@ export interface Client {
 
     /** если в проекте «все агенты видят всех»: "B2C" или email/ФИО агента */
     owner_label?: string;
+
+    /** История chat_AI; пустой массив, если не грузили или диалога не было */
+    chat_ai_messages?: ChatAiMessage[];
 }
 
 export type AssetType = 'DEPOSIT' | 'CASH' | 'BROKERAGE' | 'IIS' | 'PDS' | 'NSJ' | 'REAL_ESTATE' | 'CRYPTO' | 'OTHER';
@@ -76,6 +88,17 @@ export interface ClientFilters {
     limit?: number | 'all';
     sort?: string;
     order?: 'asc' | 'desc';
+    /** Подгружать chat_ai_messages в списке (false — легче ответ; см. agent_lk.yaml) */
+    include_chat_ai?: boolean;
+    /** Лимит сообщений на клиента в списке (1…500) */
+    chat_ai_limit?: number;
+}
+
+/** Query для GET /client/:id */
+export interface GetClientOptions {
+    include_chat_ai?: boolean;
+    /** 1…2000 для карточки клиента */
+    chat_ai_limit?: number;
 }
 
 export type ClientStatus = 'THINKING' | 'BOUGHT' | 'REFUSED' | 'RENEWAL';

@@ -256,7 +256,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
             // Using a self-executing function or just simpler here
             const loadClient = async () => {
                 try {
-                    const client = await clientApi.getClient(clientId);
+                    const client = await clientApi.getClient(clientId, { include_chat_ai: false });
                     // Map API client to CJMData
                     setData(prev => ({
                         ...prev,
