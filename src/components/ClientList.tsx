@@ -39,8 +39,7 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
                 search,
                 page,
                 limit,
-                // Не тянем chat_ai_messages в списке — в модалке отдельный GET /client/:id с include_chat_ai.
-                // Альтернатива: include_chat_ai: true + chat_ai_limit: 1, чтобы заранее знать «есть диалог».
+                // include_chat_ai=false — бэк не грузит ни один из трёх чатов (все []); полный тред в модалке через GET /client/:id.
                 include_chat_ai: false,
             });
             // Handle case where API might just return array or wrapped in data object based on pfp-api.yaml vs real backend

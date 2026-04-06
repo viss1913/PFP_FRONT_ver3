@@ -76,11 +76,20 @@ function normalizeClient(raw: Client): Client {
     return {
         ...raw,
         chat_ai_messages: Array.isArray(raw.chat_ai_messages) ? raw.chat_ai_messages : [],
+        b2c_site_chat_messages: Array.isArray(raw.b2c_site_chat_messages)
+            ? raw.b2c_site_chat_messages
+            : [],
+        constructor_site_chat_messages: Array.isArray(raw.constructor_site_chat_messages)
+            ? raw.constructor_site_chat_messages
+            : [],
     };
 }
 
 export const clientApi = {
-    // Get list of clients: GET /api/pfp/clients (пагинация или все: limit=0 / limit=all)
+    /**
+     * GET /api/pfp/clients. `include_chat_ai` управляет **всеми тремя** массивами чатов сразу; отдельных флагов нет.
+     * См. `api_docs/agent_lk.yaml` (лимит `chat_ai_limit`, конструктор через ceil(limit/2) ходов).
+     */
     getAgentClients: async (filters: ClientFilters = {}): Promise<ClientListResponse> => {
         const params: Record<string, string | number> = {};
         if (filters.search) params.search = filters.search;

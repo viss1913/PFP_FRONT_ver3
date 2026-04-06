@@ -1,7 +1,10 @@
-/** Сообщение истории B2C chat_AI (GET /pfp/clients, GET /client/:id) */
+/**
+ * Одна строка во всех трёх массивах чатов ЛК: `id`, `stage_key`, `role`, `content`, `created_at`.
+ * У chat_AI и B2C site `stage_key` из БД (стадия B2C); у конструктора всегда присутствует и равен `"constructor"`.
+ */
 export interface ChatAiMessage {
     id: number;
-    stage_key?: string;
+    stage_key: string;
     role: 'user' | 'assistant';
     content: string;
     created_at: string;
@@ -46,8 +49,15 @@ export interface Client {
     /** если в проекте «все агенты видят всех»: "B2C" или email/ФИО агента */
     owner_label?: string;
 
-    /** История chat_AI; пустой массив, если не грузили или диалога не было */
+    /** История chat_AI (`POST .../ai-b2c/chat_AI/stream`); не путать с site-chat и B2C site */
     chat_ai_messages?: ChatAiMessage[];
+    /** Обычный B2C site-чат (не chat_AI) */
+    b2c_site_chat_messages?: ChatAiMessage[];
+    /**
+     * Чат с лендинга конструктора (`POST /api/pfp/constructor/site-chat/stream`, `constructor_logs`).
+     * Не путать с `ai-b2c/chat/stream`. При первом сообщении бэк может создать CRM-клиента — запись в списке возможна до ПФП.
+     */
+    constructor_site_chat_messages?: ChatAiMessage[];
 }
 
 export type AssetType = 'DEPOSIT' | 'CASH' | 'BROKERAGE' | 'IIS' | 'PDS' | 'NSJ' | 'REAL_ESTATE' | 'CRYPTO' | 'OTHER';
@@ -88,16 +98,22 @@ export interface ClientFilters {
     limit?: number | 'all';
     sort?: string;
     order?: 'asc' | 'desc';
-    /** Подгружать chat_ai_messages в списке (false — легче ответ; см. agent_lk.yaml) */
+    /**
+     * Историческое имя: включает/выключает загрузку **всех трёх** чатов (`chat_ai_messages`, `b2c_site_chat_messages`,
+     * `constructor_site_chat_messages`). `false` — все три `[]` (см. agent_lk.yaml).
+     */
     include_chat_ai?: boolean;
-    /** Лимит сообщений на клиента в списке (1…500) */
+    /**
+     * Лимит на канал для chat_AI и B2C site (1…500 в списке); конструктор — `ceil(limit/2)` ходов, до `2 * maxTurns` сообщений.
+     */
     chat_ai_limit?: number;
 }
 
-/** Query для GET /client/:id */
+/** Query для GET /client/:id — те же правила, что у списка клиентов (кроме дефолтов лимита). */
 export interface GetClientOptions {
+    /** Все три массива чатов разом; см. `ClientFilters.include_chat_ai` */
     include_chat_ai?: boolean;
-    /** 1…2000 для карточки клиента */
+    /** 1…2000 для карточки; см. `ClientFilters.chat_ai_limit` */
     chat_ai_limit?: number;
 }
 
