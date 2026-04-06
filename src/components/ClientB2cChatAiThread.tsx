@@ -3,9 +3,17 @@ import type { ChatAiMessage } from '../types/client';
 
 interface ClientB2cChatAiThreadProps {
     messages: ChatAiMessage[];
+    /** Если false и массив пуст — ничего не рендерим (секции в общей модалке) */
+    renderEmptyPlaceholder?: boolean;
+    /** Текст при пустом массиве, если renderEmptyPlaceholder !== false */
+    emptyLabel?: string;
 }
 
-const ClientB2cChatAiThread: React.FC<ClientB2cChatAiThreadProps> = ({ messages }) => {
+const ClientB2cChatAiThread: React.FC<ClientB2cChatAiThreadProps> = ({
+    messages,
+    renderEmptyPlaceholder = true,
+    emptyLabel = 'Нет сообщений.',
+}) => {
     const sorted = useMemo(
         () =>
             [...messages].sort(
@@ -28,9 +36,10 @@ const ClientB2cChatAiThread: React.FC<ClientB2cChatAiThreadProps> = ({ messages 
     };
 
     if (sorted.length === 0) {
+        if (!renderEmptyPlaceholder) return null;
         return (
             <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '15px' }}>
-                Сообщений в chat_AI пока нет.
+                {emptyLabel}
             </div>
         );
     }

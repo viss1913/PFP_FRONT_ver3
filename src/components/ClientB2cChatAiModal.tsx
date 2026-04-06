@@ -5,6 +5,39 @@ import { clientApi } from '../api/clientApi';
 import type { ChatAiMessage } from '../types/client';
 import ClientB2cChatAiThread from './ClientB2cChatAiThread';
 
+type ClientChatsPayload = {
+    chat_ai_messages: ChatAiMessage[];
+    b2c_site_chat_messages: ChatAiMessage[];
+    constructor_site_chat_messages: ChatAiMessage[];
+};
+
+const emptyChats = (): ClientChatsPayload => ({
+    chat_ai_messages: [],
+    b2c_site_chat_messages: [],
+    constructor_site_chat_messages: [],
+});
+
+function ChannelSection({ title, messages }: { title: string; messages: ChatAiMessage[] }) {
+    if (messages.length === 0) return null;
+    return (
+        <div style={{ marginBottom: '22px' }}>
+            <div
+                style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    letterSpacing: '0.05em',
+                    color: 'var(--text-muted)',
+                    marginBottom: '10px',
+                    textTransform: 'uppercase',
+                }}
+            >
+                {title}
+            </div>
+            <ClientB2cChatAiThread messages={messages} renderEmptyPlaceholder={false} />
+        </div>
+    );
+}
+
 interface ClientB2cChatAiModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -21,7 +54,7 @@ const ClientB2cChatAiModal: React.FC<ClientB2cChatAiModalProps> = ({
     clientId,
     clientTitle,
 }) => {
-    const [messages, setMessages] = useState<ChatAiMessage[]>([]);
+    const [chats, setChats] = useState<ClientChatsPayload>(emptyChats);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -31,12 +64,18 @@ const ClientB2cChatAiModal: React.FC<ClientB2cChatAiModalProps> = ({
         let cancelled = false;
         setLoading(true);
         setError(null);
-        setMessages([]);
+        setChats(emptyChats());
 
         clientApi
             .getClient(clientId, { include_chat_ai: true, chat_ai_limit: CHAT_AI_LIMIT })
             .then((c) => {
-                if (!cancelled) setMessages(c.chat_ai_messages ?? []);
+                if (!cancelled) {
+                    setChats({
+                        chat_ai_messages: c.chat_ai_messages ?? [],
+                        b2c_site_chat_messages: c.b2c_site_chat_messages ?? [],
+                        constructor_site_chat_messages: c.constructor_site_chat_messages ?? [],
+                    });
+                }
             })
             .catch(() => {
                 if (!cancelled) setError('Не удалось загрузить переписку. Попробуйте позже.');
@@ -58,6 +97,11 @@ const ClientB2cChatAiModal: React.FC<ClientB2cChatAiModalProps> = ({
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
     }, [isOpen, onClose]);
+
+    const totalChats =
+        chats.chat_ai_messages.length +
+        chats.b2c_site_chat_messages.length +
+        chats.constructor_site_chat_messages.length;
 
     return (
         <AnimatePresence>
@@ -118,7 +162,7 @@ const ClientB2cChatAiModal: React.FC<ClientB2cChatAiModalProps> = ({
                         </button>
 
                         <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '6px', paddingRight: '36px' }}>
-                            Переписка с AI (B2C)
+                            Чаты клиента (B2C)
                         </h2>
                         <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '16px' }}>
                             {clientTitle.trim() || 'Клиент'} · ID: {clientId}
@@ -160,11 +204,32 @@ const ClientB2cChatAiModal: React.FC<ClientB2cChatAiModalProps> = ({
                                     </button>
                                 </div>
                             )}
-                            {!loading && !error && <ClientB2cChatAiThread messages={messages} />}
+                            {!loading && !error && totalChats === 0 && (
+                                <div
+                                    style={{
+                                        padding: '24px',
+                                        textAlign: 'center',
+                                        color: 'var(--text-muted)',
+                                        fontSize: '15px',
+                                    }}
+                                >
+                                    Сообщений ни в одном канале пока нет (chat_AI, B2C site, конструктор).
+                                </div>
+                            )}
+                            {!loading && !error && totalChats > 0 && (
+                                <>
+                                    <ChannelSection title="Chat AI" messages={chats.chat_ai_messages} />
+                                    <ChannelSection title="B2C site-чат" messages={chats.b2c_site_chat_messages} />
+                                    <ChannelSection
+                                        title="Конструктор (лендинг)"
+                                        messages={chats.constructor_site_chat_messages}
+                                    />
+                                </>
+                            )}
                         </div>
 
                         <p style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>
-                            Только просмотр · история из B2C chat_AI
+                            Только просмотр · chat_AI, B2C site, конструктор
                         </p>
                     </motion.div>
                 </motion.div>
