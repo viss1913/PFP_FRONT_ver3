@@ -26,9 +26,13 @@ const getErrorMessage = (error: unknown) => {
         if (status === 403) return 'Нет доступа к отчету.';
         if (status === 404) return 'Отчет не найден.';
         if (status === 500) return 'Ошибка генерации отчета. Попробуй позже.';
+        if (error.message) return error.message;
     }
     return 'Не удалось выполнить запрос.';
 };
+
+const toPdfObjectBlob = (blob: Blob) =>
+    blob.type === 'application/pdf' ? blob : new Blob([blob], { type: 'application/pdf' });
 
 const createInitialReportState = (): ReportState => ({
     toc: [],
@@ -100,6 +104,14 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
     const activeTocItem = reportState.toc[activeIndex] || null;
     const modalTitle = useMemo(() => `Отчет по клиенту #${clientId ?? ''}`.trim(), [clientId]);
     const generatedAtLabel = useMemo(() => formatGeneratedAt(reportState.generatedAt), [reportState.generatedAt]);
+
+    /** Без оглавления или с кривыми page_start всё равно показываем весь PDF. */
+    const pdfIframeSrc = useMemo(() => {
+        if (!pdfBlobUrl) return null;
+        const start = activeTocItem?.page_start;
+        if (start != null && Number(start) > 0) return `${pdfBlobUrl}#page=${start}`;
+        return pdfBlobUrl;
+    }, [pdfBlobUrl, activeTocItem]);
 
     useEffect(() => {
         if (!isOpen || !clientId) return;
@@ -218,7 +230,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                 }
 
                 revokePdfBlobUrl();
-                const objectUrl = URL.createObjectURL(blob);
+                const objectUrl = URL.createObjectURL(toPdfObjectBlob(blob));
                 pdfBlobUrlRef.current = objectUrl;
                 setPdfBlobUrl(objectUrl);
 
@@ -277,6 +289,11 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
         a.remove();
     };
 
+    const handleOpenPdfNewTab = () => {
+        if (!pdfBlobUrl) return;
+        window.open(pdfBlobUrl, '_blank', 'noopener,noreferrer');
+    };
+
     if (!isOpen) return null;
 
     return (
@@ -316,8 +333,31 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                             </div>
                         )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                         <button
+                            type="button"
+                            onClick={handleOpenPdfNewTab}
+                            disabled={!pdfBlobUrl || reportState.metaLoading || reportState.pdfLoading}
+                            style={{
+                                border: '1px solid #d1d5db',
+                                background: '#fff',
+                                color: '#374151',
+                                borderRadius: '999px',
+                                padding: '10px 16px',
+                                fontSize: '14px',
+                                fontWeight: 600,
+                                cursor:
+                                    pdfBlobUrl && !reportState.metaLoading && !reportState.pdfLoading
+                                        ? 'pointer'
+                                        : 'not-allowed',
+                                opacity:
+                                    pdfBlobUrl && !reportState.metaLoading && !reportState.pdfLoading ? 1 : 0.75,
+                            }}
+                        >
+                            В новой вкладке
+                        </button>
+                        <button
+                            type="button"
                             onClick={handleDownloadPdf}
                             disabled={!pdfBlobUrl || reportState.metaLoading || reportState.pdfLoading}
                             style={{
@@ -426,15 +466,15 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                                 </div>
                             )}
 
-                            {!reportState.metaLoading && !reportState.pdfLoading && !reportState.error && pdfBlobUrl && activeTocItem && (
+                            {!reportState.metaLoading && !reportState.pdfLoading && !reportState.error && pdfIframeSrc && (
                                 <iframe
-                                    title={`report-page-${activeTocItem.id}`}
-                                    src={`${pdfBlobUrl}#page=${activeTocItem.page_start}`}
+                                    title={activeTocItem ? `report-page-${activeTocItem.id}` : 'report-pdf'}
+                                    src={pdfIframeSrc}
                                     style={{ width: '100%', height: '100%', border: 'none' }}
                                 />
                             )}
 
-                            {!reportState.metaLoading && !reportState.pdfLoading && !reportState.error && (!pdfBlobUrl || !activeTocItem) && (
+                            {!reportState.metaLoading && !reportState.pdfLoading && !reportState.error && !pdfIframeSrc && (
                                 <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#6b7280' }}>
                                     <FileText size={16} />
                                     Нет данных отчета
@@ -464,7 +504,11 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                         Назад
                     </button>
                     <div style={{ color: '#6b7280', fontSize: '14px' }}>
-                        {activeTocItem ? `Раздел ${activeIndex + 1} из ${reportState.toc.length} · стр. ${activeTocItem.page_start}` : 'Разделы не загружены'}
+                        {reportState.toc.length === 0 && pdfBlobUrl
+                            ? 'Оглавление пустое — показан весь PDF'
+                            : activeTocItem
+                              ? `Раздел ${activeIndex + 1} из ${reportState.toc.length} · стр. ${activeTocItem.page_start}`
+                              : 'Разделы не загружены'}
                     </div>
                     <button
                         onClick={() => setActiveIndex((prev) => Math.min(prev + 1, reportState.toc.length - 1))}
