@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Download, FileText, X } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight, Download, FileText, Loader2, X } from 'lucide-react';
 import axios from 'axios';
 import { clientApi, type ReportTocItem } from '../api/clientApi';
+import { API_BASE_URL } from '../api/config';
 
 interface ReportPreviewModalProps {
     isOpen: boolean;
@@ -10,10 +11,11 @@ interface ReportPreviewModalProps {
 }
 
 type ReportState = {
-    pdfUrl: string | null;
     toc: ReportTocItem[];
     generatedAt: string | null;
-    loading: boolean;
+    metaLoading: boolean;
+    pdfLoading: boolean;
+    pdfProgress: number | null;
     error: string | null;
 };
 
@@ -29,12 +31,20 @@ const getErrorMessage = (error: unknown) => {
 };
 
 const createInitialReportState = (): ReportState => ({
-    pdfUrl: null,
     toc: [],
     generatedAt: null,
-    loading: false,
+    metaLoading: false,
+    pdfLoading: false,
+    pdfProgress: null,
     error: null,
 });
+
+/** Абсолютные ссылки — как есть; относительные — от корня бэка (без дублирования /api). */
+const resolvePdfFetchUrl = (pdfUrl: string): string => {
+    if (/^https?:\/\//i.test(pdfUrl)) return pdfUrl;
+    const path = pdfUrl.startsWith('/') ? pdfUrl : `/${pdfUrl}`;
+    return `${API_BASE_URL.replace(/\/$/, '')}${path}`;
+};
 
 const formatGeneratedAt = (value: string | null) => {
     if (!value) return null;
@@ -52,6 +62,17 @@ const formatGeneratedAt = (value: string | null) => {
 const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientId, onClose }) => {
     const [activeIndex, setActiveIndex] = useState(0);
     const [reportState, setReportState] = useState<ReportState>(createInitialReportState);
+    const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+    const pdfBlobUrlRef = useRef<string | null>(null);
+
+    const revokePdfBlobUrl = () => {
+        const u = pdfBlobUrlRef.current;
+        if (u) {
+            URL.revokeObjectURL(u);
+            pdfBlobUrlRef.current = null;
+        }
+        setPdfBlobUrl(null);
+    };
 
     const canGoBack = activeIndex > 0;
     const canGoNext = activeIndex < reportState.toc.length - 1;
@@ -69,40 +90,125 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
     }, [isOpen]);
 
     useEffect(() => {
-        if (!isOpen) return;
+        if (!isOpen) {
+            revokePdfBlobUrl();
+            return;
+        }
         setActiveIndex(0);
         setReportState(createInitialReportState());
+        revokePdfBlobUrl();
     }, [isOpen, clientId]);
 
     useEffect(() => {
         if (!isOpen || clientId == null) return;
 
         let cancelled = false;
-        setReportState((prev) => ({ ...prev, loading: true, error: null }));
+        revokePdfBlobUrl();
 
-        clientApi
-            .getAgentReportPdfUrl(clientId)
-            .then((payload) => {
-                if (cancelled) return;
-                const sortedToc = [...(payload.toc || [])].sort((a, b) => a.order - b.order);
-                setReportState({
-                    pdfUrl: payload.pdf_url,
-                    toc: sortedToc,
-                    generatedAt: payload.generated_at || null,
-                    loading: false,
-                    error: null,
-                });
-            })
-            .catch((error) => {
+        const run = async () => {
+            setReportState({
+                ...createInitialReportState(),
+                metaLoading: true,
+                error: null,
+            });
+
+            let meta: Awaited<ReturnType<typeof clientApi.getAgentReportPdfUrl>>;
+            try {
+                meta = await clientApi.getAgentReportPdfUrl(clientId);
+            } catch (error) {
                 if (cancelled) return;
                 setReportState({
-                    pdfUrl: null,
-                    toc: [],
-                    generatedAt: null,
-                    loading: false,
+                    ...createInitialReportState(),
                     error: getErrorMessage(error),
                 });
+                return;
+            }
+
+            if (cancelled) return;
+
+            const sortedToc = [...(meta.toc || [])].sort((a, b) => a.order - b.order);
+            const remotePdfUrl = meta.pdf_url?.trim();
+            if (!remotePdfUrl) {
+                setReportState({
+                    toc: sortedToc,
+                    generatedAt: meta.generated_at || null,
+                    metaLoading: false,
+                    pdfLoading: false,
+                    pdfProgress: null,
+                    error: 'Сервер не вернул ссылку на PDF.',
+                });
+                return;
+            }
+
+            setReportState({
+                toc: sortedToc,
+                generatedAt: meta.generated_at || null,
+                metaLoading: false,
+                pdfLoading: true,
+                pdfProgress: null,
+                error: null,
             });
+
+            const fetchUrl = resolvePdfFetchUrl(remotePdfUrl);
+
+            try {
+                const blob = await clientApi.fetchReportPdfBlobFromUrl(fetchUrl, (loaded, total) => {
+                    if (cancelled) return;
+                    if (total && total > 0) {
+                        const pct = Math.min(100, Math.round((loaded / total) * 100));
+                        setReportState((prev) => ({ ...prev, pdfProgress: pct }));
+                    } else {
+                        setReportState((prev) => ({ ...prev, pdfProgress: null }));
+                    }
+                });
+
+                if (cancelled) return;
+
+                if (blob.size < 4096) {
+                    const peek = await blob.slice(0, 8).text();
+                    if (peek.trimStart().startsWith('{')) {
+                        const text = await blob.text();
+                        let msg = 'Не удалось скачать PDF.';
+                        try {
+                            const j = JSON.parse(text) as { message?: string; error?: string };
+                            if (j.message) msg = j.message;
+                            else if (j.error) msg = j.error;
+                        } catch {
+                            /* ignore */
+                        }
+                        setReportState((prev) => ({
+                            ...prev,
+                            pdfLoading: false,
+                            pdfProgress: null,
+                            error: msg,
+                        }));
+                        return;
+                    }
+                }
+
+                revokePdfBlobUrl();
+                const objectUrl = URL.createObjectURL(blob);
+                pdfBlobUrlRef.current = objectUrl;
+                setPdfBlobUrl(objectUrl);
+
+                setReportState((prev) => ({
+                    ...prev,
+                    pdfLoading: false,
+                    pdfProgress: null,
+                    error: null,
+                }));
+            } catch (error) {
+                if (cancelled) return;
+                setReportState((prev) => ({
+                    ...prev,
+                    pdfLoading: false,
+                    pdfProgress: null,
+                    error: getErrorMessage(error),
+                }));
+            }
+        };
+
+        void run();
 
         return () => {
             cancelled = true;
@@ -110,19 +216,34 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
     }, [isOpen, clientId]);
 
     useEffect(() => {
+        return () => {
+            revokePdfBlobUrl();
+        };
+    }, []);
+
+    const loadingLocksNav = reportState.metaLoading || reportState.pdfLoading;
+
+    useEffect(() => {
         if (!isOpen) return;
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key === 'Escape') onClose();
+            if (loadingLocksNav) return;
             if (event.key === 'ArrowLeft' && canGoBack) setActiveIndex((prev) => prev - 1);
             if (event.key === 'ArrowRight' && canGoNext) setActiveIndex((prev) => prev + 1);
         };
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
-    }, [isOpen, onClose, canGoBack, canGoNext]);
+    }, [isOpen, onClose, canGoBack, canGoNext, loadingLocksNav]);
 
     const handleDownloadPdf = () => {
-        if (!reportState.pdfUrl) return;
-        window.open(reportState.pdfUrl, '_blank', 'noopener,noreferrer');
+        if (!pdfBlobUrl || clientId == null) return;
+        const a = document.createElement('a');
+        a.href = pdfBlobUrl;
+        a.download = `financial_plan_${clientId}.pdf`;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
     };
 
     if (!isOpen) return null;
@@ -134,20 +255,21 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                 position: 'fixed',
                 inset: 0,
                 zIndex: 5000,
-                background: 'rgba(0,0,0,0.6)',
+                background: 'rgba(0,0,0,0.65)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: '20px',
+                padding: '10px',
             }}
         >
             <div
                 onClick={(event) => event.stopPropagation()}
                 style={{
-                    width: 'min(1320px, 96vw)',
-                    height: '92vh',
+                    width: 'min(1920px, 98vw)',
+                    height: '96vh',
+                    maxHeight: '96vh',
                     background: '#fff',
-                    borderRadius: '20px',
+                    borderRadius: '16px',
                     overflow: 'hidden',
                     display: 'grid',
                     gridTemplateRows: '72px 1fr 72px',
@@ -166,7 +288,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <button
                             onClick={handleDownloadPdf}
-                            disabled={!reportState.pdfUrl}
+                            disabled={!pdfBlobUrl || reportState.metaLoading || reportState.pdfLoading}
                             style={{
                                 border: 'none',
                                 background: 'var(--primary)',
@@ -176,8 +298,12 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '8px',
-                                cursor: reportState.pdfUrl ? 'pointer' : 'not-allowed',
-                                opacity: reportState.pdfUrl ? 1 : 0.75,
+                                cursor:
+                                    pdfBlobUrl && !reportState.metaLoading && !reportState.pdfLoading
+                                        ? 'pointer'
+                                        : 'not-allowed',
+                                opacity:
+                                    pdfBlobUrl && !reportState.metaLoading && !reportState.pdfLoading ? 1 : 0.75,
                             }}
                         >
                             <Download size={16} />
@@ -189,8 +315,8 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                     </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', minHeight: 0 }}>
-                    <aside style={{ borderRight: '1px solid #eee', padding: '14px', overflowY: 'auto' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 22vw) 1fr', minHeight: 0 }}>
+                    <aside style={{ borderRight: '1px solid #eee', padding: '14px', overflowY: 'auto', minWidth: 0 }}>
                         <div style={{ fontSize: '12px', fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.04em', marginBottom: '10px' }}>ОГЛАВЛЕНИЕ</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             {reportState.toc.map((item, index) => (
@@ -217,28 +343,67 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                     </aside>
 
                     <main style={{ background: '#f9fafb', padding: '14px', minHeight: 0 }}>
-                        <div style={{ height: '100%', borderRadius: '14px', border: '1px solid #e5e7eb', overflow: 'hidden', background: '#fff' }}>
-                            {reportState.loading && (
-                                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280' }}>
-                                    Генерирую и загружаю PDF-отчет...
+                        <div style={{ height: '100%', borderRadius: '14px', border: '1px solid #e5e7eb', overflow: 'hidden', background: '#fff', position: 'relative' }}>
+                            {(reportState.metaLoading || reportState.pdfLoading) && (
+                                <div
+                                    style={{
+                                        position: 'absolute',
+                                        inset: 0,
+                                        zIndex: 2,
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '16px',
+                                        background: 'rgba(255,255,255,0.92)',
+                                        color: '#4b5563',
+                                        padding: '24px',
+                                        textAlign: 'center',
+                                    }}
+                                >
+                                    <Loader2 className="animate-spin" size={40} color="var(--primary, #c2185b)" strokeWidth={2.2} />
+                                    <div style={{ fontSize: '16px', fontWeight: 600, maxWidth: '360px', lineHeight: 1.45 }}>
+                                        {reportState.metaLoading
+                                            ? 'Готовлю отчёт и ссылку…'
+                                            : 'Качаю PDF — если файл большой, подожди чутка'}
+                                    </div>
+                                    {reportState.pdfLoading && reportState.pdfProgress != null && (
+                                        <div style={{ width: 'min(360px, 80%)', height: '8px', background: '#e5e7eb', borderRadius: '999px', overflow: 'hidden' }}>
+                                            <div
+                                                style={{
+                                                    width: `${reportState.pdfProgress}%`,
+                                                    height: '100%',
+                                                    background: 'var(--primary, #c2185b)',
+                                                    borderRadius: '999px',
+                                                    transition: 'width 0.15s ease-out',
+                                                }}
+                                            />
+                                        </div>
+                                    )}
+                                    {reportState.pdfLoading && reportState.pdfProgress != null && (
+                                        <div style={{ fontSize: '13px', color: '#6b7280' }}>{reportState.pdfProgress}%</div>
+                                    )}
+                                    {reportState.pdfLoading && reportState.pdfProgress == null && (
+                                        <div style={{ fontSize: '13px', color: '#9ca3af' }}>размер заранее неизвестен — качаем потоком</div>
+                                    )}
                                 </div>
                             )}
 
-                            {!reportState.loading && reportState.error && (
+                            {!reportState.metaLoading && !reportState.pdfLoading && reportState.error && (
                                 <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#b91c1c', textAlign: 'center', padding: '16px' }}>
                                     {reportState.error}
                                 </div>
                             )}
 
-                            {!reportState.loading && !reportState.error && reportState.pdfUrl && activeTocItem && (
+                            {!reportState.metaLoading && !reportState.pdfLoading && !reportState.error && pdfBlobUrl && activeTocItem && (
                                 <iframe
                                     title={`report-page-${activeTocItem.id}`}
-                                    src={`${reportState.pdfUrl}#page=${activeTocItem.page_start}`}
+                                    src={`${pdfBlobUrl}#page=${activeTocItem.page_start}`}
                                     style={{ width: '100%', height: '100%', border: 'none' }}
                                 />
                             )}
 
-                            {!reportState.loading && !reportState.error && (!reportState.pdfUrl || !activeTocItem) && (
+                            {!reportState.metaLoading && !reportState.pdfLoading && !reportState.error && (!pdfBlobUrl || !activeTocItem) && (
                                 <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#6b7280' }}>
                                     <FileText size={16} />
                                     Нет данных отчета
@@ -251,7 +416,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                 <div style={{ borderTop: '1px solid #eee', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <button
                         onClick={() => setActiveIndex((prev) => Math.max(prev - 1, 0))}
-                        disabled={!canGoBack}
+                        disabled={!canGoBack || reportState.metaLoading || reportState.pdfLoading}
                         style={{
                             border: '1px solid #ddd',
                             background: '#fff',
@@ -260,8 +425,8 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                             display: 'flex',
                             alignItems: 'center',
                             gap: '6px',
-                            cursor: canGoBack ? 'pointer' : 'not-allowed',
-                            opacity: canGoBack ? 1 : 0.5,
+                            cursor: canGoBack && !reportState.metaLoading && !reportState.pdfLoading ? 'pointer' : 'not-allowed',
+                            opacity: canGoBack && !reportState.metaLoading && !reportState.pdfLoading ? 1 : 0.5,
                         }}
                     >
                         <ChevronLeft size={16} />
@@ -272,7 +437,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                     </div>
                     <button
                         onClick={() => setActiveIndex((prev) => Math.min(prev + 1, reportState.toc.length - 1))}
-                        disabled={!canGoNext}
+                        disabled={!canGoNext || reportState.metaLoading || reportState.pdfLoading}
                         style={{
                             border: 'none',
                             background: 'var(--primary)',
@@ -282,8 +447,8 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                             display: 'flex',
                             alignItems: 'center',
                             gap: '6px',
-                            cursor: canGoNext ? 'pointer' : 'not-allowed',
-                            opacity: canGoNext ? 1 : 0.5,
+                            cursor: canGoNext && !reportState.metaLoading && !reportState.pdfLoading ? 'pointer' : 'not-allowed',
+                            opacity: canGoNext && !reportState.metaLoading && !reportState.pdfLoading ? 1 : 0.5,
                         }}
                     >
                         Далее

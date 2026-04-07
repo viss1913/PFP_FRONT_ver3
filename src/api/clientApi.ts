@@ -246,5 +246,37 @@ export const clientApi = {
             timeout: 120000,
         });
         return response.data;
-    }
+    },
+
+    /**
+     * Скачивает PDF по абсолютному URL из pdf-url.
+     * Если URL на нашем API — идём через `api` (Bearer + X-Project-Key), иначе обычный GET (например signed S3).
+     */
+    fetchReportPdfBlobFromUrl: async (
+        absoluteUrl: string,
+        onProgress?: (loaded: number, total?: number) => void
+    ): Promise<Blob> => {
+        const config: {
+            responseType: 'blob';
+            timeout: number;
+            onDownloadProgress?: (evt: { loaded: number; total?: number }) => void;
+        } = {
+            responseType: 'blob',
+            timeout: 300_000,
+        };
+        if (onProgress) {
+            config.onDownloadProgress = (evt) => onProgress(evt.loaded, evt.total);
+        }
+
+        const root = API_BASE_WITH_API.replace(/\/$/, '');
+        const trimmed = absoluteUrl.trim();
+        if (trimmed.startsWith(`${root}/`) || trimmed === root) {
+            const rel = trimmed.slice(root.length + 1);
+            const response = await api.get<Blob>(rel, config);
+            return response.data;
+        }
+
+        const response = await axios.get<Blob>(trimmed, config);
+        return response.data;
+    },
 };
