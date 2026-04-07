@@ -340,16 +340,12 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
         }
     }, [clientId]);
 
-    // Dynamic styles based on step
-    const isWideStep = step === 3; // Goal Selection needs full width
-    const containerStyle: React.CSSProperties = isWideStep ? {
+    // Unified wide layout for all onboarding steps
+    const containerStyle: React.CSSProperties = {
         width: '100%',
-        margin: '0',
-        padding: '0' // Strictly ZERO padding here, handled by .goalsContainer
-    } : {
-        maxWidth: '800px',
+        maxWidth: '1280px',
         margin: '0 auto',
-        padding: '40px 20px'
+        padding: '24px'
     };
 
     return (
@@ -366,7 +362,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                         onClick={onBack}
                         style={{
                             position: 'absolute',
-                            left: isWideStep ? '40px' : '20px', // Adjust back button for wide layout
+                            left: '40px',
                             top: '40px',
                             cursor: 'pointer',
                             color: 'var(--text-muted)'
