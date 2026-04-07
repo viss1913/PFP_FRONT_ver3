@@ -13,13 +13,12 @@ export interface ChatAiMessage {
 export type MaritalStatus = 'single' | 'married' | 'divorced' | 'widowed' | 'civil_union';
 export type FamilyEmploymentStatus = 'employed' | 'self_employed' | 'unemployed' | 'retired' | 'other';
 export type FamilyObligation =
-    | 'alimony'
-    | 'elder_support'
-    | 'child_education'
-    | 'medical_care'
+    | 'loans'
+    | 'mortgage'
     | 'rent'
-    | 'mortgage_payments'
-    | 'other_loans'
+    | 'alimony'
+    | 'education'
+    | 'elder_support'
     | 'other';
 export type FamilyRealEstateStatus = 'owned' | 'mortgage';
 export type RiskProfileAnswers = Partial<Record<'q2' | 'q3' | 'q4' | 'q5' | 'q6' | 'q7' | 'q8' | 'q9' | 'q10', number>>;
@@ -58,7 +57,7 @@ export interface FamilyProfile {
     children?: FamilyChild[];
     contacts?: FamilyContact[];
     spouse?: FamilySpouse;
-    family_obligations?: FamilyObligation[];
+    family_obligations?: Array<{ type: FamilyObligation; amount_monthly: number }>;
     real_estate?: FamilyRealEstateItem[];
     confidentiality?: FamilyConfidentiality;
 }

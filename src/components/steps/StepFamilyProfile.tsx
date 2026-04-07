@@ -1,4 +1,6 @@
 import React from 'react';
+import { motion } from 'framer-motion';
+import { Banknote, GraduationCap, HandCoins, HeartHandshake, Home, Landmark, MinusCircle } from 'lucide-react';
 import type { CJMData, FamilyObligation, FamilyRealEstateStatus } from '../CJMFlow';
 
 interface StepFamilyProfileProps {
@@ -17,15 +19,23 @@ const maritalOptions = [
 ] as const;
 
 const obligations: { value: FamilyObligation; label: string }[] = [
+    { value: 'loans', label: 'Кредиты' },
+    { value: 'mortgage', label: 'Ипотека' },
+    { value: 'rent', label: 'Аренда недвижимости' },
     { value: 'alimony', label: 'Алименты' },
+    { value: 'education', label: 'Обучение детей' },
     { value: 'elder_support', label: 'Поддержка родителей' },
-    { value: 'child_education', label: 'Образование детей' },
-    { value: 'medical_care', label: 'Медицинские расходы' },
-    { value: 'rent', label: 'Аренда' },
-    { value: 'mortgage_payments', label: 'Ипотека' },
-    { value: 'other_loans', label: 'Прочие кредиты' },
     { value: 'other', label: 'Другое' }
 ];
+const obligationIcon: Record<FamilyObligation, React.ReactNode> = {
+    loans: <Landmark size={16} />,
+    mortgage: <Home size={16} />,
+    rent: <Home size={16} />,
+    alimony: <HandCoins size={16} />,
+    education: <GraduationCap size={16} />,
+    elder_support: <HeartHandshake size={16} />,
+    other: <Banknote size={16} />
+};
 
 const estateStatuses: { value: FamilyRealEstateStatus; label: string }[] = [
     { value: 'owned', label: 'В собственности' },
@@ -35,12 +45,32 @@ const estateStatuses: { value: FamilyRealEstateStatus; label: string }[] = [
 const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, onNext, onPrev }) => {
     const family = data.familyProfile;
 
-    const toggleObligation = (value: FamilyObligation) => {
+    const addObligation = () => {
+        setData((prev) => ({
+            ...prev,
+            familyProfile: {
+                ...prev.familyProfile,
+                family_obligations: [...prev.familyProfile.family_obligations, { type: 'loans', amount_monthly: 0 }]
+            }
+        }));
+    };
+
+    const updateObligation = (index: number, patch: { type?: FamilyObligation; amount_monthly?: number }) => {
         setData((prev) => {
-            const list = prev.familyProfile.family_obligations || [];
-            const next = list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+            const next = [...prev.familyProfile.family_obligations];
+            next[index] = { ...next[index], ...patch };
             return { ...prev, familyProfile: { ...prev.familyProfile, family_obligations: next } };
         });
+    };
+
+    const removeObligation = (index: number) => {
+        setData((prev) => ({
+            ...prev,
+            familyProfile: {
+                ...prev.familyProfile,
+                family_obligations: prev.familyProfile.family_obligations.filter((_, i) => i !== index)
+            }
+        }));
     };
 
     const updateEstate = (index: number, patch: { name?: string; estimated_value?: number; status?: FamilyRealEstateStatus }) => {
@@ -64,83 +94,179 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
     const isValid = Boolean(family.marital_status);
 
     return (
-        <div style={{ maxWidth: 760, margin: '0 auto' }}>
-            <h2 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8, textAlign: 'center' }}>Семейный профиль</h2>
-            <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: 28 }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+            <h2 style={{ fontSize: 34, fontWeight: 800, marginBottom: 8, textAlign: 'center', letterSpacing: '-0.02em' }}>Семейный профиль</h2>
+            <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: 30, fontSize: 16 }}>
                 Family office карточка клиента. На расчеты не влияет, но обязательна для анкеты.
             </p>
 
-            <div className="input-group" style={{ marginBottom: 18 }}>
+            <div className="input-group" style={{ marginBottom: 20 }}>
                 <label className="label">Семейный статус *</label>
                 <select
                     value={family.marital_status}
                     onChange={(e) => setData((prev) => ({ ...prev, familyProfile: { ...prev.familyProfile, marital_status: e.target.value as any } }))}
+                    style={{
+                        background: 'rgba(255,255,255,0.95)',
+                        borderRadius: 14,
+                        height: 48,
+                        border: '1px solid rgba(255,255,255,0.55)',
+                        boxShadow: '0 6px 18px rgba(0,0,0,0.08)'
+                    }}
                 >
                     <option value="">Выберите статус</option>
                     {maritalOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
             </div>
 
-            <div style={{ marginBottom: 20 }}>
-                <label className="label" style={{ marginBottom: 10, display: 'block' }}>Семейные обязательства</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
-                    {obligations.map((item) => {
-                        const active = family.family_obligations.includes(item.value);
-                        return (
-                            <button
-                                key={item.value}
-                                type="button"
-                                onClick={() => toggleObligation(item.value)}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 16, alignItems: 'start' }}>
+                <section style={{
+                    borderRadius: 18,
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    background: 'linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03))',
+                    padding: 16
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <label className="label" style={{ display: 'block', fontSize: 16 }}>Расходы семьи (в месяц)</label>
+                        <button type="button" className="btn-secondary" onClick={addObligation} style={{ padding: '8px 12px' }}>
+                            + Добавить
+                        </button>
+                    </div>
+                    <div style={{ display: 'grid', gap: 10 }}>
+                        {family.family_obligations.length === 0 && (
+                            <div style={{ color: 'var(--text-muted)', fontSize: 14, padding: '8px 0' }}>
+                                Пока нет расходов. Добавь минимум один, если у клиента есть обязательства.
+                            </div>
+                        )}
+                        {family.family_obligations.map((item, index) => (
+                            <motion.div
+                                key={index}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.2 }}
+                                style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr auto', gap: 10 }}
+                            >
+                                <select
+                                    value={item.type}
+                                    onChange={(e) => updateObligation(index, { type: e.target.value as FamilyObligation })}
+                                    style={{
+                                        background: 'rgba(255,255,255,0.95)',
+                                        borderRadius: 12,
+                                        height: 44,
+                                        border: '1px solid rgba(255,255,255,0.55)'
+                                    }}
+                                >
+                                    {obligations.map((option) => (
+                                        <option key={option.value} value={option.value}>{option.label}</option>
+                                    ))}
+                                </select>
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    color: 'var(--text-muted)',
+                                    marginTop: -2,
+                                    marginBottom: -2
+                                }}>
+                                    {obligationIcon[item.type]}
+                                    <span style={{ fontSize: 12 }}>{obligations.find((o) => o.value === item.type)?.label}</span>
+                                </div>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    value={item.amount_monthly || 0}
+                                    onChange={(e) => updateObligation(index, { amount_monthly: Number(e.target.value) || 0 })}
+                                    placeholder="Сумма, ₽"
+                                    style={{
+                                        background: 'rgba(255,255,255,0.95)',
+                                        borderRadius: 12,
+                                        height: 44,
+                                        border: '1px solid rgba(255,255,255,0.55)'
+                                    }}
+                                />
+                                <button type="button" className="btn-secondary" onClick={() => removeObligation(index)} style={{ height: 44, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <MinusCircle size={14} />
+                                    <span>Удалить</span>
+                                </button>
+                            </motion.div>
+                        ))}
+                    </div>
+                </section>
+
+                <section style={{
+                    borderRadius: 18,
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    background: 'linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03))',
+                    padding: 16
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <label className="label" style={{ fontSize: 16 }}>Недвижимость семьи</label>
+                        <button type="button" className="btn-secondary" onClick={addEstate} style={{ padding: '8px 12px' }}>+ Добавить</button>
+                    </div>
+                    {family.real_estate.length === 0 && (
+                        <div style={{ color: 'var(--text-muted)', fontSize: 14, padding: '8px 0' }}>
+                            Пока нет объектов недвижимости.
+                        </div>
+                    )}
+                    {family.real_estate.map((item, index) => (
+                        <motion.div
+                            key={index}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.2 }}
+                            style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: 10, marginBottom: 10 }}
+                        >
+                            <input
+                                value={item.name || ''}
+                                onChange={(e) => updateEstate(index, { name: e.target.value })}
+                                placeholder="Название объекта"
                                 style={{
-                                    border: active ? '1px solid var(--primary)' : '1px solid var(--border-color)',
-                                    background: active ? 'rgba(255,199,80,0.15)' : 'var(--card-bg)',
+                                    background: 'rgba(255,255,255,0.95)',
                                     borderRadius: 12,
-                                    color: 'var(--text-main)',
-                                    padding: '10px 12px',
-                                    cursor: 'pointer',
-                                    textAlign: 'left'
+                                    height: 44,
+                                    border: '1px solid rgba(255,255,255,0.55)'
+                                }}
+                            />
+                            <input
+                                type="number"
+                                min={0}
+                                value={item.estimated_value || 0}
+                                onChange={(e) => updateEstate(index, { estimated_value: Number(e.target.value) || 0 })}
+                                placeholder="Оценка"
+                                style={{
+                                    background: 'rgba(255,255,255,0.95)',
+                                    borderRadius: 12,
+                                    height: 44,
+                                    border: '1px solid rgba(255,255,255,0.55)'
+                                }}
+                            />
+                            <select
+                                value={item.status}
+                                onChange={(e) => updateEstate(index, { status: e.target.value as FamilyRealEstateStatus })}
+                                style={{
+                                    background: 'rgba(255,255,255,0.95)',
+                                    borderRadius: 12,
+                                    height: 44,
+                                    border: '1px solid rgba(255,255,255,0.55)'
                                 }}
                             >
-                                {item.label}
-                            </button>
-                        );
-                    })}
-                </div>
+                                {estateStatuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
+                            </select>
+                        </motion.div>
+                    ))}
+                </section>
             </div>
 
-            <div style={{ marginBottom: 20 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                    <label className="label">Недвижимость семьи</label>
-                    <button type="button" className="btn-secondary" onClick={addEstate} style={{ padding: '8px 12px' }}>+ Добавить</button>
-                </div>
-                {family.real_estate.map((item, index) => (
-                    <div key={index} style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
-                        <input
-                            value={item.name || ''}
-                            onChange={(e) => updateEstate(index, { name: e.target.value })}
-                            placeholder="Название объекта"
-                        />
-                        <input
-                            type="number"
-                            min={0}
-                            value={item.estimated_value || 0}
-                            onChange={(e) => updateEstate(index, { estimated_value: Number(e.target.value) || 0 })}
-                            placeholder="Оценка"
-                        />
-                        <select
-                            value={item.status}
-                            onChange={(e) => updateEstate(index, { status: e.target.value as FamilyRealEstateStatus })}
-                        >
-                            {estateStatuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
-                        </select>
-                    </div>
-                ))}
-            </div>
-
-            <div style={{ marginBottom: 28 }}>
-                <label className="label" style={{ marginBottom: 10, display: 'block' }}>Конфиденциальность</label>
+            <section style={{
+                marginTop: 16,
+                marginBottom: 28,
+                borderRadius: 18,
+                border: '1px solid rgba(255,255,255,0.12)',
+                background: 'linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))',
+                padding: 16
+            }}>
+                <label className="label" style={{ marginBottom: 10, display: 'block', fontSize: 16 }}>Конфиденциальность</label>
                 <div style={{ display: 'grid', gap: 10 }}>
-                    <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 17 }}>
                         <input
                             type="checkbox"
                             checked={family.confidentiality.allow_spouse_access}
@@ -154,7 +280,7 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                         />
                         <span>Разрешить доступ супругу(е)</span>
                     </label>
-                    <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 17 }}>
                         <input
                             type="checkbox"
                             checked={family.confidentiality.allow_family_contact}
@@ -178,12 +304,26 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                             }
                         }))}
                         placeholder="Комментарий по доступу/коммуникации"
-                        style={{ minHeight: 88, borderRadius: 12, padding: 10, resize: 'vertical' }}
+                        style={{
+                            minHeight: 100,
+                            borderRadius: 12,
+                            padding: 12,
+                            resize: 'vertical',
+                            background: 'rgba(255,255,255,0.95)',
+                            border: '1px solid rgba(255,255,255,0.55)'
+                        }}
                     />
                 </div>
-            </div>
+            </section>
 
-            <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{
+                display: 'flex',
+                gap: 12,
+                position: 'sticky',
+                bottom: 0,
+                paddingTop: 8,
+                background: 'linear-gradient(180deg, rgba(18,22,33,0), rgba(18,22,33,0.9) 35%, rgba(18,22,33,1) 100%)'
+            }}>
                 <button className="btn-secondary" onClick={onPrev} style={{ flex: 1 }}>Назад</button>
                 <button className="btn-primary" onClick={onNext} style={{ flex: 2 }} disabled={!isValid}>Далее</button>
             </div>

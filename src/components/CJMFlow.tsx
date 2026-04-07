@@ -55,7 +55,7 @@ export interface CJMData {
         children: Array<{ first_name: string; birth_date: string }>;
         contacts: Array<{ name: string; relation: string; phone?: string; email?: string }>;
         spouse?: { employment_status?: 'employed' | 'self_employed' | 'unemployed' | 'retired' | 'other'; monthly_income?: number | null };
-        family_obligations: FamilyObligation[];
+        family_obligations: Array<{ type: FamilyObligation; amount_monthly: number }>;
         real_estate: Array<{ name?: string; estimated_value: number; status: FamilyRealEstateStatus }>;
         confidentiality: { allow_spouse_access: boolean; allow_family_contact: boolean; notes?: string };
     };
@@ -63,13 +63,12 @@ export interface CJMData {
 }
 
 export type FamilyObligation =
-    | 'alimony'
-    | 'elder_support'
-    | 'child_education'
-    | 'medical_care'
+    | 'loans'
+    | 'mortgage'
     | 'rent'
-    | 'mortgage_payments'
-    | 'other_loans'
+    | 'alimony'
+    | 'education'
+    | 'elder_support'
     | 'other';
 export type FamilyRealEstateStatus = 'owned' | 'mortgage';
 
