@@ -104,8 +104,17 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
         ...initialData
     });
 
-    const nextStep = () => setStep(s => s + 1);
-    const prevStep = () => setStep(s => s - 1);
+    const shouldSkipAssetsStep = (): boolean => {
+        const goalIds = (data.goals || []).map((g) => g.goal_type_id);
+        return goalIds.includes(3) || goalIds.includes(8);
+    };
+
+    const nextStep = () => {
+        setStep((s) => (s === 3 && shouldSkipAssetsStep() ? 5 : s + 1));
+    };
+    const prevStep = () => {
+        setStep((s) => (s === 5 && shouldSkipAssetsStep() ? 3 : s - 1));
+    };
 
     const handleCalculate = async () => {
         setLoading(true);
@@ -166,7 +175,9 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     ? cashInitial
                     : isFinReserve
                         ? (g.initial_capital || 0)
-                        : undefined; // Для RENT берем CASH, для FIN_RESERVE - из формы
+                        : isInvestment
+                            ? (g.initial_capital || 0)
+                            : undefined; // Для RENT берем CASH, для INVEST берем из цели
 
                 // monthly_replenishment передаем только для Investment (id=3) и FIN_RESERVE (id=7)
                 // Для остальных целей (PASSIVE_INCOME, PENSION, RENT и др.) не передаем
@@ -193,8 +204,8 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     payload.target_amount = isRent ? cashInitial : (isFinReserve ? (g.initial_capital || 0) : (g.insurance_limit || g.target_amount || 0));
                     payload.term_months = isRent ? 12 : (isFinReserve ? 12 : (g.term_months || 120));
                     if (isInvestment) {
-                        // Для INVESTMENT initial_capital = CASH из assets
-                        payload.initial_capital = cashInitial;
+                        // Для INVESTMENT initial_capital берем из цели
+                        payload.initial_capital = g.initial_capital || 0;
                     }
                 }
 
