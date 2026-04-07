@@ -10,6 +10,59 @@ export interface ChatAiMessage {
     created_at: string;
 }
 
+export type MaritalStatus = 'single' | 'married' | 'divorced' | 'widowed' | 'civil_union';
+export type FamilyEmploymentStatus = 'employed' | 'self_employed' | 'unemployed' | 'retired' | 'other';
+export type FamilyObligation =
+    | 'alimony'
+    | 'elder_support'
+    | 'child_education'
+    | 'medical_care'
+    | 'rent'
+    | 'mortgage_payments'
+    | 'other_loans'
+    | 'other';
+export type FamilyRealEstateStatus = 'owned' | 'mortgage';
+export type RiskProfileAnswers = Partial<Record<'q2' | 'q3' | 'q4' | 'q5' | 'q6' | 'q7' | 'q8' | 'q9' | 'q10', number>>;
+
+export interface FamilyChild {
+    first_name: string;
+    birth_date: string;
+}
+
+export interface FamilyContact {
+    name: string;
+    relation: string;
+    phone?: string;
+    email?: string;
+}
+
+export interface FamilySpouse {
+    employment_status?: FamilyEmploymentStatus;
+    monthly_income?: number | null;
+}
+
+export interface FamilyRealEstateItem {
+    name?: string;
+    estimated_value: number;
+    status: FamilyRealEstateStatus;
+}
+
+export interface FamilyConfidentiality {
+    allow_spouse_access: boolean;
+    allow_family_contact: boolean;
+    notes?: string;
+}
+
+export interface FamilyProfile {
+    marital_status?: MaritalStatus;
+    children?: FamilyChild[];
+    contacts?: FamilyContact[];
+    spouse?: FamilySpouse;
+    family_obligations?: FamilyObligation[];
+    real_estate?: FamilyRealEstateItem[];
+    confidentiality?: FamilyConfidentiality;
+}
+
 export interface Client {
     id: number;
     first_name: string;
@@ -58,6 +111,8 @@ export interface Client {
      * Не путать с `ai-b2c/chat/stream`. При первом сообщении бэк может создать CRM-клиента — запись в списке возможна до ПФП.
      */
     constructor_site_chat_messages?: ChatAiMessage[];
+    family_profile?: FamilyProfile;
+    risk_profile_answers?: RiskProfileAnswers;
 }
 
 export type AssetType = 'DEPOSIT' | 'CASH' | 'BROKERAGE' | 'IIS' | 'PDS' | 'NSJ' | 'REAL_ESTATE' | 'CRYPTO' | 'OTHER';
@@ -160,6 +215,8 @@ export interface CalculationClientData {
     avg_monthly_income?: number;
     total_liquid_capital?: number;
     project_id?: number;
+    family_profile?: FamilyProfile;
+    risk_profile_answers?: RiskProfileAnswers;
     // Add other fields from ClientData schema if needed
 }
 

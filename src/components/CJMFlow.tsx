@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Target, ShieldCheck, Briefcase, PiggyBank, DollarSign, Heart } from 'lucide-react';
+import { User, Target, ShieldCheck, Briefcase, PiggyBank, DollarSign, Heart, Users } from 'lucide-react';
 import StepClientData from './steps/StepClientData';
+import StepFamilyProfile from './steps/StepFamilyProfile';
 import StepGoalSelection from './steps/StepGoalSelection';
 import StepAssets from './steps/StepAssets';
 import StepFinReserve from './steps/StepFinReserve';
@@ -49,7 +50,28 @@ export interface CJMData {
 
     // Life Insurance
     lifeInsuranceLimit?: number;
+    familyProfile: {
+        marital_status: '' | 'single' | 'married' | 'divorced' | 'widowed' | 'civil_union';
+        children: Array<{ first_name: string; birth_date: string }>;
+        contacts: Array<{ name: string; relation: string; phone?: string; email?: string }>;
+        spouse?: { employment_status?: 'employed' | 'self_employed' | 'unemployed' | 'retired' | 'other'; monthly_income?: number | null };
+        family_obligations: FamilyObligation[];
+        real_estate: Array<{ name?: string; estimated_value: number; status: FamilyRealEstateStatus }>;
+        confidentiality: { allow_spouse_access: boolean; allow_family_contact: boolean; notes?: string };
+    };
+    riskProfileAnswers: Partial<Record<'q2' | 'q3' | 'q4' | 'q5' | 'q6' | 'q7' | 'q8' | 'q9' | 'q10', number>>;
 }
+
+export type FamilyObligation =
+    | 'alimony'
+    | 'elder_support'
+    | 'child_education'
+    | 'medical_care'
+    | 'rent'
+    | 'mortgage_payments'
+    | 'other_loans'
+    | 'other';
+export type FamilyRealEstateStatus = 'owned' | 'mortgage';
 
 const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, onBack }) => {
     const [step, setStep] = useState(1);
@@ -66,6 +88,20 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
         avgMonthlyIncome: 150000,
         riskProfile: 'BALANCED',
         lifeInsuranceLimit: 0,
+        familyProfile: {
+            marital_status: '',
+            children: [],
+            contacts: [],
+            spouse: {},
+            family_obligations: [],
+            real_estate: [],
+            confidentiality: {
+                allow_spouse_access: false,
+                allow_family_contact: false,
+                notes: ''
+            }
+        },
+        riskProfileAnswers: {},
         ...initialData
     });
 
@@ -182,21 +218,48 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                 });
             }
 
+            const requiredAnswers = ['q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8', 'q9', 'q10'] as const;
+            const hasAllRiskAnswers = requiredAnswers.every((key) => typeof data.riskProfileAnswers[key] === 'number');
+            if (!hasAllRiskAnswers) {
+                alert('Заполни риск-профиль полностью (вопросы q2-q10).');
+                return;
+            }
+
+            const familyProfilePayload = {
+                ...data.familyProfile,
+                spouse: (data.familyProfile.spouse && (data.familyProfile.spouse.employment_status || data.familyProfile.spouse.monthly_income))
+                    ? {
+                        employment_status: data.familyProfile.spouse.employment_status,
+                        monthly_income: data.familyProfile.spouse.monthly_income ?? null
+                    }
+                    : undefined,
+                confidentiality: {
+                    allow_spouse_access: Boolean(data.familyProfile.confidentiality.allow_spouse_access),
+                    allow_family_contact: Boolean(data.familyProfile.confidentiality.allow_family_contact),
+                    notes: data.familyProfile.confidentiality.notes || undefined
+                }
+            };
+
+            const clientPayload: Record<string, any> = {
+                birth_date: new Date(new Date().getFullYear() - data.age, 0, 1).toISOString().split('T')[0],
+                gender: data.gender,
+                avg_monthly_income: data.avgMonthlyIncome,
+                total_liquid_capital: assetsInitial,
+                first_name: firstName,
+                last_name: lastName,
+                middle_name: middleName,
+                phone: data.phone,
+                external_uuid: data.uuid
+            };
+
+            if (!clientId) {
+                clientPayload.family_profile = familyProfilePayload;
+                clientPayload.risk_profile_answers = data.riskProfileAnswers;
+            }
+
             const payload = {
                 goals: goalsPayload,
-                client: {
-                    birth_date: new Date(new Date().getFullYear() - data.age, 0, 1).toISOString().split('T')[0],
-                    gender: data.gender,
-                    avg_monthly_income: data.avgMonthlyIncome,
-                    total_liquid_capital: assetsInitial,
-                    // New fields
-                    first_name: firstName,
-                    last_name: lastName,
-                    middle_name: middleName,
-                    phone: data.phone,
-                    external_uuid: data.uuid,
-                    // If editing, might need ID, but usually handled by URL parameter in PUT
-                },
+                client: clientPayload,
                 // Pass existing assets if needed, or if the API requires full replacement
                 assets: (data.assets || []).map(a => ({
                     // Map frontend Asset to API ClientAsset
@@ -240,6 +303,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
 
     const steps = [
         { title: 'Личные данные', icon: <User size={20} /> },
+        { title: 'Семья', icon: <Users size={20} /> },
         { title: 'Цели', icon: <Target size={20} /> },
         { title: 'Активы', icon: <Briefcase size={20} /> },
         { title: 'Финрезерв', icon: <PiggyBank size={20} /> },
@@ -278,7 +342,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
     }, [clientId]);
 
     // Dynamic styles based on step
-    const isWideStep = step === 2; // Goal Selection needs full width
+    const isWideStep = step === 3; // Goal Selection needs full width
     const containerStyle: React.CSSProperties = isWideStep ? {
         width: '100%',
         margin: '0',
@@ -290,7 +354,13 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
     };
 
     return (
-        <div style={containerStyle}>
+        <div style={{
+            ...containerStyle,
+            background: 'linear-gradient(180deg, rgba(19,25,39,0.95) 0%, rgba(14,17,27,0.95) 100%)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 24,
+            boxShadow: '0 24px 60px rgba(0,0,0,0.24)'
+        }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '40px' }}>
                 {onBack && (
                     <div
@@ -347,12 +417,13 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     className="premium-card"
                 >
                     {step === 1 && <StepClientData data={data} setData={setData} onNext={nextStep} />}
-                    {step === 2 && <StepGoalSelection data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
-                    {step === 3 && <StepAssets data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
-                    {step === 4 && <StepFinReserve data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
-                    {step === 5 && <StepLifeInsurance data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
-                    {step === 6 && <StepIncome data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
-                    {step === 7 && <StepRiskProfile data={data} setData={setData} onComplete={handleCalculate} onPrev={prevStep} loading={loading} />}
+                    {step === 2 && <StepFamilyProfile data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
+                    {step === 3 && <StepGoalSelection data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
+                    {step === 4 && <StepAssets data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
+                    {step === 5 && <StepFinReserve data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
+                    {step === 6 && <StepLifeInsurance data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
+                    {step === 7 && <StepIncome data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
+                    {step === 8 && <StepRiskProfile data={data} setData={setData} onComplete={handleCalculate} onPrev={prevStep} loading={loading} />}
                 </motion.div>
             </AnimatePresence>
         </div>
