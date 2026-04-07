@@ -216,20 +216,30 @@ export const clientApi = {
         return response.data;
     },
 
-    getReportPdfBlob: async (clientId: number, query: ReportPdfQuery = {}): Promise<Blob> => {
+    getReportPdfBlob: async (
+        clientId: number,
+        query: ReportPdfQuery = {},
+        onProgress?: (loaded: number, total?: number) => void
+    ): Promise<Blob> => {
         const params: Record<string, string> = {};
         if (query.includeCover !== undefined) params.includeCover = String(query.includeCover);
         if (query.includeSummary !== undefined) params.includeSummary = String(query.includeSummary);
         if (query.goalTypes?.length) params.goalTypes = query.goalTypes.join(',');
         if (query.disposition) params.disposition = query.disposition;
 
-        const response = await api.get(`/pfp/reports/${clientId}/pdf`, {
+        const response = await api.get<Blob>(`/pfp/reports/${clientId}/pdf`, {
             params,
             responseType: 'blob',
-            timeout: 120000,
+            timeout: 300_000,
             headers: {
                 Accept: 'application/pdf',
             },
+            ...(onProgress
+                ? {
+                      onDownloadProgress: (evt: { loaded: number; total?: number }) =>
+                          onProgress(evt.loaded, evt.total),
+                  }
+                : {}),
         });
         return response.data;
     },

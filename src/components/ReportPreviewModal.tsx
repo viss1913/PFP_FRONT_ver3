@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Download, FileText, Loader2, X } from 'lucide-react';
 import axios from 'axios';
 import { clientApi, type ReportTocItem } from '../api/clientApi';
-import { API_BASE_URL } from '../api/config';
+import { API_BASE_WITH_API } from '../api/config';
 
 interface ReportPreviewModalProps {
     isOpen: boolean;
@@ -39,11 +39,32 @@ const createInitialReportState = (): ReportState => ({
     error: null,
 });
 
-/** Абсолютные ссылки — как есть; относительные — от корня бэка (без дублирования /api). */
+/**
+ * pdf_url с бэка часто приходит как путь вида `.dev/pdf-reports/...` — это не URL с корня домена,
+ * а путь относительно префикса /api; иначе запрос уходит на хост/.dev/... без Bearer.
+ */
 const resolvePdfFetchUrl = (pdfUrl: string): string => {
-    if (/^https?:\/\//i.test(pdfUrl)) return pdfUrl;
-    const path = pdfUrl.startsWith('/') ? pdfUrl : `/${pdfUrl}`;
-    return `${API_BASE_URL.replace(/\/$/, '')}${path}`;
+    const t = pdfUrl.trim();
+    if (/^https?:\/\//i.test(t)) return t;
+    const path = t.replace(/^\.\/+/, '').replace(/^\/+/, '');
+    const base = API_BASE_WITH_API.replace(/\/$/, '');
+    return `${base}/${path}`;
+};
+
+/** Маленький JSON с ошибкой вместо PDF (часто 200 + тело { message }). */
+const readPdfBlobErrorMessage = async (blob: Blob): Promise<string | null> => {
+    if (blob.size >= 4096) return null;
+    const peek = await blob.slice(0, 8).text();
+    if (!peek.trimStart().startsWith('{')) return null;
+    const text = await blob.text();
+    try {
+        const j = JSON.parse(text) as { message?: string; error?: string };
+        if (j.message) return j.message;
+        if (j.error) return j.error;
+    } catch {
+        /* ignore */
+    }
+    return 'Не удалось скачать PDF.';
 };
 
 const formatGeneratedAt = (value: string | null) => {
@@ -151,39 +172,49 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
 
             const fetchUrl = resolvePdfFetchUrl(remotePdfUrl);
 
+            const onDlProgress = (loaded: number, total?: number) => {
+                if (cancelled) return;
+                if (total && total > 0) {
+                    const pct = Math.min(100, Math.round((loaded / total) * 100));
+                    setReportState((prev) => ({ ...prev, pdfProgress: pct }));
+                } else {
+                    setReportState((prev) => ({ ...prev, pdfProgress: null }));
+                }
+            };
+
             try {
-                const blob = await clientApi.fetchReportPdfBlobFromUrl(fetchUrl, (loaded, total) => {
-                    if (cancelled) return;
-                    if (total && total > 0) {
-                        const pct = Math.min(100, Math.round((loaded / total) * 100));
-                        setReportState((prev) => ({ ...prev, pdfProgress: pct }));
-                    } else {
-                        setReportState((prev) => ({ ...prev, pdfProgress: null }));
-                    }
-                });
+                let blob: Blob | null = null;
+
+                try {
+                    blob = await clientApi.fetchReportPdfBlobFromUrl(fetchUrl, onDlProgress);
+                } catch {
+                    blob = null;
+                }
+
+                if (blob) {
+                    const jsonErr = await readPdfBlobErrorMessage(blob);
+                    if (jsonErr) blob = null;
+                }
+
+                if (!blob) {
+                    blob = await clientApi.getReportPdfBlob(
+                        clientId,
+                        { includeCover: 1, includeSummary: 1 },
+                        onDlProgress
+                    );
+                }
 
                 if (cancelled) return;
 
-                if (blob.size < 4096) {
-                    const peek = await blob.slice(0, 8).text();
-                    if (peek.trimStart().startsWith('{')) {
-                        const text = await blob.text();
-                        let msg = 'Не удалось скачать PDF.';
-                        try {
-                            const j = JSON.parse(text) as { message?: string; error?: string };
-                            if (j.message) msg = j.message;
-                            else if (j.error) msg = j.error;
-                        } catch {
-                            /* ignore */
-                        }
-                        setReportState((prev) => ({
-                            ...prev,
-                            pdfLoading: false,
-                            pdfProgress: null,
-                            error: msg,
-                        }));
-                        return;
-                    }
+                const jsonErr = await readPdfBlobErrorMessage(blob);
+                if (jsonErr) {
+                    setReportState((prev) => ({
+                        ...prev,
+                        pdfLoading: false,
+                        pdfProgress: null,
+                        error: jsonErr,
+                    }));
+                    return;
                 }
 
                 revokePdfBlobUrl();
