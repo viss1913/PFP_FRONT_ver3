@@ -46,43 +46,34 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
     const family = data.familyProfile;
 
     useEffect(() => {
-        if (!family.family_obligations || family.family_obligations.length === 0) {
+        const hasAllTypes = obligations.every((o) =>
+            (family.family_obligations || []).some((x) => x.type === o.value)
+        );
+        if (!hasAllTypes) {
             setData((prev) => ({
                 ...prev,
                 familyProfile: {
                     ...prev.familyProfile,
-                    family_obligations: [{ type: 'loans', amount_monthly: 0 }]
+                    family_obligations: obligations.map((o) => {
+                        const existing = (prev.familyProfile.family_obligations || []).find((x) => x.type === o.value);
+                        return { type: o.value, amount_monthly: existing?.amount_monthly || 0 };
+                    })
                 }
             }));
         }
     }, [family.family_obligations, setData]);
 
-    const addObligation = () => {
-        setData((prev) => ({
-            ...prev,
-            familyProfile: {
-                ...prev.familyProfile,
-                family_obligations: [...prev.familyProfile.family_obligations, { type: 'loans', amount_monthly: 0 }]
-            }
-        }));
-    };
-
-    const updateObligation = (index: number, patch: { type?: FamilyObligation; amount_monthly?: number }) => {
+    const updateObligationByType = (type: FamilyObligation, amount_monthly: number) => {
         setData((prev) => {
             const next = [...prev.familyProfile.family_obligations];
-            next[index] = { ...next[index], ...patch };
+            const idx = next.findIndex((x) => x.type === type);
+            if (idx >= 0) {
+                next[idx] = { ...next[idx], amount_monthly };
+            } else {
+                next.push({ type, amount_monthly });
+            }
             return { ...prev, familyProfile: { ...prev.familyProfile, family_obligations: next } };
         });
-    };
-
-    const removeObligation = (index: number) => {
-        setData((prev) => ({
-            ...prev,
-            familyProfile: {
-                ...prev.familyProfile,
-                family_obligations: prev.familyProfile.family_obligations.filter((_, i) => i !== index)
-            }
-        }));
     };
 
     const updateEstate = (index: number, patch: { name?: string; estimated_value?: number; status?: FamilyRealEstateStatus }) => {
@@ -176,33 +167,30 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                         <label className="label" style={{ display: 'block', fontSize: 16 }}>Расходы семьи (в месяц)</label>
                     </div>
                     <div style={{ display: 'grid', gap: 10 }}>
-                        {family.family_obligations.length === 0 && (
-                            <div style={{ color: '#64748b', fontSize: 14, padding: '8px 0' }}>
-                                Пока нет расходов. Добавь минимум один, если у клиента есть обязательства.
-                            </div>
-                        )}
-                        {family.family_obligations.map((item, index) => (
+                        {obligations.map((item, index) => {
+                            const current = family.family_obligations.find((x) => x.type === item.value);
+                            const amount = current?.amount_monthly || 0;
+                            return (
                             <motion.div
-                                key={index}
+                                key={item.value}
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.2 }}
-                                style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr auto', gap: 10 }}
+                                transition={{ duration: 0.15, delay: index * 0.02 }}
+                                style={{ display: 'grid', gridTemplateColumns: '1.3fr auto 1fr', gap: 10, alignItems: 'center' }}
                             >
-                                <select
-                                    value={item.type}
-                                    onChange={(e) => updateObligation(index, { type: e.target.value as FamilyObligation })}
-                                    style={{
-                                        background: '#ffffff',
-                                        borderRadius: 12,
-                                        height: 44,
-                                        border: '1px solid #cbd5e1'
-                                    }}
-                                >
-                                    {obligations.map((option) => (
-                                        <option key={option.value} value={option.value}>{option.label}</option>
-                                    ))}
-                                </select>
+                                <div style={{
+                                    background: '#ffffff',
+                                    borderRadius: 12,
+                                    height: 44,
+                                    border: '1px solid #cbd5e1',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    padding: '0 12px',
+                                    fontWeight: 500,
+                                    color: '#334155'
+                                }}>
+                                    {item.label}
+                                </div>
                                 <div style={{
                                     display: 'flex',
                                     alignItems: 'center',
@@ -211,14 +199,13 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                                     marginTop: -2,
                                     marginBottom: -2
                                 }}>
-                                    {obligationIcon[item.type]}
-                                    <span style={{ fontSize: 12 }}>{obligations.find((o) => o.value === item.type)?.label}</span>
+                                    {obligationIcon[item.value]}
                                 </div>
                                 <input
                                     type="number"
                                     min={0}
-                                    value={item.amount_monthly || 0}
-                                    onChange={(e) => updateObligation(index, { amount_monthly: Number(e.target.value) || 0 })}
+                                    value={amount}
+                                    onChange={(e) => updateObligationByType(item.value, Number(e.target.value) || 0)}
                                     placeholder="Сумма, ₽"
                                     style={{
                                         background: '#ffffff',
@@ -227,16 +214,10 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                                         border: '1px solid #cbd5e1'
                                     }}
                                 />
-                                <button type="button" className="btn-secondary" onClick={() => removeObligation(index)} style={{ height: 44, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <MinusCircle size={14} />
-                                    <span>Удалить</span>
-                                </button>
                             </motion.div>
-                        ))}
+                            );
+                        })}
                     </div>
-                    <button type="button" className="btn-primary" onClick={addObligation} style={{ marginTop: 12, width: '100%' }}>
-                        + Добавить расход
-                    </button>
                 </section>
 
                 <section style={{

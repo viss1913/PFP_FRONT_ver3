@@ -10,8 +10,13 @@ interface StepFinReserveProps {
 }
 
 const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, onPrev }) => {
-    // Calculate total liquid capital from assets
-    const totalLiquidCapital = (data.assets || []).reduce((sum, a) => sum + (a.current_value || 0), 0);
+    // Calculate total liquid capital from assets.
+    // If assets step was skipped (INVESTMENT flow), infer from INVESTMENT goal initial capital.
+    const assetsCapital = (data.assets || []).reduce((sum, a) => sum + (a.current_value || 0), 0);
+    const investmentOrRentGoalCapital = (data.goals || [])
+        .filter((g) => g.goal_type_id === 3 || g.goal_type_id === 8)
+        .reduce((sum, g) => sum + (g.initial_capital || 0), 0);
+    const totalLiquidCapital = assetsCapital > 0 ? assetsCapital : investmentOrRentGoalCapital;
 
     // Initialize with default values if not set
     const [initialCapital, setInitialCapital] = useState<number>(data.initialCapital || 0);

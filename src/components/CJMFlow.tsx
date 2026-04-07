@@ -125,11 +125,34 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
             const lastName = fioParts[1] || 'Unknown';
             const middleName = fioParts[2] || '';
 
-            // Calculate Total Liquid Capital from Assets
-            const assetsInitial = (data.assets || []).reduce((sum, a) => sum + (a.current_value || 0), 0);
+            // If assets step was skipped, infer CASH asset from goal initial capital (INVESTMENT).
+            const inferredCashFromGoals = Math.max(
+                0,
+                ...(data.goals || [])
+                    .filter((g) => g.goal_type_id === 3 || g.goal_type_id === 8)
+                    .map((g) => g.initial_capital || 0)
+            );
+            const normalizedAssets = (data.assets && data.assets.length > 0)
+                ? data.assets
+                : (inferredCashFromGoals > 0
+                    ? [{
+                        type: 'CASH' as const,
+                        name: 'Наличные',
+                        current_value: inferredCashFromGoals,
+                        currency: 'RUB'
+                    }]
+                    : []);
+
+            // Calculate Total Liquid Capital from normalized assets
+            const assetsInitial = normalizedAssets.reduce((sum, a) => sum + (a.current_value || 0), 0);
             const cashInitial = (data.assets || [])
                 .filter((a) => a.type === 'CASH')
                 .reduce((sum, a) => sum + (a.current_value || 0), 0);
+            const effectiveCashInitial = cashInitial > 0
+                ? cashInitial
+                : normalizedAssets
+                    .filter((a) => a.type === 'CASH')
+                    .reduce((sum, a) => sum + (a.current_value || 0), 0);
 
             // Construct Goals Payload - фильтруем НСЖ (id=5), не отправляем на расчет
             let goalsToProcess = (data.goals || []).filter(g => g.goal_type_id !== 5);
@@ -172,7 +195,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                 // Only for FIN_RESERVE (id=7) and RENT (id=8), use initial_capital from goal itself
                 // For other goals, бэк сам распределит из активов - не передаем initial_capital
                 const initialCapital = isRent
-                    ? cashInitial
+                    ? (g.initial_capital || effectiveCashInitial)
                     : isFinReserve
                         ? (g.initial_capital || 0)
                         : isInvestment
@@ -201,7 +224,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     }
                 } else {
                     // Для остальных целей
-                    payload.target_amount = isRent ? cashInitial : (isFinReserve ? (g.initial_capital || 0) : (g.insurance_limit || g.target_amount || 0));
+                    payload.target_amount = isRent ? (g.initial_capital || effectiveCashInitial) : (isFinReserve ? (g.initial_capital || 0) : (g.insurance_limit || g.target_amount || 0));
                     payload.term_months = isRent ? 12 : (isFinReserve ? 12 : (g.term_months || 120));
                     if (isInvestment) {
                         // Для INVESTMENT initial_capital берем из цели
@@ -280,7 +303,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                 goals: goalsPayload,
                 client: clientPayload,
                 // Pass existing assets if needed, or if the API requires full replacement
-                assets: (data.assets || []).map(a => ({
+                assets: normalizedAssets.map(a => ({
                     // Map frontend Asset to API ClientAsset
                     type: a.type,
                     name: a.name,
