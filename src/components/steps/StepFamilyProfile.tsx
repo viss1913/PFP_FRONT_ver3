@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Banknote, GraduationCap, HandCoins, HeartHandshake, Home, Landmark, MinusCircle } from 'lucide-react';
 import type { CJMData, FamilyObligation, FamilyRealEstateStatus } from '../CJMFlow';
@@ -44,6 +44,18 @@ const estateStatuses: { value: FamilyRealEstateStatus; label: string }[] = [
 
 const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, onNext, onPrev }) => {
     const family = data.familyProfile;
+
+    useEffect(() => {
+        if (!family.family_obligations || family.family_obligations.length === 0) {
+            setData((prev) => ({
+                ...prev,
+                familyProfile: {
+                    ...prev.familyProfile,
+                    family_obligations: [{ type: 'loans', amount_monthly: 0 }]
+                }
+            }));
+        }
+    }, [family.family_obligations, setData]);
 
     const addObligation = () => {
         setData((prev) => ({
@@ -91,16 +103,44 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
         }));
     };
 
+    const addChild = () => {
+        setData((prev) => ({
+            ...prev,
+            familyProfile: {
+                ...prev.familyProfile,
+                children: [...prev.familyProfile.children, { first_name: '', birth_date: '' }]
+            }
+        }));
+    };
+
+    const updateChild = (index: number, patch: { first_name?: string; birth_date?: string }) => {
+        setData((prev) => {
+            const next = [...prev.familyProfile.children];
+            next[index] = { ...next[index], ...patch };
+            return { ...prev, familyProfile: { ...prev.familyProfile, children: next } };
+        });
+    };
+
+    const removeChild = (index: number) => {
+        setData((prev) => ({
+            ...prev,
+            familyProfile: {
+                ...prev.familyProfile,
+                children: prev.familyProfile.children.filter((_, i) => i !== index)
+            }
+        }));
+    };
+
     const isValid = Boolean(family.marital_status);
 
     return (
         <div style={{
             maxWidth: 1100,
             margin: '0 auto',
-            background: 'linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%)',
+            background: 'linear-gradient(180deg, #fffdf7 0%, #fff9ec 100%)',
             borderRadius: 24,
             padding: 18,
-            border: '1px solid rgba(148,163,184,0.25)'
+            border: '1px solid #f5e7bf'
         }}>
             <h2 style={{ fontSize: 34, fontWeight: 800, marginBottom: 8, textAlign: 'center', letterSpacing: '-0.02em' }}>Семейный профиль</h2>
             <p style={{ textAlign: 'center', color: '#64748b', marginBottom: 30, fontSize: 16 }}>
@@ -125,11 +165,11 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                 </select>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 16, alignItems: 'start' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16, alignItems: 'start' }}>
                 <section style={{
                     borderRadius: 18,
-                    border: '1px solid #dbe3f0',
-                    background: 'linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)',
+                    border: '1px solid #f0dfb2',
+                    background: '#ffffff',
                     padding: 16
                 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -201,8 +241,8 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
 
                 <section style={{
                     borderRadius: 18,
-                    border: '1px solid #dbe3f0',
-                    background: 'linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)',
+                    border: '1px solid #f0dfb2',
+                    background: '#ffffff',
                     padding: 16
                 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -263,67 +303,67 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                         + Добавить объект
                     </button>
                 </section>
-            </div>
 
-            <section style={{
-                marginTop: 16,
-                marginBottom: 28,
-                borderRadius: 18,
-                border: '1px solid #dbe3f0',
-                background: 'linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)',
-                padding: 16
-            }}>
-                <label className="label" style={{ marginBottom: 10, display: 'block', fontSize: 16 }}>Конфиденциальность</label>
-                <div style={{ display: 'grid', gap: 10 }}>
-                    <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 17 }}>
-                        <input
-                            type="checkbox"
-                            checked={family.confidentiality.allow_spouse_access}
-                            onChange={(e) => setData((prev) => ({
-                                ...prev,
-                                familyProfile: {
-                                    ...prev.familyProfile,
-                                    confidentiality: { ...prev.familyProfile.confidentiality, allow_spouse_access: e.target.checked }
-                                }
-                            }))}
-                        />
-                        <span>Разрешить доступ супругу(е)</span>
-                    </label>
-                    <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 17 }}>
-                        <input
-                            type="checkbox"
-                            checked={family.confidentiality.allow_family_contact}
-                            onChange={(e) => setData((prev) => ({
-                                ...prev,
-                                familyProfile: {
-                                    ...prev.familyProfile,
-                                    confidentiality: { ...prev.familyProfile.confidentiality, allow_family_contact: e.target.checked }
-                                }
-                            }))}
-                        />
-                        <span>Можно связываться с членами семьи</span>
-                    </label>
-                    <textarea
-                        value={family.confidentiality.notes || ''}
-                        onChange={(e) => setData((prev) => ({
-                            ...prev,
-                            familyProfile: {
-                                ...prev.familyProfile,
-                                confidentiality: { ...prev.familyProfile.confidentiality, notes: e.target.value }
-                            }
-                        }))}
-                        placeholder="Комментарий по доступу/коммуникации"
-                        style={{
-                            minHeight: 100,
-                            borderRadius: 12,
-                            padding: 12,
-                            resize: 'vertical',
-                            background: '#ffffff',
-                            border: '1px solid #cbd5e1'
-                        }}
-                    />
-                </div>
-            </section>
+                <section style={{
+                    borderRadius: 18,
+                    border: '1px solid #f0dfb2',
+                    background: '#ffffff',
+                    padding: 16
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <label className="label" style={{ fontSize: 16 }}>Дети</label>
+                    </div>
+                    {family.children.length === 0 && (
+                        <div style={{ color: '#64748b', fontSize: 14, padding: '8px 0' }}>
+                            Пока нет данных о детях.
+                        </div>
+                    )}
+                    {family.children.map((child, index) => (
+                        <motion.div
+                            key={index}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.2 }}
+                            style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr auto', gap: 10, marginBottom: 10 }}
+                        >
+                            <input
+                                value={child.first_name || ''}
+                                onChange={(e) => updateChild(index, { first_name: e.target.value })}
+                                placeholder="Имя ребенка"
+                                style={{
+                                    background: '#ffffff',
+                                    borderRadius: 12,
+                                    height: 44,
+                                    border: '1px solid #cbd5e1'
+                                }}
+                            />
+                            <input
+                                type="date"
+                                value={child.birth_date || ''}
+                                onChange={(e) => updateChild(index, { birth_date: e.target.value })}
+                                style={{
+                                    background: '#ffffff',
+                                    borderRadius: 12,
+                                    height: 44,
+                                    border: '1px solid #cbd5e1'
+                                }}
+                            />
+                            <button
+                                type="button"
+                                className="btn-secondary"
+                                onClick={() => removeChild(index)}
+                                style={{ height: 44, display: 'flex', alignItems: 'center', gap: 6 }}
+                            >
+                                <MinusCircle size={14} />
+                                <span>Удалить</span>
+                            </button>
+                        </motion.div>
+                    ))}
+                    <button type="button" className="btn-primary" onClick={addChild} style={{ marginTop: 12, width: '100%' }}>
+                        + Добавить ребенка
+                    </button>
+                </section>
+            </div>
 
             <div style={{
                 display: 'flex',

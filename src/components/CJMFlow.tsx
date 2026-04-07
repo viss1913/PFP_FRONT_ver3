@@ -88,11 +88,11 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
         riskProfile: 'BALANCED',
         lifeInsuranceLimit: 0,
         familyProfile: {
-            marital_status: '',
+            marital_status: 'married',
             children: [],
             contacts: [],
             spouse: {},
-            family_obligations: [],
+            family_obligations: [{ type: 'loans', amount_monthly: 0 }],
             real_estate: [],
             confidentiality: {
                 allow_spouse_access: false,
@@ -118,6 +118,9 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
 
             // Calculate Total Liquid Capital from Assets
             const assetsInitial = (data.assets || []).reduce((sum, a) => sum + (a.current_value || 0), 0);
+            const cashInitial = (data.assets || [])
+                .filter((a) => a.type === 'CASH')
+                .reduce((sum, a) => sum + (a.current_value || 0), 0);
 
             // Construct Goals Payload - фильтруем НСЖ (id=5), не отправляем на расчет
             let goalsToProcess = (data.goals || []).filter(g => g.goal_type_id !== 5);
@@ -159,9 +162,11 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
 
                 // Only for FIN_RESERVE (id=7) and RENT (id=8), use initial_capital from goal itself
                 // For other goals, бэк сам распределит из активов - не передаем initial_capital
-                const initialCapital = (isFinReserve || isRent)
-                    ? (g.initial_capital || 0)
-                    : undefined; // Не передаем для остальных целей - бэк сам распределит
+                const initialCapital = isRent
+                    ? cashInitial
+                    : isFinReserve
+                        ? (g.initial_capital || 0)
+                        : undefined; // Для RENT берем CASH, для FIN_RESERVE - из формы
 
                 // monthly_replenishment передаем только для Investment (id=3) и FIN_RESERVE (id=7)
                 // Для остальных целей (PASSIVE_INCOME, PENSION, RENT и др.) не передаем
@@ -185,8 +190,12 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     }
                 } else {
                     // Для остальных целей
-                    payload.target_amount = isRent ? (g.initial_capital || 0) : (isFinReserve ? (g.initial_capital || 0) : (g.insurance_limit || g.target_amount || 0));
+                    payload.target_amount = isRent ? cashInitial : (isFinReserve ? (g.initial_capital || 0) : (g.insurance_limit || g.target_amount || 0));
                     payload.term_months = isRent ? 12 : (isFinReserve ? 12 : (g.term_months || 120));
+                    if (isInvestment) {
+                        // Для INVESTMENT initial_capital = CASH из assets
+                        payload.initial_capital = cashInitial;
+                    }
                 }
 
                 // Только для FIN_RESERVE и RENT передаем initial_capital

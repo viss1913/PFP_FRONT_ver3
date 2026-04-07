@@ -8,8 +8,8 @@
     --accent-green: #10B981;
     --bg-color: #F8F9FA;
     --bg-gradient: linear-gradient(135deg, #F8F9FA 0%, #E9ECEF 100%);
-    --card-bg: rgba(255, 255, 255, 0.7);
-    --card-bg-hover: rgba(255, 255, 255, 0.85);
+    --card-bg: #ffffff;
+    --card-bg-hover: #ffffff;
     --text-main: #1F2937;
     --text-muted: #6B7280;
     --border-color: rgba(0, 0, 0, 0.08);
@@ -42,7 +42,7 @@ body {
 }
 
 .premium-card {
-    background: var(--card-bg);
+    background: #ffffff;
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--border-color);
@@ -55,6 +55,7 @@ body {
 .premium-card:hover {
     box-shadow: var(--shadow-hover);
     transform: translateY(-2px);
+    background: #ffffff;
 }
 
 .btn-primary {

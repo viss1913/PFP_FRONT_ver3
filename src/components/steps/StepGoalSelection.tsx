@@ -75,7 +75,8 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
             newGoal.term_months = termMonths;
             newGoal.inflation_rate = 4.8;
         } else if (typeId === 8 || typeId === 3 || typeId === 7) { // 3. Рента (RENT), Сохранить и приумножить (INVESTMENT) или Ликвидный резерв (RESERVE)
-            newGoal.initial_capital = initialCapital;
+            // Для INVESTMENT и RENT не спрашиваем initial_capital (будет равен CASH из assets в payload)
+            newGoal.initial_capital = (typeId === 3 || typeId === 8) ? undefined : initialCapital;
             newGoal.monthly_replenishment = (typeId === 3 || typeId === 7) ? desiredIncome : 0; // Для ID 3 и 7 используем поле desiredIncome как поле пополнения
             newGoal.name = selectedGalleryItem.title;
             newGoal.inflation_rate = (typeId === 3) ? 5.6 : 0;
@@ -452,28 +453,6 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                             <>
                                 <div style={{ marginBottom: '24px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
-                                        <label style={{ fontWeight: '600', fontSize: '16px', color: '#374151' }}>Первоначальный капитал</label>
-                                        <input
-                                            type="text"
-                                            value={formatNumber(initialCapital)}
-                                            onChange={(e) => handleNumberInput(e.target.value, setInitialCapital)}
-                                            style={{
-                                                fontWeight: '800', fontSize: '20px', color: '#E91E63',
-                                                border: '1px solid #E5E7EB', borderRadius: '8px',
-                                                padding: '4px 8px', width: '180px', textAlign: 'right'
-                                            }}
-                                        />
-                                    </div>
-                                    <input
-                                        type="range"
-                                        min="0" max="10000000" step="100000"
-                                        value={initialCapital}
-                                        onChange={(e) => setInitialCapital(Number(e.target.value))}
-                                        style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
-                                    />
-                                </div>
-                                <div style={{ marginBottom: '24px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
                                         <label style={{ fontWeight: '600', fontSize: '16px', color: '#374151' }}>Ежемесячное пополнение</label>
                                         <input
                                             type="text"
@@ -573,39 +552,11 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                             </>
                         )}
 
-                        {/* 3. Rent (Capital ONLY) - Corrected */}
+                        {/* 3. Rent (from CASH assets, no direct initial input) */}
                         {isRent && (
-                            <>
-                                <div style={{ marginBottom: '32px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
-                                        <label style={{ fontWeight: '600', fontSize: '16px', color: '#374151' }}>Капитал</label>
-                                        <input
-                                            type="text"
-                                            value={formatNumber(initialCapital)}
-                                            onChange={(e) => handleNumberInput(e.target.value, setInitialCapital)}
-                                            style={{
-                                                fontWeight: '800',
-                                                fontSize: '20px',
-                                                color: '#E91E63',
-                                                border: '1px solid #E5E7EB',
-                                                borderRadius: '8px',
-                                                padding: '4px 8px',
-                                                width: '180px',
-                                                textAlign: 'right'
-                                            }}
-                                        />
-                                    </div>
-                                    <input
-                                        type="range"
-                                        min="1000000" max="100000000" step="500000"
-                                        value={initialCapital}
-                                        onChange={(e) => setInitialCapital(Number(e.target.value))}
-                                        style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
-                                    />
-                                    <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '8px' }}>Сумма, с которой вы планируете получать ренту</div>
-                                </div>
-                                {/* Removed Monthly Replenishment Input for Rent */}
-                            </>
+                            <div style={{ marginBottom: '32px', fontSize: '14px', color: '#6B7280' }}>
+                                Для цели «Рента» первоначальный капитал автоматически берётся из `CASH` активов клиента.
+                            </div>
                         )}
 
                         <button

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import type { CJMData } from '../CJMFlow';
 import { Loader2 } from 'lucide-react';
 
@@ -62,6 +62,8 @@ const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPre
     const answers = data.riskProfileAnswers || {};
     const answeredCount = questions.filter((q) => typeof answers[q.id] === 'number').length;
     const allAnswered = answeredCount === questions.length;
+    const firstUnansweredIndex = questions.findIndex((q) => typeof answers[q.id] !== 'number');
+    const [currentQuestionIndex, setCurrentQuestionIndex] = useState(firstUnansweredIndex >= 0 ? firstUnansweredIndex : 0);
 
     const summary = useMemo(() => {
         const total = Object.values(answers).reduce((sum, value) => sum + (value || 0), 0);
@@ -70,6 +72,14 @@ const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPre
         if (average >= 2.5) return { profile: 'BALANCED' as const, label: 'Умеренный' };
         return { profile: 'CONSERVATIVE' as const, label: 'Консервативный' };
     }, [answers, answeredCount]);
+
+    useEffect(() => {
+        if (allAnswered) return;
+        if (typeof answers[questions[currentQuestionIndex].id] === 'number') {
+            const nextIdx = questions.findIndex((q) => typeof answers[q.id] !== 'number');
+            if (nextIdx >= 0) setCurrentQuestionIndex(nextIdx);
+        }
+    }, [answers, currentQuestionIndex, allAnswered]);
 
     const setAnswer = (questionId: string, points: number) => {
         setData((prev) => {
@@ -87,7 +97,13 @@ const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPre
                 riskProfileAnswers: nextAnswers
             };
         });
+
+        const currentIdx = questions.findIndex((q) => q.id === questionId);
+        const nextIdx = questions.findIndex((q, idx) => idx > currentIdx && typeof answers[q.id] !== 'number');
+        if (nextIdx >= 0) setCurrentQuestionIndex(nextIdx);
     };
+
+    const currentQuestion = questions[currentQuestionIndex];
 
     return (
         <div>
@@ -106,40 +122,51 @@ const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPre
                 Прогресс: {answeredCount}/9. Итоговый профиль: <b>{summary.label}</b>
             </div>
 
-            <div style={{ display: 'grid', gap: 14, marginBottom: 26 }}>
-                {questions.map((q) => (
-                    <div key={q.id} style={{ padding: 16, borderRadius: 14, border: '1px solid var(--border-color)', background: 'var(--card-bg)' }}>
-                        <div style={{ marginBottom: 10, fontWeight: 600 }}>{q.text}</div>
-                        <div style={{ display: 'grid', gap: 8 }}>
-                            {q.options.map((option, index) => {
-                                const points = index + 1;
-                                const active = answers[q.id] === points;
-                                return (
-                                    <button
-                                        key={`${q.id}_${points}`}
-                                        type="button"
-                                        onClick={() => setAnswer(q.id, points)}
-                                        style={{
-                                            textAlign: 'left',
-                                            borderRadius: 10,
-                                            padding: '10px 12px',
-                                            border: active ? '1px solid var(--primary)' : '1px solid var(--border-color)',
-                                            background: active ? 'rgba(255,199,80,0.17)' : 'rgba(255,255,255,0.02)',
-                                            color: 'var(--text-main)',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        {option}
-                                    </button>
-                                );
-                            })}
-                        </div>
+            <div style={{ marginBottom: 26 }}>
+                <div style={{ padding: 16, borderRadius: 14, border: '1px solid var(--border-color)', background: 'var(--card-bg)' }}>
+                    <div style={{ marginBottom: 6, fontSize: 13, color: 'var(--text-muted)' }}>
+                        Вопрос {currentQuestionIndex + 1} из {questions.length}
                     </div>
-                ))}
+                    <div style={{ marginBottom: 10, fontWeight: 600 }}>{currentQuestion.text}</div>
+                    <div style={{ display: 'grid', gap: 8 }}>
+                        {currentQuestion.options.map((option, index) => {
+                            const points = index + 1;
+                            const active = answers[currentQuestion.id] === points;
+                            return (
+                                <button
+                                    key={`${currentQuestion.id}_${points}`}
+                                    type="button"
+                                    onClick={() => setAnswer(currentQuestion.id, points)}
+                                    style={{
+                                        textAlign: 'left',
+                                        borderRadius: 10,
+                                        padding: '10px 12px',
+                                        border: active ? '1px solid var(--primary)' : '1px solid var(--border-color)',
+                                        background: active ? 'rgba(255,199,80,0.17)' : 'rgba(255,255,255,0.02)',
+                                        color: 'var(--text-main)',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    {option}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
             </div>
 
             <div style={{ display: 'flex', gap: '12px' }}>
                 <button className="btn-secondary" style={{ flex: 1 }} onClick={onPrev} disabled={loading}>Назад</button>
+                {!allAnswered && currentQuestionIndex > 0 && (
+                    <button
+                        className="btn-secondary"
+                        style={{ flex: 1 }}
+                        onClick={() => setCurrentQuestionIndex((prev) => Math.max(0, prev - 1))}
+                        disabled={loading}
+                    >
+                        Предыдущий вопрос
+                    </button>
+                )}
                 <button
                     className="btn-primary"
                     style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
