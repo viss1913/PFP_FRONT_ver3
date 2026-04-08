@@ -3,6 +3,7 @@ import { X, User, Phone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import StatusDropdown from './StatusDropdown';
 import type { ClientStatus } from '../types/client';
+import { formatRussianPhoneInput, PHONE_PLACEHOLDER } from '../utils/phone';
 
 interface NewClientData {
     fio: string;
@@ -39,39 +40,7 @@ const NewClientModal: React.FC<NewClientModalProps> = ({ isOpen, onClose, onSubm
     }, [isOpen]);
 
     const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const input = e.target.value;
-        let numbersValue = input.replace(/\D/g, '');
-
-        // Handle empty or just prefix deletion attempt
-        if (!numbersValue) {
-            setPhone('+7 (');
-            return;
-        }
-
-        // If user provided 7 or 8 at start, strip it to get pure parts
-        // This handles cases where user pastes 8999... or 7999...
-        if (['7', '8'].includes(numbersValue[0])) {
-            numbersValue = numbersValue.substring(1);
-        }
-
-        // Truncate to max 10 digits
-        const nums = numbersValue.slice(0, 10);
-
-        let formatted = '+7';
-        if (nums.length > 0) {
-            formatted += ' (' + nums.substring(0, 3);
-        }
-        if (nums.length >= 4) {
-            formatted += ') ' + nums.substring(3, 6);
-        }
-        if (nums.length >= 7) {
-            formatted += '-' + nums.substring(6, 8);
-        }
-        if (nums.length >= 9) {
-            formatted += '-' + nums.substring(8, 10);
-        }
-
-        setPhone(formatted);
+        setPhone(formatRussianPhoneInput(e.target.value));
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -157,7 +126,7 @@ const NewClientModal: React.FC<NewClientModalProps> = ({ isOpen, onClose, onSubm
                                             type="tel"
                                             value={phone}
                                             onChange={handlePhoneChange}
-                                            placeholder="+7 (999) 000-00-00"
+                                            placeholder={PHONE_PLACEHOLDER}
                                             style={{ paddingLeft: '40px' }}
                                             required
                                         />

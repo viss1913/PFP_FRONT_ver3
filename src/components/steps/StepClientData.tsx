@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { User, Phone } from 'lucide-react';
 import type { CJMData } from '../CJMFlow';
+import { formatRussianPhoneInput, PHONE_PLACEHOLDER } from '../../utils/phone';
 
 interface StepClientDataProps {
     data: CJMData;
@@ -9,6 +10,25 @@ interface StepClientDataProps {
 }
 
 const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }) => {
+    const getGenderButtonStyle = (isActive: boolean): React.CSSProperties => ({
+        padding: '16px',
+        borderRadius: '16px',
+        border: isActive ? '1px solid rgba(255, 255, 255, 0.75)' : '1px solid rgba(255, 255, 255, 0.55)',
+        background: isActive
+            ? 'linear-gradient(135deg, rgba(255,255,255,0.58) 0%, rgba(226,236,248,0.5) 100%)'
+            : 'linear-gradient(135deg, rgba(255,255,255,0.32) 0%, rgba(226,236,248,0.24) 100%)',
+        color: '#1F2937',
+        cursor: 'pointer',
+        fontWeight: 700,
+        fontSize: '16px',
+        letterSpacing: '0.01em',
+        transition: 'all 0.25s ease',
+        backdropFilter: 'blur(14px) saturate(140%)',
+        WebkitBackdropFilter: 'blur(14px) saturate(140%)',
+        boxShadow: isActive
+            ? '0 12px 26px rgba(120, 140, 170, 0.24), inset 0 1px 0 rgba(255,255,255,0.95)'
+            : '0 8px 20px rgba(120, 140, 170, 0.14), inset 0 1px 0 rgba(255,255,255,0.78)'
+    });
 
     // Auto-generate UUID if missing
     useEffect(() => {
@@ -19,6 +39,10 @@ const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }
 
     const handleChange = (field: keyof CJMData, value: string | number) => {
         setData(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        handleChange('phone', formatRussianPhoneInput(e.target.value));
     };
 
     const isFormValid = () => {
@@ -53,9 +77,9 @@ const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }
                         <Phone size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                         <input
                             type="tel"
-                            value={data.phone || ''}
-                            onChange={(e) => handleChange('phone', e.target.value)}
-                            placeholder="+7 (999) 000-00-00"
+                            value={data.phone || '+7 ('}
+                            onChange={handlePhoneChange}
+                            placeholder={PHONE_PLACEHOLDER}
                             style={{ paddingLeft: '40px' }}
                         />
                     </div>
@@ -71,36 +95,14 @@ const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }
                     <button
                         className="btn-gender"
                         onClick={() => handleChange('gender', 'male')}
-                        style={{
-                            padding: '16px',
-                            borderRadius: '16px',
-                            border: `2px solid ${data.gender === 'male' ? 'var(--primary)' : '#9CA3AF'}`,
-                            background: data.gender === 'male' ? 'rgba(255,199,80,0.15)' : '#E5E7EB',
-                            color: '#000',
-                            cursor: 'pointer',
-                            fontWeight: '700',
-                            fontSize: '16px',
-                            transition: 'all 0.2s ease',
-                            boxShadow: data.gender === 'male' ? '0 4px 12px rgba(255,199,80,0.2)' : 'none'
-                        }}
+                        style={getGenderButtonStyle(data.gender === 'male')}
                     >
                         Мужской
                     </button>
                     <button
                         className="btn-gender"
                         onClick={() => handleChange('gender', 'female')}
-                        style={{
-                            padding: '16px',
-                            borderRadius: '16px',
-                            border: `2px solid ${data.gender === 'female' ? 'var(--primary)' : '#9CA3AF'}`,
-                            background: data.gender === 'female' ? 'rgba(255,199,80,0.15)' : '#E5E7EB',
-                            color: '#000',
-                            cursor: 'pointer',
-                            fontWeight: '700',
-                            fontSize: '16px',
-                            transition: 'all 0.2s ease',
-                            boxShadow: data.gender === 'female' ? '0 4px 12px rgba(255,199,80,0.2)' : 'none'
-                        }}
+                        style={getGenderButtonStyle(data.gender === 'female')}
                     >
                         Женский
                     </button>
