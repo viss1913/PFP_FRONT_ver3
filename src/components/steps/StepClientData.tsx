@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { User, Phone } from 'lucide-react';
 import type { CJMData } from '../CJMFlow';
 import { formatRussianPhoneInput, PHONE_MASK_TEMPLATE, PHONE_PLACEHOLDER, getPhoneInputCaretPosition, hasCompleteRussianPhone } from '../../utils/phone';
@@ -10,6 +10,8 @@ interface StepClientDataProps {
 }
 
 const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }) => {
+    const [birthDateDraft, setBirthDateDraft] = useState('');
+
     const calculateAge = (birthDate: string): number => {
         const today = new Date();
         const dob = new Date(birthDate);
@@ -26,6 +28,39 @@ const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }
         d.setFullYear(d.getFullYear() - years);
         return d.toISOString().split('T')[0];
     };
+
+    const formatIsoToRuDate = (isoDate?: string): string => {
+        if (!isoDate) return '';
+        const [yyyy, mm, dd] = isoDate.split('-');
+        if (!yyyy || !mm || !dd) return '';
+        return `${dd}.${mm}.${yyyy}`;
+    };
+
+    const normalizeRuDateInput = (value: string): string => {
+        const digits = value.replace(/\D/g, '').slice(0, 8);
+        const dd = digits.slice(0, 2);
+        const mm = digits.slice(2, 4);
+        const yyyy = digits.slice(4, 8);
+        if (digits.length <= 2) return dd;
+        if (digits.length <= 4) return `${dd}.${mm}`;
+        return `${dd}.${mm}.${yyyy}`;
+    };
+
+    const parseRuDateToIso = (ruDate: string): string | null => {
+        const [dd, mm, yyyy] = ruDate.split('.');
+        if (!dd || !mm || !yyyy || dd.length !== 2 || mm.length !== 2 || yyyy.length !== 4) return null;
+        const day = Number(dd);
+        const month = Number(mm);
+        const year = Number(yyyy);
+        if (!Number.isInteger(day) || !Number.isInteger(month) || !Number.isInteger(year)) return null;
+        const date = new Date(year, month - 1, day);
+        if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+        return `${yyyy}-${mm}-${dd}`;
+    };
+
+    useEffect(() => {
+        setBirthDateDraft(formatIsoToRuDate(data.birthDate));
+    }, [data.birthDate]);
 
     const getGenderButtonStyle = (isActive: boolean): React.CSSProperties => ({
         padding: '16px',
@@ -70,9 +105,23 @@ const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }
     };
 
     const handleBirthDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const birthDate = e.target.value;
-        const age = calculateAge(birthDate);
-        setData(prev => ({ ...prev, birthDate, age }));
+        const normalized = normalizeRuDateInput(e.target.value);
+        setBirthDateDraft(normalized);
+
+        if (!normalized) {
+            setData(prev => ({ ...prev, birthDate: undefined }));
+            return;
+        }
+
+        const iso = parseRuDateToIso(normalized);
+        if (!iso) return;
+
+        const minDate = getDateYearsAgo(80);
+        const maxDate = getDateYearsAgo(18);
+        if (iso < minDate || iso > maxDate) return;
+
+        const age = calculateAge(iso);
+        setData(prev => ({ ...prev, birthDate: iso, age }));
     };
 
     const isFormValid = () => {
@@ -148,11 +197,20 @@ const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }
                     </span>
                 </div>
                 <input
-                    type="date"
-                    value={data.birthDate || ''}
+                    type="text"
+                    inputMode="numeric"
+                    value={birthDateDraft}
                     onChange={handleBirthDateChange}
-                    max={getDateYearsAgo(18)}
-                    min={getDateYearsAgo(80)}
+                    placeholder="дд.мм.гггг"
+                    style={{
+                        height: 56,
+                        fontSize: 22,
+                        borderRadius: 16,
+                        border: '1px solid rgba(148, 163, 184, 0.45)',
+                        background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(241,245,249,0.9) 100%)',
+                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.95), 0 8px 18px rgba(15,23,42,0.08)',
+                        padding: '0 18px'
+                    }}
                 />
                 <div style={{ marginTop: '8px', color: 'var(--text-muted)', fontSize: '12px' }}>
                     Допустимый возраст: от 18 до 80 лет

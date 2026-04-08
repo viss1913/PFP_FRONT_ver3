@@ -125,6 +125,9 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
     const isStandard = !isPension && !isPassive && !isRent && !isInvest && !isReserve;
 
     const totalAssetsSum = (data.assets || []).reduce((sum, a) => sum + (a.current_value || 0), 0);
+    const featuredStrategyIds = new Set(['invest_save', 'rent']);
+    const strategyGoals = GOAL_GALLERY_ITEMS.filter((item) => featuredStrategyIds.has(item.id));
+    const futureGoals = GOAL_GALLERY_ITEMS.filter((item) => !featuredStrategyIds.has(item.id));
 
     return (
         <div style={{ paddingBottom: '40px' }}>
@@ -239,34 +242,65 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
 
                 {/* Back Button (if no basket): Spanning full width */}
                 {goals.length === 0 && (
-                    <div style={{ gridColumn: '1 / -1', marginBottom: '4px' }}>
+                    <div style={{ gridColumn: '1 / -1', marginBottom: '4px', display: 'flex' }}>
                         <button
                             className="btn-text"
                             onClick={onPrev}
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6B7280' }}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                color: '#334155',
+                                background: 'rgba(255,255,255,0.7)',
+                                border: '1px solid rgba(148,163,184,0.35)',
+                                padding: '8px 12px',
+                                borderRadius: '10px'
+                            }}
                         >
                             <ChevronLeft size={16} /> Назад
                         </button>
                     </div>
                 )}
 
-                {/* Main Grid Items */}
-                {GOAL_GALLERY_ITEMS.map(item => (
-                    <div
-                        key={item.id}
-                        onClick={() => handleCardClick(item)}
-                        className="goalCard"
-                    >
-                        <div className="goalCard__title">
-                            {item.title}
-                        </div>
-                        <img
-                            src={item.image}
-                            alt={item.title}
-                            className="goalCard__image"
-                        />
+                <div className="goal-section-card" style={{ gridColumn: '1 / -1' }}>
+                    <div style={{ marginBottom: 14 }}>
+                        <h3 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#0f172a' }}>Цели на Будущее</h3>
+                        <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: 14 }}>Долгосрочные семейные и личные цели</p>
                     </div>
-                ))}
+                    <div className="goal-section-grid">
+                        {futureGoals.map(item => (
+                            <button
+                                key={item.id}
+                                onClick={() => handleCardClick(item)}
+                                className="goal-glass-card"
+                                type="button"
+                            >
+                                <div className="goal-glass-card__title">{item.title}</div>
+                                <img src={item.image} alt={item.title} className="goal-glass-card__image" />
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="goal-section-card" style={{ gridColumn: '1 / -1' }}>
+                    <div style={{ marginBottom: 14 }}>
+                        <h3 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#0f172a' }}>Капитал и Доход</h3>
+                        <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: 14 }}>Сохранить, приумножить и получать ежемесячный денежный поток</p>
+                    </div>
+                    <div className="goal-section-grid">
+                        {strategyGoals.map(item => (
+                            <button
+                                key={item.id}
+                                onClick={() => handleCardClick(item)}
+                                className="goal-glass-card"
+                                type="button"
+                            >
+                                <div className="goal-glass-card__title">{item.title}</div>
+                                <img src={item.image} alt={item.title} className="goal-glass-card__image" />
+                            </button>
+                        ))}
+                    </div>
+                </div>
             </div>
 
             {/* Modal / Overlay for Adding Goal - FIXED POSITIONING */}

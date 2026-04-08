@@ -3,22 +3,22 @@
 // and provide a helper to get the image path.
 
 // Import all images
-import gospensiya from '../assets/goals/gospensiya.png';
-import passivnyy from '../assets/goals/passivnyy_dohod_v_buduschem.png';
-import invest from '../assets/goals/sohranit__i_preumnozhit.png'; // "Сохранить и приумножить"
-import rent from '../assets/goals/poluchenie_ezhemesyachnogo_dohoda.png'; // "Рента"
+import gospensiya from '../assets/goals/gospensiya.webp';
+import passivnyy from '../assets/goals/passivnyy_dohod_v_buduschem.webp';
+import invest from '../assets/goals/sohranit__i_preumnozhit.webp'; // "Сохранить и приумножить"
+import rent from '../assets/goals/poluchenie_ezhemesyachnogo_dohoda.webp'; // "Рента"
 
 // Others (mapped to ID 4 or 3 based on logic)
-import kvartira from '../assets/goals/kvartira.png';
-import zagorod from '../assets/goals/zagorodnayanedvizhimost.png';
-import avtomobil from '../assets/goals/avtomobil.png';
-import puteshestvie from '../assets/goals/puteshestvie.png';
-import education from '../assets/goals/obrazovanie_rebyonka.png';
-import capital from '../assets/goals/preumnozhenie_kapitala.png';
-import ipoteka from '../assets/goals/pervyy_vznos_na_ipoteku.png';
-import pereezd from '../assets/goals/pereezd.png';
-import business from '../assets/goals/svoybiznes.png';
-import other from '../assets/goals/drugoe.png';
+import kvartira from '../assets/goals/kvartira.webp';
+import zagorod from '../assets/goals/zagorodnayanedvizhimost.webp';
+import avtomobil from '../assets/goals/avtomobil.webp';
+import puteshestvie from '../assets/goals/puteshestvie.webp';
+import education from '../assets/goals/obrazovanie_rebyonka.webp';
+import capital from '../assets/goals/preumnozhenie_kapitala.webp';
+import ipoteka from '../assets/goals/pervyy_vznos_na_ipoteku.webp';
+import pereezd from '../assets/goals/pereezd.webp';
+import business from '../assets/goals/svoybiznes.webp';
+import other from '../assets/goals/drugoe.webp';
 
 // Goal Type IDs
 export const GOAL_TYPE_PENSION = 1;
@@ -32,7 +32,7 @@ export const GOAL_TYPE_RENT = 8;
 // Config for Grid Display
 // Each item represents a card in the gallery
 export const GOAL_GALLERY_ITEMS = [
-    { id: 'pension', typeId: GOAL_TYPE_PENSION, title: 'ГосПенсия', image: gospensiya, description: 'На старость' },
+    { id: 'pension', typeId: GOAL_TYPE_PENSION, title: 'Достойная пенсия', image: gospensiya, description: 'На старость' },
     { id: 'passive', typeId: GOAL_TYPE_PASSIVE_INCOME, title: 'Пассивный доход', image: passivnyy, description: 'Жить на проценты' },
     { id: 'rent', typeId: GOAL_TYPE_RENT, title: 'Получение ежемесячного дохода', image: rent, description: 'Рента' },
     { id: 'edu', typeId: GOAL_TYPE_OTHER, title: 'Образование ребёнка', image: education, description: 'Детям' },

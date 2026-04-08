@@ -41,18 +41,17 @@ const estateStatuses: { value: FamilyRealEstateStatus; label: string }[] = [
     { value: 'owned', label: 'В собственности' },
     { value: 'mortgage', label: 'В ипотеке' }
 ];
+const realEstateTypeOptions = [
+    'Квартира',
+    'Дом',
+    'Коммерческая недвижимость',
+    'Земельный участок',
+    'Другое'
+] as const;
 
 const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, onNext, onPrev }) => {
     const family = data.familyProfile;
     const [childBirthDateDrafts, setChildBirthDateDrafts] = useState<Record<number, string>>({});
-    const spouseEmploymentOptions = [
-        { value: '', label: 'Не выбрано' },
-        { value: 'employed', label: 'Работает по найму' },
-        { value: 'self_employed', label: 'Самозанятый / ИП' },
-        { value: 'unemployed', label: 'Не работает' },
-        { value: 'retired', label: 'Пенсионер' },
-        { value: 'other', label: 'Другое' }
-    ] as const;
     const panelStyle: React.CSSProperties = {
         borderRadius: 18,
         border: '1px solid rgba(148, 163, 184, 0.26)',
@@ -105,7 +104,7 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
             ...prev,
             familyProfile: {
                 ...prev.familyProfile,
-                real_estate: [...prev.familyProfile.real_estate, { name: '', estimated_value: 0, status: 'owned' }]
+                real_estate: [...prev.familyProfile.real_estate, { name: 'Квартира', estimated_value: 0, status: 'owned' }]
             }
         }));
     };
@@ -172,6 +171,16 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
         return `${yyyy}-${mm}-${dd}`;
     };
 
+    const formatMoneyInput = (value: number): string => {
+        if (!value) return '';
+        return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    };
+
+    const parseMoneyInput = (value: string): number => {
+        const digitsOnly = value.replace(/\D/g, '');
+        return Number(digitsOnly) || 0;
+    };
+
     const isValid = Boolean(family.marital_status);
     const isMarried = family.marital_status === 'married' || family.marital_status === 'civil_union';
     const spouseIncomeLabel = data.gender === 'male' ? 'Доход супруги' : 'Доход супруга';
@@ -230,74 +239,6 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16, alignItems: 'start' }}>
-                <section style={{ ...panelStyle }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                        <label className="label" style={{ display: 'block', fontSize: 16, color: '#334155', fontWeight: 600 }}>
-                            Супруг / супруга
-                        </label>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                        <select
-                            value={family.spouse?.employment_status || ''}
-                            onChange={(e) =>
-                                setData((prev) => ({
-                                    ...prev,
-                                    familyProfile: {
-                                        ...prev.familyProfile,
-                                        spouse: {
-                                            ...prev.familyProfile.spouse,
-                                            employment_status:
-                                                (e.target.value || undefined) as
-                                                    | 'employed'
-                                                    | 'self_employed'
-                                                    | 'unemployed'
-                                                    | 'retired'
-                                                    | 'other'
-                                                    | undefined
-                                        }
-                                    }
-                                }))
-                            }
-                            style={{
-                                background: '#ffffff',
-                                borderRadius: 12,
-                                height: 44,
-                                border: '1px solid #cbd5e1'
-                            }}
-                        >
-                            {spouseEmploymentOptions.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            ))}
-                        </select>
-                        <input
-                            type="number"
-                            min={0}
-                            value={family.spouse?.monthly_income ?? 0}
-                            onChange={(e) =>
-                                setData((prev) => ({
-                                    ...prev,
-                                    familyProfile: {
-                                        ...prev.familyProfile,
-                                        spouse: {
-                                            ...prev.familyProfile.spouse,
-                                            monthly_income: Number(e.target.value) || 0
-                                        }
-                                    }
-                                }))
-                            }
-                            placeholder="Доход в месяц, ₽"
-                            style={{
-                                background: '#ffffff',
-                                borderRadius: 12,
-                                height: 44,
-                                border: '1px solid #cbd5e1'
-                            }}
-                        />
-                    </div>
-                </section>
-
                 <section style={{
                     ...panelStyle
                 }}>
@@ -336,19 +277,36 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                                     </span>
                                     <span>{item.label}</span>
                                 </div>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    value={amount}
-                                    onChange={(e) => updateObligationByType(item.value, Number(e.target.value) || 0)}
-                                    placeholder="Сумма, ₽"
-                                    style={{
-                                        background: 'rgba(255,255,255,0.88)',
-                                        borderRadius: 12,
-                                        height: 44,
-                                        border: '1px solid rgba(148, 163, 184, 0.45)'
-                                    }}
-                                />
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={formatMoneyInput(amount)}
+                                        onChange={(e) => updateObligationByType(item.value, parseMoneyInput(e.target.value))}
+                                        placeholder="0"
+                                        style={{
+                                            background: 'rgba(255,255,255,0.88)',
+                                            borderRadius: 12,
+                                            height: 44,
+                                            border: '1px solid rgba(148, 163, 184, 0.45)',
+                                            paddingRight: 36
+                                        }}
+                                    />
+                                    <span
+                                        style={{
+                                            position: 'absolute',
+                                            right: 12,
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            color: '#64748b',
+                                            fontWeight: 600,
+                                            fontSize: 14,
+                                            pointerEvents: 'none'
+                                        }}
+                                    >
+                                        ₽
+                                    </span>
+                                </div>
                             </motion.div>
                             );
                         })}
@@ -358,12 +316,27 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                 <section style={{
                     ...panelStyle
                 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                        <label className="label" style={{ fontSize: 16 }}>Недвижимость семьи</label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, paddingTop: 4 }}>
+                        <label className="label" style={{ fontSize: 16, color: '#334155', fontWeight: 600 }}>Недвижимость семьи</label>
                     </div>
                     {family.real_estate.length === 0 && (
                         <div style={{ color: '#64748b', fontSize: 14, padding: '8px 0' }}>
                             Пока нет объектов недвижимости.
+                        </div>
+                    )}
+                    {family.real_estate.length > 0 && (
+                        <div
+                            style={{
+                                display: 'grid',
+                                gridTemplateColumns: '1.4fr 1fr 1fr',
+                                gap: 10,
+                                marginBottom: 8,
+                                padding: '0 6px'
+                            }}
+                        >
+                            <div style={{ color: '#64748b', fontSize: 12, fontWeight: 600 }}>Тип недвижимости</div>
+                            <div style={{ color: '#64748b', fontSize: 12, fontWeight: 600 }}>Стоимость</div>
+                            <div style={{ color: '#64748b', fontSize: 12, fontWeight: 600 }}>Тип собственности</div>
                         </div>
                     )}
                     {family.real_estate.map((item, index) => (
@@ -374,30 +347,53 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                             transition={{ duration: 0.2 }}
                             style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: 10, marginBottom: 10 }}
                         >
-                            <input
-                                value={item.name || ''}
+                            <select
+                                value={item.name || 'Квартира'}
                                 onChange={(e) => updateEstate(index, { name: e.target.value })}
-                                placeholder="Название объекта"
                                 style={{
-                                    background: '#ffffff',
+                                    background: 'rgba(255,255,255,0.9)',
                                     borderRadius: 12,
                                     height: 44,
-                                    border: '1px solid #cbd5e1'
+                                    border: '1px solid #cbd5e1',
+                                    fontSize: 18,
+                                    fontWeight: 600,
+                                    color: '#334155',
+                                    paddingLeft: 14
                                 }}
-                            />
-                            <input
-                                type="number"
-                                min={0}
-                                value={item.estimated_value || 0}
-                                onChange={(e) => updateEstate(index, { estimated_value: Number(e.target.value) || 0 })}
-                                placeholder="Оценка"
-                                style={{
-                                    background: '#ffffff',
-                                    borderRadius: 12,
-                                    height: 44,
-                                    border: '1px solid #cbd5e1'
-                                }}
-                            />
+                            >
+                                {realEstateTypeOptions.map((option) => (
+                                    <option key={option} value={option}>{option}</option>
+                                ))}
+                            </select>
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={formatMoneyInput(item.estimated_value || 0)}
+                                    onChange={(e) => updateEstate(index, { estimated_value: parseMoneyInput(e.target.value) })}
+                                    style={{
+                                        background: '#ffffff',
+                                        borderRadius: 12,
+                                        height: 44,
+                                        border: '1px solid #cbd5e1',
+                                        paddingRight: 32
+                                    }}
+                                />
+                                <span
+                                    style={{
+                                        position: 'absolute',
+                                        right: 10,
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        color: '#64748b',
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        pointerEvents: 'none'
+                                    }}
+                                >
+                                    ₽
+                                </span>
+                            </div>
                             <select
                                 value={item.status}
                                 onChange={(e) => updateEstate(index, { status: e.target.value as FamilyRealEstateStatus })}
@@ -507,19 +503,25 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                             <div style={{ color: '#334155', fontWeight: 500, paddingLeft: 4 }}>
                                 Доход клиента (по 2-НДФЛ)
                             </div>
-                            <input
-                                type="number"
-                                min={0}
-                                value={data.avgMonthlyIncome || 0}
-                                onChange={(e) => setData((prev) => ({ ...prev, avgMonthlyIncome: Number(e.target.value) || 0 }))}
-                                placeholder="0"
-                                style={{
-                                    background: 'rgba(255,255,255,0.88)',
-                                    borderRadius: 12,
-                                    height: 44,
-                                    border: '1px solid rgba(148, 163, 184, 0.45)'
-                                }}
-                            />
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={formatMoneyInput(data.avgMonthlyIncome || 0)}
+                                    onChange={(e) => setData((prev) => ({ ...prev, avgMonthlyIncome: parseMoneyInput(e.target.value) }))}
+                                    placeholder="0"
+                                    style={{
+                                        background: 'rgba(255,255,255,0.88)',
+                                        borderRadius: 12,
+                                        height: 44,
+                                        border: '1px solid rgba(148, 163, 184, 0.45)',
+                                        paddingRight: 32
+                                    }}
+                                />
+                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#64748b', fontSize: 13, fontWeight: 600, pointerEvents: 'none' }}>
+                                    ₽
+                                </span>
+                            </div>
                         </div>
 
                         {isMarried && (
@@ -527,28 +529,34 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                                 <div style={{ color: '#334155', fontWeight: 500, paddingLeft: 4 }}>
                                     {spouseIncomeLabel}
                                 </div>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    value={family.spouse?.monthly_income ?? 0}
-                                    onChange={(e) => setData((prev) => ({
-                                        ...prev,
-                                        familyProfile: {
-                                            ...prev.familyProfile,
-                                            spouse: {
-                                                ...prev.familyProfile.spouse,
-                                                monthly_income: Number(e.target.value) || 0
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={formatMoneyInput(family.spouse?.monthly_income ?? 0)}
+                                        onChange={(e) => setData((prev) => ({
+                                            ...prev,
+                                            familyProfile: {
+                                                ...prev.familyProfile,
+                                                spouse: {
+                                                    ...prev.familyProfile.spouse,
+                                                    monthly_income: parseMoneyInput(e.target.value)
+                                                }
                                             }
-                                        }
-                                    }))}
-                                    placeholder="0"
-                                    style={{
-                                        background: 'rgba(255,255,255,0.88)',
-                                        borderRadius: 12,
-                                        height: 44,
-                                        border: '1px solid rgba(148, 163, 184, 0.45)'
-                                    }}
-                                />
+                                        }))}
+                                        placeholder="0"
+                                        style={{
+                                            background: 'rgba(255,255,255,0.88)',
+                                            borderRadius: 12,
+                                            height: 44,
+                                            border: '1px solid rgba(148, 163, 184, 0.45)',
+                                            paddingRight: 32
+                                        }}
+                                    />
+                                    <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#64748b', fontSize: 13, fontWeight: 600, pointerEvents: 'none' }}>
+                                        ₽
+                                    </span>
+                                </div>
                             </div>
                         )}
                     </div>
