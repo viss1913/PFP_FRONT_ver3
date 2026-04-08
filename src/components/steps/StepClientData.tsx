@@ -15,7 +15,7 @@ const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }
         borderRadius: '16px',
         border: isActive ? '1px solid rgba(255, 255, 255, 0.75)' : '1px solid rgba(255, 255, 255, 0.55)',
         background: isActive
-            ? 'linear-gradient(135deg, rgba(255,255,255,0.58) 0%, rgba(226,236,248,0.5) 100%)'
+            ? 'linear-gradient(135deg, rgba(233,242,252,0.78) 0%, rgba(195,210,228,0.7) 100%)'
             : 'linear-gradient(135deg, rgba(255,255,255,0.32) 0%, rgba(226,236,248,0.24) 100%)',
         color: '#1F2937',
         cursor: 'pointer',
@@ -112,9 +112,10 @@ const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }
             <div style={{ marginBottom: '40px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
                     <label className="label">Ваш возраст</label>
-                    <span style={{ color: 'var(--primary)', fontWeight: 'bold', fontSize: '20px' }}>{data.age} лет</span>
+                    <span style={{ color: '#334155', fontWeight: 700, fontSize: '36px', lineHeight: 1, letterSpacing: '-0.02em' }}>{data.age} лет</span>
                 </div>
                 <input
+                    className="age-slider"
                     type="range"
                     min="18"
                     max="80"

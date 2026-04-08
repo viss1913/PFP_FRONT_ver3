@@ -44,6 +44,13 @@ const estateStatuses: { value: FamilyRealEstateStatus; label: string }[] = [
 
 const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, onNext, onPrev }) => {
     const family = data.familyProfile;
+    const panelStyle: React.CSSProperties = {
+        borderRadius: 18,
+        border: '1px solid rgba(148, 163, 184, 0.26)',
+        background: 'linear-gradient(135deg, rgba(255,255,255,0.94) 0%, rgba(241,245,249,0.9) 100%)',
+        boxShadow: '0 12px 28px rgba(71, 85, 105, 0.08)',
+        padding: 16
+    };
 
     useEffect(() => {
         const hasAllTypes = obligations.every((o) =>
@@ -128,10 +135,10 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
         <div style={{
             maxWidth: 1100,
             margin: '0 auto',
-            background: 'linear-gradient(180deg, #fffdf7 0%, #fff9ec 100%)',
+            background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
             borderRadius: 24,
             padding: 18,
-            border: '1px solid #f5e7bf'
+            border: '1px solid rgba(148, 163, 184, 0.2)'
         }}>
             <h2 style={{ fontSize: 34, fontWeight: 800, marginBottom: 8, textAlign: 'center', letterSpacing: '-0.02em' }}>Семейный профиль</h2>
             <p style={{ textAlign: 'center', color: '#64748b', marginBottom: 30, fontSize: 16 }}>
@@ -140,31 +147,49 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
 
             <div className="input-group" style={{ marginBottom: 20 }}>
                 <label className="label">Семейный статус *</label>
-                <select
-                    value={family.marital_status}
-                    onChange={(e) => setData((prev) => ({ ...prev, familyProfile: { ...prev.familyProfile, marital_status: e.target.value as any } }))}
-                    style={{
-                        background: '#ffffff',
-                        borderRadius: 14,
-                        height: 48,
-                        border: '1px solid #cbd5e1',
-                        boxShadow: '0 6px 18px rgba(15,23,42,0.08)'
-                    }}
-                >
-                    <option value="">Выберите статус</option>
-                    {maritalOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                    <select
+                        value={family.marital_status}
+                        onChange={(e) => setData((prev) => ({ ...prev, familyProfile: { ...prev.familyProfile, marital_status: e.target.value as any } }))}
+                        style={{
+                            maxWidth: 320,
+                            width: '100%',
+                            background: 'linear-gradient(135deg, rgba(255,255,255,0.96) 0%, rgba(241,245,249,0.92) 100%)',
+                            borderRadius: 14,
+                            height: 48,
+                            border: '1px solid rgba(148,163,184,0.45)',
+                            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.95), 0 8px 18px rgba(15,23,42,0.08)',
+                            color: '#334155',
+                            fontWeight: 500
+                        }}
+                    >
+                        <option value="">Выберите статус</option>
+                        {maritalOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                    </select>
+                    <button
+                        type="button"
+                        className="btn-primary"
+                        style={{
+                            width: 'auto',
+                            minWidth: 260,
+                            padding: '12px 18px',
+                            marginLeft: 'auto',
+                            borderRadius: 14,
+                            background: 'linear-gradient(135deg, #3D5D86 0%, #2E4A6D 100%)',
+                            color: '#F8FAFC'
+                        }}
+                    >
+                        Подписать и отправить NDA
+                    </button>
+                </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16, alignItems: 'start' }}>
                 <section style={{
-                    borderRadius: 18,
-                    border: '1px solid #f0dfb2',
-                    background: '#ffffff',
-                    padding: 16
+                    ...panelStyle
                 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                        <label className="label" style={{ display: 'block', fontSize: 16 }}>Расходы семьи (в месяц)</label>
+                        <label className="label" style={{ display: 'block', fontSize: 16, color: '#334155', fontWeight: 600 }}>Расходы семьи (в месяц)</label>
                     </div>
                     <div style={{ display: 'grid', gap: 10 }}>
                         {obligations.map((item, index) => {
@@ -176,30 +201,27 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.15, delay: index * 0.02 }}
-                                style={{ display: 'grid', gridTemplateColumns: '1.3fr auto 1fr', gap: 10, alignItems: 'center' }}
+                                style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: '1fr 220px',
+                                    gap: 14,
+                                    alignItems: 'center',
+                                    borderBottom: index === obligations.length - 1 ? 'none' : '1px solid rgba(148, 163, 184, 0.18)',
+                                    paddingBottom: 10
+                                }}
                             >
                                 <div style={{
-                                    background: '#ffffff',
-                                    borderRadius: 12,
-                                    height: 44,
-                                    border: '1px solid #cbd5e1',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    padding: '0 12px',
+                                    gap: 10,
+                                    padding: '0 4px',
                                     fontWeight: 500,
                                     color: '#334155'
                                 }}>
-                                    {item.label}
-                                </div>
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 8,
-                                    color: '#64748b',
-                                    marginTop: -2,
-                                    marginBottom: -2
-                                }}>
-                                    {obligationIcon[item.value]}
+                                    <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center' }}>
+                                        {obligationIcon[item.value]}
+                                    </span>
+                                    <span>{item.label}</span>
                                 </div>
                                 <input
                                     type="number"
@@ -208,10 +230,10 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                                     onChange={(e) => updateObligationByType(item.value, Number(e.target.value) || 0)}
                                     placeholder="Сумма, ₽"
                                     style={{
-                                        background: '#ffffff',
+                                        background: 'rgba(255,255,255,0.88)',
                                         borderRadius: 12,
                                         height: 44,
-                                        border: '1px solid #cbd5e1'
+                                        border: '1px solid rgba(148, 163, 184, 0.45)'
                                     }}
                                 />
                             </motion.div>
@@ -221,10 +243,7 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                 </section>
 
                 <section style={{
-                    borderRadius: 18,
-                    border: '1px solid #f0dfb2',
-                    background: '#ffffff',
-                    padding: 16
+                    ...panelStyle
                 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                         <label className="label" style={{ fontSize: 16 }}>Недвижимость семьи</label>
@@ -286,10 +305,7 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                 </section>
 
                 <section style={{
-                    borderRadius: 18,
-                    border: '1px solid #f0dfb2',
-                    background: '#ffffff',
-                    padding: 16
+                    ...panelStyle
                 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                         <label className="label" style={{ fontSize: 16 }}>Дети</label>
@@ -355,7 +371,7 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                 background: 'linear-gradient(180deg, rgba(248,250,252,0), rgba(248,250,252,0.95) 35%, rgba(248,250,252,1) 100%)'
             }}>
                 <button className="btn-secondary" onClick={onPrev} style={{ flex: 1 }}>Назад</button>
-                <button className="btn-primary" onClick={onNext} style={{ flex: 2 }} disabled={!isValid}>Далее</button>
+                <button className="btn-primary" onClick={onNext} style={{ flex: 2, background: 'linear-gradient(135deg, #5B6F8B 0%, #465A73 100%)' }} disabled={!isValid}>Далее</button>
             </div>
         </div>
     );
