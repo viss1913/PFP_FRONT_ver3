@@ -4,8 +4,25 @@ import React, { useState } from 'react';
 import { X, ArrowRight, ChevronLeft } from 'lucide-react';
 import type { CJMData } from '../CJMFlow';
 import type { ClientGoal } from '../../types/client';
-import { GOAL_GALLERY_ITEMS, getGoalImage } from '../../utils/GoalImages';
+import { GOAL_GALLERY_ITEMS, buildChildEducationGalleryItems, getGoalImage, type GoalGalleryItem } from '../../utils/GoalImages';
 import avatarImage from '../../assets/avatar_full.png';
+
+/** Месяцев от «сегодня» до дня, когда ребёнку исполнится 17 лет (ISO YYYY-MM-DD). */
+function monthsUntil17thBirthday(birthIso: string, now = new Date()): number {
+    const parts = birthIso.trim().split('-');
+    if (parts.length !== 3) return 60;
+    const y = Number(parts[0]);
+    const m = Number(parts[1]);
+    const d = Number(parts[2]);
+    if (!y || !m || !d) return 60;
+    const birth = new Date(y, m - 1, d);
+    if (Number.isNaN(birth.getTime())) return 60;
+    const t17 = new Date(y + 17, m - 1, d);
+    if (t17 <= now) return 1;
+    let months = (t17.getFullYear() - now.getFullYear()) * 12 + (t17.getMonth() - now.getMonth());
+    if (t17.getDate() < now.getDate()) months -= 1;
+    return Math.max(1, months);
+}
 
 interface StepGoalSelectionProps {
     data: CJMData;
@@ -27,7 +44,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
     const DEFAULT_INITIAL_CAPITAL = 5000000;
 
     // State for modal
-    const [selectedGalleryItem, setSelectedGalleryItem] = useState<typeof GOAL_GALLERY_ITEMS[0] | null>(null);
+    const [selectedGalleryItem, setSelectedGalleryItem] = useState<GoalGalleryItem | null>(null);
     const [targetAmount, setTargetAmount] = useState<number>(DEFAULT_TARGET_AMOUNT);
     const [termMonths, setTermMonths] = useState<number>(DEFAULT_TERM_YEARS * 12);
     const [desiredIncome, setDesiredIncome] = useState<number>(DEFAULT_DESIRED_INCOME);
@@ -36,11 +53,15 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
     // For now, it's always 0 for new goals via this modal.
 
     // Handle clicking a card in the gallery
-    const handleCardClick = (item: typeof GOAL_GALLERY_ITEMS[0]) => {
+    const handleCardClick = (item: GoalGalleryItem) => {
         setSelectedGalleryItem(item);
         // Reset defaults when opening new goal
         setTargetAmount(DEFAULT_TARGET_AMOUNT);
-        setTermMonths(DEFAULT_TERM_YEARS * 12);
+        if (item.childFirstName && item.childBirthIso) {
+            setTermMonths(monthsUntil17thBirthday(item.childBirthIso));
+        } else {
+            setTermMonths(DEFAULT_TERM_YEARS * 12);
+        }
 
         if (item.typeId === 7) { // Ликвидный резерв (RESERVE)
             setDesiredIncome(10000); // По умолчанию 10к пополнение
@@ -65,6 +86,10 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
             desired_monthly_income: 0,
             inflation_rate: 5.6 // Default
         };
+
+        if (selectedGalleryItem.childFirstName) {
+            newGoal.gallery_source_id = 'edu';
+        }
 
         // Map fields based on Type
         if (typeId === 1) { // 1. ГосПенсия (PENSION)
@@ -123,11 +148,16 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
     const isInvest = selectedGalleryItem?.typeId === 3;
     const isReserve = selectedGalleryItem?.typeId === 7;
     const isStandard = !isPension && !isPassive && !isRent && !isInvest && !isReserve;
+    const isChildEducationGoal = Boolean(selectedGalleryItem?.childFirstName);
 
     const totalAssetsSum = (data.assets || []).reduce((sum, a) => sum + (a.current_value || 0), 0);
     const featuredStrategyIds = new Set(['invest_save', 'rent']);
     const strategyGoals = GOAL_GALLERY_ITEMS.filter((item) => featuredStrategyIds.has(item.id));
-    const futureGoals = GOAL_GALLERY_ITEMS.filter((item) => !featuredStrategyIds.has(item.id));
+    const educationGalleryItems = buildChildEducationGalleryItems(data.familyProfile?.children);
+    const futureGoals: GoalGalleryItem[] = [
+        ...educationGalleryItems,
+        ...GOAL_GALLERY_ITEMS.filter((item) => !featuredStrategyIds.has(item.id)),
+    ];
 
     return (
         <div style={{ paddingBottom: '40px' }}>
@@ -211,7 +241,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                             {goals.map((g, idx) => (
                                 <div key={idx} className="selected-goal-mini-card">
                                     <img
-                                        src={getGoalImage(g.name, g.goal_type_id)}
+                                        src={getGoalImage(g.name, g.goal_type_id, g.gallery_source_id)}
                                         alt={g.name}
                                         className="selected-goal-mini-card__image"
                                     />
@@ -415,9 +445,9 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                     </div>
                                     <input
                                         type="range"
-                                        min="1" max="50" step="1"
+                                        min="1" max="50" step={isChildEducationGoal ? 'any' : '1'}
                                         value={termMonths / 12}
-                                        onChange={(e) => setTermMonths(Number(e.target.value) * 12)}
+                                        onChange={(e) => setTermMonths(Math.round(Number(e.target.value) * 12))}
                                         style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
                                     />
                                     <div style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '8px', textAlign: 'right' }}>

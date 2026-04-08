@@ -35,7 +35,6 @@ export const GOAL_GALLERY_ITEMS = [
     { id: 'pension', typeId: GOAL_TYPE_PENSION, title: 'Достойная пенсия', image: gospensiya, description: 'На старость' },
     { id: 'passive', typeId: GOAL_TYPE_PASSIVE_INCOME, title: 'Пассивный доход', image: passivnyy, description: 'Жить на проценты' },
     { id: 'rent', typeId: GOAL_TYPE_RENT, title: 'Получение ежемесячного дохода', image: rent, description: 'Рента' },
-    { id: 'edu', typeId: GOAL_TYPE_OTHER, title: 'Образование ребёнка', image: education, description: 'Детям' },
 
     // Logic for "Other" mappings
     // User said: "Все остальное - OTHER (id=9)"
@@ -55,13 +54,47 @@ export const GOAL_GALLERY_ITEMS = [
     { id: 'other', typeId: GOAL_TYPE_OTHER, title: 'Другое', image: other, description: 'Своя цель' },
 ];
 
+export type GoalGalleryItem = (typeof GOAL_GALLERY_ITEMS)[number] & {
+    childFirstName?: string;
+    childBirthIso?: string;
+};
+
+/** Полное имя цели «Образование» в конструкторе и в API (`name`). */
+export function childEducationGoalTitle(childFirstName: string): string {
+    return `Образование. ${childFirstName.trim()}`;
+}
+
+/** Карточки «Образование» по детям из профиля (показываем только при непустом имени). */
+export function buildChildEducationGalleryItems(
+    children: Array<{ first_name: string; birth_date: string }> | undefined
+): GoalGalleryItem[] {
+    const list = children || [];
+    return list
+        .filter((c) => (c.first_name || '').trim().length > 0)
+        .map((c, idx) => {
+            const name = c.first_name.trim();
+            return {
+                id: `edu_child_${idx}`,
+                typeId: GOAL_TYPE_OTHER,
+                title: childEducationGoalTitle(name),
+                image: education,
+                description: 'К 17 годам',
+                childFirstName: name,
+                childBirthIso: (c.birth_date || '').trim() || undefined,
+            };
+        });
+}
+
 /** Подпись типа цели по goal_type_id для списков и карточек */
 export const getGoalTypeLabel = (typeId: number): string => {
     const item = GOAL_GALLERY_ITEMS.find((i) => i.typeId === typeId);
     return item ? item.title : `Цель #${typeId}`;
 };
 
-export const getGoalImage = (goalName: string, typeId: number): string => {
+export const getGoalImage = (goalName: string, typeId: number, gallerySourceId?: string): string => {
+    if (gallerySourceId === 'edu') return education;
+    if (typeId === GOAL_TYPE_OTHER && goalName.trimStart().startsWith('Образование.')) return education;
+
     // Try to find exact match by title first
     const match = GOAL_GALLERY_ITEMS.find(i => i.title === goalName);
     if (match) return match.image;

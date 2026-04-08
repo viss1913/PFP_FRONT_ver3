@@ -135,6 +135,8 @@ export interface ClientGoal {
     /** код типа цели с бэка (PENSION, PASSIVE_INCOME, …) для отображения */
     goal_type?: string;
     name: string;
+    /** Конструктор: для иконки в UI (в payload CJM не попадает — собирается вручную) */
+    gallery_source_id?: string;
     target_amount?: number; // Desired amount
     desired_monthly_income?: number; // For Passive Income
     term_months?: number;

@@ -181,7 +181,10 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
         return Number(digitsOnly) || 0;
     };
 
-    const isValid = Boolean(family.marital_status);
+    const everyChildHasName =
+        family.children.length === 0 ||
+        family.children.every((c) => (c.first_name || '').trim().length > 0);
+    const isValid = Boolean(family.marital_status) && everyChildHasName;
     const isMarried = family.marital_status === 'married' || family.marital_status === 'civil_union';
     const spouseIncomeLabel = data.gender === 'male' ? 'Доход супруги' : 'Доход супруга';
 
@@ -419,6 +422,11 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                         <label className="label" style={{ fontSize: 16 }}>Дети</label>
                     </div>
+                    {family.children.length > 0 && (
+                        <p style={{ margin: '0 0 10px', color: '#64748b', fontSize: 13, lineHeight: 1.4 }}>
+                            У каждого ребёнка в списке обязательно укажи имя — без него не собрать цель «Образование».
+                        </p>
+                    )}
                     {family.children.length === 0 && (
                         <div style={{ color: '#64748b', fontSize: 14, padding: '8px 0' }}>
                             Пока нет данных о детях.
@@ -435,12 +443,14 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                             <input
                                 value={child.first_name || ''}
                                 onChange={(e) => updateChild(index, { first_name: e.target.value })}
-                                placeholder="Имя ребенка"
+                                placeholder="Имя *"
+                                aria-invalid={!(child.first_name || '').trim()}
+                                aria-label={`Имя ребёнка ${index + 1}, обязательно`}
                                 style={{
                                     background: '#ffffff',
                                     borderRadius: 12,
                                     height: 44,
-                                    border: '1px solid #cbd5e1',
+                                    border: `1px solid ${!(child.first_name || '').trim() ? '#f97316' : '#cbd5e1'}`,
                                     paddingLeft: 24
                                 }}
                             />
