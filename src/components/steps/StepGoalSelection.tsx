@@ -276,7 +276,9 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                 type="button"
                             >
                                 <div className="goal-glass-card__title">{item.title}</div>
-                                <img src={item.image} alt={item.title} className="goal-glass-card__image" />
+                                <div className="goal-glass-card__image-wrap">
+                                    <img src={item.image} alt={item.title} className="goal-glass-card__image" />
+                                </div>
                             </button>
                         ))}
                     </div>
@@ -296,7 +298,9 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                 type="button"
                             >
                                 <div className="goal-glass-card__title">{item.title}</div>
-                                <img src={item.image} alt={item.title} className="goal-glass-card__image" />
+                                <div className="goal-glass-card__image-wrap">
+                                    <img src={item.image} alt={item.title} className="goal-glass-card__image" />
+                                </div>
                             </button>
                         ))}
                     </div>
@@ -312,11 +316,11 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                     backgroundColor: 'rgba(0,0,0,0.6)',
                     backdropFilter: 'blur(8px)',
                     display: 'flex',
-                    alignItems: 'center', // Vertically center
+                    alignItems: 'flex-start',
                     justifyContent: 'center', // Horizontally center
-                    padding: '24px'
+                    padding: '8vh 24px 24px'
                 }}>
-                    <div style={{
+                    <div className="goal-modal" style={{
                         background: '#fff',
                         borderRadius: '32px',
                         width: '100%',
@@ -325,7 +329,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                         position: 'relative',
                         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
                         animation: 'scaleIn 0.2s ease-out',
-                        maxHeight: '85vh',
+                        maxHeight: '82vh',
                         overflowY: 'auto'
                     }}>
                         <style>{`
@@ -411,7 +415,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                                     textAlign: 'right'
                                                 }}
                                             />
-                                            <span style={{ fontWeight: '800', fontSize: '20px', color: '#E91E63' }}>лет</span>
+                                            <span style={{ fontWeight: '800', fontSize: '20px', color: '#334155' }}>лет</span>
                                         </div>
                                     </div>
                                     <input
@@ -466,7 +470,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                                         padding: '4px 8px', width: '80px', textAlign: 'right'
                                                     }}
                                                 />
-                                                <span style={{ fontWeight: '800', fontSize: '20px', color: '#E91E63' }}>лет</span>
+                                                <span style={{ fontWeight: '800', fontSize: '20px', color: '#334155' }}>лет</span>
                                             </div>
                                         </div>
                                         <input
@@ -542,7 +546,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                                     padding: '4px 8px', width: '80px', textAlign: 'right'
                                                 }}
                                             />
-                                            <span style={{ fontWeight: '800', fontSize: '20px', color: '#E91E63' }}>лет</span>
+                                            <span style={{ fontWeight: '800', fontSize: '20px', color: '#334155' }}>лет</span>
                                         </div>
                                     </div>
                                     <input
@@ -643,7 +647,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                         <button
                             className="btn-primary"
                             onClick={handleAddGoal}
-                            style={{ width: '100%', padding: '20px', borderRadius: '20px', fontSize: '18px', fontWeight: '700', boxShadow: '0 10px 20px -5px rgba(233, 30, 99, 0.4)' }}
+                            style={{ width: '100%', padding: '20px', borderRadius: '20px', fontSize: '18px', fontWeight: '700', boxShadow: '0 10px 20px -5px rgba(70, 90, 115, 0.4)' }}
                         >
                             Добавить цель
                         </button>

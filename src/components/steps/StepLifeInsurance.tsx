@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Heart } from 'lucide-react';
 import type { CJMData } from '../CJMFlow';
+import avatarImage from '../../assets/avatar_full.png';
 
 interface StepLifeInsuranceProps {
     data: CJMData;
@@ -10,11 +10,14 @@ interface StepLifeInsuranceProps {
 }
 
 const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, onNext, onPrev }) => {
-    // Initialize with existing value if defined, otherwise default to 0 (or a suggested starting value like 1M?)
-    // User requested ability to set 0. And minimum 500k.
-    // If we want to suggest insurance, maybe default to 0 and let them scroll? Or 1M?
-    // Let's rely on data if present. Default to 0 if not.
     const [limit, setLimit] = useState<number>(data.lifeInsuranceLimit !== undefined ? data.lifeInsuranceLimit : 0);
+    const assetsCapital = (data.assets || []).reduce((sum, a) => sum + (a.current_value || 0), 0);
+    const investmentOrRentGoalCapital = (data.goals || [])
+        .filter((g) => g.goal_type_id === 3 || g.goal_type_id === 8)
+        .reduce((sum, g) => sum + (g.initial_capital || 0), 0);
+    const sourceCapital = assetsCapital > 0 ? assetsCapital : Math.max(investmentOrRentGoalCapital, data.initialCapital || 0);
+    const shouldShowRecommendation = sourceCapital >= 500000;
+    const recommendedLimit = Math.round(sourceCapital * 0.1 * 15);
 
     useEffect(() => {
         setData(prev => ({
@@ -23,31 +26,58 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
         }));
     }, [limit, setData]);
 
+    useEffect(() => {
+        if (shouldShowRecommendation && (!data.lifeInsuranceLimit || data.lifeInsuranceLimit === 0)) {
+            setLimit(recommendedLimit);
+        }
+    }, [shouldShowRecommendation, recommendedLimit, data.lifeInsuranceLimit]);
+
     const formatCurrency = (val: number) => new Intl.NumberFormat('ru-RU').format(Math.round(val)) + ' ₽';
+    const formatNumber = (val: number) => new Intl.NumberFormat('ru-RU').format(Math.round(val));
+    const parseNumber = (val: string) => Number(val.replace(/\D/g, '')) || 0;
 
     const MIN_LIMIT = 0;
-    const MAX_LIMIT = 10000000;
-    const STEP = 500000;
+    const MAX_LIMIT = Math.max(10000000, recommendedLimit || 0);
+    const STEP = 50000;
 
     return (
         <div>
-            <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+            <div style={{ marginBottom: '30px' }}>
                 <div style={{
-                    width: '64px',
-                    height: '64px',
-                    borderRadius: '50%',
-                    background: 'var(--primary)',
                     display: 'flex',
+                    flexDirection: 'row',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    margin: '0 auto 16px'
+                    gap: '32px'
                 }}>
-                    <Heart size={32} color="#000" />
+                    <div style={{
+                        width: '120px',
+                        height: '120px',
+                        minWidth: '120px',
+                        borderRadius: '24px',
+                        overflow: 'hidden',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+                        background: '#fff'
+                    }}>
+                        <img src={avatarImage} alt="AI Assistant" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                    <div style={{
+                        background: '#fff',
+                        borderRadius: '24px',
+                        borderTopLeftRadius: '4px',
+                        padding: '28px',
+                        fontSize: '18px',
+                        lineHeight: '1.5',
+                        color: '#1F2937',
+                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+                        maxWidth: '620px',
+                        fontWeight: '500'
+                    }}>
+                        {shouldShowRecommendation
+                            ? `Давайте еще создадим резерв для Защиты Жизни. Я рекомендую создать доп резерв в размере ${formatCurrency(recommendedLimit)}.`
+                            : 'Для текущего капитала дополнительный резерв Защиты Жизни можно не создавать.'}
+                    </div>
                 </div>
-                <h2 className="step-title">Защита Жизни</h2>
-                <p style={{ color: 'var(--text-muted)', marginTop: '8px', fontSize: '18px' }}>
-                    Выберите лимит страхования жизни (НСЖ)
-                </p>
             </div>
 
             <div style={{
@@ -66,22 +96,23 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
                     <div style={{ display: 'flex', alignItems: 'center', gap: '24px', marginBottom: '24px' }}>
                         <div style={{ flex: 1 }}>
                             <input
+                                className="goal-modal-range"
                                 type="range"
                                 min={MIN_LIMIT}
                                 max={MAX_LIMIT}
                                 step={STEP}
                                 value={limit}
                                 onChange={(e) => setLimit(Number(e.target.value))}
-                                style={{ width: '100%', cursor: 'pointer', accentColor: 'var(--primary)' }}
+                                style={{ width: '100%' }}
                             />
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', color: 'var(--text-muted)', fontSize: '12px' }}>
                                 <span>0 ₽</span>
-                                <span>5 млн ₽</span>
-                                <span>10 млн ₽</span>
+                                <span>{formatCurrency(Math.round(MAX_LIMIT / 2))}</span>
+                                <span>{formatCurrency(MAX_LIMIT)}</span>
                             </div>
                         </div>
                         <div style={{
-                            background: 'var(--input-bg)',
+                            background: 'rgba(255,255,255,0.88)',
                             border: '1px solid var(--border-color)',
                             borderRadius: '12px',
                             padding: '12px 16px',
@@ -92,14 +123,14 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
                             color: 'var(--text-main)'
                         }}>
                             <input
-                                type="number"
+                                type="text"
                                 min={MIN_LIMIT}
                                 max={MAX_LIMIT}
                                 step={STEP}
-                                value={limit}
+                                value={formatNumber(limit)}
                                 onChange={(e) => {
-                                    const val = Number(e.target.value);
-                                    setLimit(val);
+                                    const val = parseNumber(e.target.value);
+                                    setLimit(Math.min(MAX_LIMIT, val));
                                 }}
                                 style={{
                                     border: 'none',
@@ -116,7 +147,7 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
                     </div>
 
                     <div style={{ textAlign: 'center', fontSize: '14px', color: 'var(--text-muted)' }}>
-                        Текущий выбор: <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>{formatCurrency(limit)}</span>
+                        Текущий выбор: <span style={{ color: '#334155', fontWeight: 'bold' }}>{formatCurrency(limit)}</span>
                     </div>
                 </div>
             </div>

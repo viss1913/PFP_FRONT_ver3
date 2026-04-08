@@ -90,38 +90,43 @@ const StepAssets: React.FC<StepAssetsProps> = ({ data, setData, onNext, onPrev }
 
             <div style={{
                 padding: '32px',
-                background: 'var(--card-bg)',
-                backdropFilter: 'blur(20px)',
+                background: 'linear-gradient(135deg, rgba(255,255,255,0.94) 0%, rgba(241,245,249,0.9) 100%)',
+                backdropFilter: 'blur(16px) saturate(125%)',
+                WebkitBackdropFilter: 'blur(16px) saturate(125%)',
                 borderRadius: '24px',
                 marginBottom: '32px',
-                border: '1px solid var(--border-color)',
-                boxShadow: 'var(--shadow-soft)',
+                border: '1px solid rgba(148, 163, 184, 0.28)',
+                boxShadow: '0 16px 30px rgba(71, 85, 105, 0.12), inset 0 1px 0 rgba(255,255,255,0.85)',
                 maxWidth: '500px',
                 margin: '0 auto 32px auto' // Center the card
             }}>
                 <div className="input-group">
-                    <label className="label" style={{ display: 'block', marginBottom: '12px', fontSize: '16px', color: 'var(--text-muted)', textAlign: 'center' }}>
+                    <label className="label" style={{ display: 'block', marginBottom: '14px', fontSize: '17px', color: '#64748b', textAlign: 'center', fontWeight: 600 }}>
                         Первоначальный капитал
                     </label>
-                    <input
-                        type="text"
-                        value={formatNumber(value)}
-                        onChange={handleChange}
-                        placeholder="0"
-                        style={{
-                            width: '100%',
-                            padding: '24px',
-                            background: 'rgba(255, 255, 255, 0.05)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '20px',
-                            color: 'var(--primary)', // Highlight the money value
-                            fontSize: '32px',
-                            fontWeight: '700',
-                            outline: 'none',
-                            transition: 'all 0.2s ease',
-                            textAlign: 'center'
-                        }}
-                    />
+                    <div style={{ position: 'relative' }}>
+                        <input
+                            type="text"
+                            value={formatNumber(value)}
+                            onChange={handleChange}
+                            placeholder="0"
+                            style={{
+                                width: '100%',
+                                padding: '24px 56px 24px 24px',
+                                background: 'linear-gradient(135deg, rgba(255,255,255,0.88) 0%, rgba(241,245,249,0.82) 100%)',
+                                border: '1px solid rgba(148, 163, 184, 0.38)',
+                                borderRadius: '20px',
+                                color: '#334155',
+                                fontSize: '34px',
+                                fontWeight: '700',
+                                outline: 'none',
+                                transition: 'all 0.2s ease',
+                                textAlign: 'center',
+                                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.92), 0 10px 24px rgba(120, 140, 170, 0.14)'
+                            }}
+                        />
+                        <span style={{ position: 'absolute', right: 20, top: '50%', transform: 'translateY(-50%)', color: '#64748b', fontSize: 24, fontWeight: 700, pointerEvents: 'none' }}>₽</span>
+                    </div>
                 </div>
             </div>
 

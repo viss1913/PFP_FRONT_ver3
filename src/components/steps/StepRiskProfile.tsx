@@ -1,6 +1,7 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { CJMData } from '../CJMFlow';
 import { Loader2 } from 'lucide-react';
+import avatarImage from '../../assets/avatar_full.png';
 
 interface StepProps {
     data: CJMData;
@@ -65,14 +66,6 @@ const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPre
     const firstUnansweredIndex = questions.findIndex((q) => typeof answers[q.id] !== 'number');
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(firstUnansweredIndex >= 0 ? firstUnansweredIndex : 0);
 
-    const summary = useMemo(() => {
-        const total = Object.values(answers).reduce((sum, value) => sum + (value || 0), 0);
-        const average = total / Math.max(1, answeredCount);
-        if (average >= 4) return { profile: 'AGGRESSIVE' as const, label: 'Агрессивный' };
-        if (average >= 2.5) return { profile: 'BALANCED' as const, label: 'Умеренный' };
-        return { profile: 'CONSERVATIVE' as const, label: 'Консервативный' };
-    }, [answers, answeredCount]);
-
     useEffect(() => {
         if (allAnswered) return;
         if (typeof answers[questions[currentQuestionIndex].id] === 'number') {
@@ -107,10 +100,41 @@ const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPre
 
     return (
         <div>
-            <h2 style={{ fontSize: '26px', fontWeight: 700, marginBottom: 8, textAlign: 'center' }}>Риск-профиль клиента</h2>
-            <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginBottom: 20 }}>
-                Вопрос `q1` бэк вычислит сам из срока цели. Заполни `q2-q10`, это обязательно.
-            </p>
+            <div style={{ marginBottom: '24px' }}>
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '32px'
+                }}>
+                    <div style={{
+                        width: '120px',
+                        height: '120px',
+                        minWidth: '120px',
+                        borderRadius: '24px',
+                        overflow: 'hidden',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+                        background: '#fff'
+                    }}>
+                        <img src={avatarImage} alt="AI Assistant" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                    <div style={{
+                        background: '#fff',
+                        borderRadius: '24px',
+                        borderTopLeftRadius: '4px',
+                        padding: '28px',
+                        fontSize: '18px',
+                        lineHeight: '1.5',
+                        color: '#1F2937',
+                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+                        maxWidth: '620px',
+                        fontWeight: '500'
+                    }}>
+                        Что бы правильно создать финансовый план, надо обязательно сделать Риск-профилирование.
+                    </div>
+                </div>
+            </div>
             <div style={{
                 marginBottom: 18,
                 padding: 14,
@@ -119,7 +143,7 @@ const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPre
                 background: 'rgba(255,255,255,0.03)',
                 color: 'var(--text-main)'
             }}>
-                Прогресс: {answeredCount}/9. Итоговый профиль: <b>{summary.label}</b>
+                Прогресс: {answeredCount}/9
             </div>
 
             <div style={{ marginBottom: 26 }}>

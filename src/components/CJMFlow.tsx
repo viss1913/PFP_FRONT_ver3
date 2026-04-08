@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Target, ShieldCheck, Briefcase, PiggyBank, DollarSign, Heart, Users } from 'lucide-react';
+import { User, Target, ShieldCheck, Briefcase, PiggyBank, Heart, Users } from 'lucide-react';
 import StepClientData from './steps/StepClientData';
 import StepFamilyProfile from './steps/StepFamilyProfile';
 import StepGoalSelection from './steps/StepGoalSelection';
 import StepAssets from './steps/StepAssets';
 import StepFinReserve from './steps/StepFinReserve';
 import StepLifeInsurance from './steps/StepLifeInsurance';
-import StepIncome from './steps/StepIncome';
 import StepRiskProfile from './steps/StepRiskProfile';
 import { clientApi } from '../api/clientApi';
 import type { Asset, ClientGoal } from '../types/client';
@@ -352,7 +351,6 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
         { title: 'Активы', icon: <Briefcase size={20} /> },
         { title: 'Финрезерв', icon: <PiggyBank size={20} /> },
         { title: 'Защита Жизни', icon: <Heart size={20} /> },
-        { title: 'Доход', icon: <DollarSign size={20} /> },
         { title: 'Риск-профиль', icon: <ShieldCheck size={20} /> }
     ];
 
@@ -463,8 +461,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     {step === 4 && <StepAssets data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
                     {step === 5 && <StepFinReserve data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
                     {step === 6 && <StepLifeInsurance data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
-                    {step === 7 && <StepIncome data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
-                    {step === 8 && <StepRiskProfile data={data} setData={setData} onComplete={handleCalculate} onPrev={prevStep} loading={loading} />}
+                    {step === 7 && <StepRiskProfile data={data} setData={setData} onComplete={handleCalculate} onPrev={prevStep} loading={loading} />}
                 </motion.div>
             </AnimatePresence>
         </div>

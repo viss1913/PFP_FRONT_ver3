@@ -20,7 +20,9 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
 
     // Initialize with default values if not set
     const [initialCapital, setInitialCapital] = useState<number>(data.initialCapital || 0);
-    const [monthlyReplenishment, setMonthlyReplenishment] = useState<number>(data.monthlyReplenishment || 0);
+    const [monthlyReplenishment, setMonthlyReplenishment] = useState<number>(
+        data.monthlyReplenishment && data.monthlyReplenishment > 0 ? data.monthlyReplenishment : 5000
+    );
 
     // Update data when values change
     useEffect(() => {
@@ -96,7 +98,7 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
             }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ color: 'var(--text-muted)', fontSize: '16px' }}>Доступный капитал</span>
-                    <span style={{ color: 'var(--primary)', fontWeight: '700', fontSize: '24px' }}>
+                    <span style={{ color: '#334155', fontWeight: '700', fontSize: '24px' }}>
                         {formatCurrency(totalLiquidCapital)}
                     </span>
                 </div>
@@ -113,28 +115,22 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
                         value={formatNumber(initialCapital)}
                         onChange={(e) => handleNumberInput(e.target.value, setInitialCapital)}
                         style={{
-                            fontWeight: '800', fontSize: '20px', color: 'var(--primary)',
+                            fontWeight: '800', fontSize: '20px', color: '#334155',
                             border: '1px solid var(--border-color)', borderRadius: '8px',
                             padding: '4px 8px', width: '180px', textAlign: 'right',
-                            background: 'transparent'
+                            background: 'rgba(255,255,255,0.88)'
                         }}
                     />
                 </div>
                 <input
+                    className="goal-modal-range"
                     type="range"
                     min="0"
                     max={totalLiquidCapital || 1000000}
                     step={Math.max(1000, Math.floor((totalLiquidCapital || 1000000) / 100))}
                     value={initialCapital}
                     onChange={(e) => setInitialCapital(Number(e.target.value))}
-                    style={{
-                        width: '100%',
-                        height: '6px',
-                        background: '#E5E7EB',
-                        borderRadius: '3px',
-                        accentColor: 'var(--primary)',
-                        cursor: 'pointer'
-                    }}
+                    style={{ width: '100%' }}
                 />
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', alignItems: 'center' }}>
                     <span className="hint" style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Начальная сумма для финрезерва</span>
@@ -144,8 +140,8 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
                             onClick={() => setInitialCapital(totalLiquidCapital)}
                             style={{
                                 background: 'transparent',
-                                border: '1px solid var(--primary)',
-                                color: 'var(--primary)',
+                                border: '1px solid #5b6f8b',
+                                color: '#5b6f8b',
                                 padding: '6px 12px',
                                 borderRadius: '8px',
                                 cursor: 'pointer',
@@ -171,29 +167,23 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
                         value={formatNumber(monthlyReplenishment)}
                         onChange={(e) => handleNumberInput(e.target.value, setMonthlyReplenishment)}
                         style={{
-                            fontWeight: '800', fontSize: '20px', color: 'var(--primary)',
+                            fontWeight: '800', fontSize: '20px', color: '#334155',
                             border: '1px solid var(--border-color)', borderRadius: '12px',
                             padding: '8px 16px', width: '200px', textAlign: 'right',
-                            background: 'rgba(255, 200, 69, 0.05)',
+                            background: 'rgba(255,255,255,0.88)',
                             boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)'
                         }}
                     />
                 </div>
                 <input
+                    className="goal-modal-range"
                     type="range"
                     min="0"
                     max="200000"
                     step="5000"
                     value={monthlyReplenishment}
                     onChange={(e) => setMonthlyReplenishment(Number(e.target.value))}
-                    style={{
-                        width: '100%',
-                        height: '10px',
-                        background: '#E5E7EB',
-                        borderRadius: '5px',
-                        accentColor: 'var(--primary)',
-                        cursor: 'pointer'
-                    }}
+                    style={{ width: '100%' }}
                 />
                 <span className="hint" style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '16px', display: 'block' }}>
                     Сумма, которую вы планируете добавлять ежемесячно к финрезерву (опционально)
