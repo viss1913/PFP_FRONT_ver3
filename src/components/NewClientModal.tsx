@@ -3,7 +3,7 @@ import { X, User, Phone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import StatusDropdown from './StatusDropdown';
 import type { ClientStatus } from '../types/client';
-import { formatRussianPhoneInput, PHONE_PLACEHOLDER } from '../utils/phone';
+import { formatRussianPhoneInput, PHONE_MASK_TEMPLATE, PHONE_PLACEHOLDER, getPhoneInputCaretPosition, hasCompleteRussianPhone } from '../utils/phone';
 
 interface NewClientData {
     fio: string;
@@ -20,7 +20,7 @@ interface NewClientModalProps {
 
 const NewClientModal: React.FC<NewClientModalProps> = ({ isOpen, onClose, onSubmit }) => {
     const [fio, setFio] = useState('');
-    const [phone, setPhone] = useState('+7 (');
+    const [phone, setPhone] = useState(PHONE_MASK_TEMPLATE);
     const [uuid, setUuid] = useState('');
     const [status, setStatus] = useState<ClientStatus>('THINKING');
 
@@ -34,7 +34,7 @@ const NewClientModal: React.FC<NewClientModalProps> = ({ isOpen, onClose, onSubm
                 setUuid(Date.now().toString(36) + Math.random().toString(36).substr(2));
             }
             setFio('');
-            setPhone('+7 (');
+            setPhone(PHONE_MASK_TEMPLATE);
             setStatus('THINKING');
         }
     }, [isOpen]);
@@ -43,8 +43,19 @@ const NewClientModal: React.FC<NewClientModalProps> = ({ isOpen, onClose, onSubm
         setPhone(formatRussianPhoneInput(e.target.value));
     };
 
+    const handlePhoneFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+        const nextPos = getPhoneInputCaretPosition(e.target.value);
+        requestAnimationFrame(() => {
+            e.target.setSelectionRange(nextPos, nextPos);
+        });
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        if (!hasCompleteRussianPhone(phone)) {
+            alert('Введите телефон полностью в формате +7(___)___-__-__');
+            return;
+        }
         onSubmit({ fio, phone, uuid, crm_status: status });
     };
 
@@ -126,6 +137,7 @@ const NewClientModal: React.FC<NewClientModalProps> = ({ isOpen, onClose, onSubm
                                             type="tel"
                                             value={phone}
                                             onChange={handlePhoneChange}
+                                            onFocus={handlePhoneFocus}
                                             placeholder={PHONE_PLACEHOLDER}
                                             style={{ paddingLeft: '40px' }}
                                             required

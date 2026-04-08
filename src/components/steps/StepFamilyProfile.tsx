@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Banknote, GraduationCap, HandCoins, HeartHandshake, Home, Landmark, MinusCircle } from 'lucide-react';
+import { Banknote, GraduationCap, HandCoins, HeartHandshake, Home, Landmark, Trash2 } from 'lucide-react';
 import type { CJMData, FamilyObligation, FamilyRealEstateStatus } from '../CJMFlow';
 
 interface StepFamilyProfileProps {
@@ -44,6 +44,15 @@ const estateStatuses: { value: FamilyRealEstateStatus; label: string }[] = [
 
 const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, onNext, onPrev }) => {
     const family = data.familyProfile;
+    const [childBirthDateDrafts, setChildBirthDateDrafts] = useState<Record<number, string>>({});
+    const spouseEmploymentOptions = [
+        { value: '', label: 'Не выбрано' },
+        { value: 'employed', label: 'Работает по найму' },
+        { value: 'self_employed', label: 'Самозанятый / ИП' },
+        { value: 'unemployed', label: 'Не работает' },
+        { value: 'retired', label: 'Пенсионер' },
+        { value: 'other', label: 'Другое' }
+    ] as const;
     const panelStyle: React.CSSProperties = {
         borderRadius: 18,
         border: '1px solid rgba(148, 163, 184, 0.26)',
@@ -109,6 +118,7 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                 children: [...prev.familyProfile.children, { first_name: '', birth_date: '' }]
             }
         }));
+        setChildBirthDateDrafts({});
     };
 
     const updateChild = (index: number, patch: { first_name?: string; birth_date?: string }) => {
@@ -127,9 +137,44 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                 children: prev.familyProfile.children.filter((_, i) => i !== index)
             }
         }));
+        setChildBirthDateDrafts({});
+    };
+
+    const formatIsoToRuDate = (isoDate?: string): string => {
+        if (!isoDate) return '';
+        const [yyyy, mm, dd] = isoDate.split('-');
+        if (!yyyy || !mm || !dd) return '';
+        return `${dd}.${mm}.${yyyy}`;
+    };
+
+    const normalizeRuDateInput = (value: string): string => {
+        const digits = value.replace(/\D/g, '').slice(0, 8);
+        const dd = digits.slice(0, 2);
+        const mm = digits.slice(2, 4);
+        const yyyy = digits.slice(4, 8);
+        if (digits.length <= 2) return dd;
+        if (digits.length <= 4) return `${dd}.${mm}`;
+        return `${dd}.${mm}.${yyyy}`;
+    };
+
+    const parseRuDateToIso = (ruDate: string): string | null => {
+        const parts = ruDate.split('.');
+        if (parts.length !== 3) return null;
+        const [dd, mm, yyyy] = parts;
+        if (dd.length !== 2 || mm.length !== 2 || yyyy.length !== 4) return null;
+        const day = Number(dd);
+        const month = Number(mm);
+        const year = Number(yyyy);
+        if (!Number.isInteger(day) || !Number.isInteger(month) || !Number.isInteger(year)) return null;
+        if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+        const date = new Date(year, month - 1, day);
+        if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+        return `${yyyy}-${mm}-${dd}`;
     };
 
     const isValid = Boolean(family.marital_status);
+    const isMarried = family.marital_status === 'married' || family.marital_status === 'civil_union';
+    const spouseIncomeLabel = data.gender === 'male' ? 'Доход супруги' : 'Доход супруга';
 
     return (
         <div style={{
@@ -185,6 +230,74 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16, alignItems: 'start' }}>
+                <section style={{ ...panelStyle }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <label className="label" style={{ display: 'block', fontSize: 16, color: '#334155', fontWeight: 600 }}>
+                            Супруг / супруга
+                        </label>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <select
+                            value={family.spouse?.employment_status || ''}
+                            onChange={(e) =>
+                                setData((prev) => ({
+                                    ...prev,
+                                    familyProfile: {
+                                        ...prev.familyProfile,
+                                        spouse: {
+                                            ...prev.familyProfile.spouse,
+                                            employment_status:
+                                                (e.target.value || undefined) as
+                                                    | 'employed'
+                                                    | 'self_employed'
+                                                    | 'unemployed'
+                                                    | 'retired'
+                                                    | 'other'
+                                                    | undefined
+                                        }
+                                    }
+                                }))
+                            }
+                            style={{
+                                background: '#ffffff',
+                                borderRadius: 12,
+                                height: 44,
+                                border: '1px solid #cbd5e1'
+                            }}
+                        >
+                            {spouseEmploymentOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
+                        <input
+                            type="number"
+                            min={0}
+                            value={family.spouse?.monthly_income ?? 0}
+                            onChange={(e) =>
+                                setData((prev) => ({
+                                    ...prev,
+                                    familyProfile: {
+                                        ...prev.familyProfile,
+                                        spouse: {
+                                            ...prev.familyProfile.spouse,
+                                            monthly_income: Number(e.target.value) || 0
+                                        }
+                                    }
+                                }))
+                            }
+                            placeholder="Доход в месяц, ₽"
+                            style={{
+                                background: '#ffffff',
+                                borderRadius: 12,
+                                height: 44,
+                                border: '1px solid #cbd5e1'
+                            }}
+                        />
+                    </div>
+                </section>
+
                 <section style={{
                     ...panelStyle
                 }}>
@@ -331,34 +444,114 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                                     background: '#ffffff',
                                     borderRadius: 12,
                                     height: 44,
-                                    border: '1px solid #cbd5e1'
+                                    border: '1px solid #cbd5e1',
+                                    paddingLeft: 24
                                 }}
                             />
                             <input
-                                type="date"
-                                value={child.birth_date || ''}
-                                onChange={(e) => updateChild(index, { birth_date: e.target.value })}
+                                type="text"
+                                inputMode="numeric"
+                                value={childBirthDateDrafts[index] ?? formatIsoToRuDate(child.birth_date)}
+                                onChange={(e) => {
+                                    const normalized = normalizeRuDateInput(e.target.value);
+                                    setChildBirthDateDrafts((prev) => ({ ...prev, [index]: normalized }));
+                                    const iso = parseRuDateToIso(normalized);
+                                    if (iso) {
+                                        updateChild(index, { birth_date: iso });
+                                    }
+                                }}
+                                onBlur={(e) => {
+                                    const normalized = normalizeRuDateInput(e.target.value);
+                                    const iso = parseRuDateToIso(normalized);
+                                    if (iso) {
+                                        setChildBirthDateDrafts((prev) => ({ ...prev, [index]: formatIsoToRuDate(iso) }));
+                                    } else if (!normalized) {
+                                        setChildBirthDateDrafts((prev) => ({ ...prev, [index]: '' }));
+                                        updateChild(index, { birth_date: '' });
+                                    }
+                                }}
+                                placeholder="дд.мм.гггг"
                                 style={{
                                     background: '#ffffff',
                                     borderRadius: 12,
                                     height: 44,
-                                    border: '1px solid #cbd5e1'
+                                    border: '1px solid #cbd5e1',
+                                    paddingLeft: 24
                                 }}
                             />
                             <button
                                 type="button"
                                 className="btn-secondary"
                                 onClick={() => removeChild(index)}
-                                style={{ height: 44, display: 'flex', alignItems: 'center', gap: 6 }}
+                                aria-label="Удалить ребенка"
+                                title="Удалить ребенка"
+                                style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 52, padding: 0 }}
                             >
-                                <MinusCircle size={14} />
-                                <span>Удалить</span>
+                                <Trash2 size={16} />
                             </button>
                         </motion.div>
                     ))}
                     <button type="button" className="btn-primary" onClick={addChild} style={{ marginTop: 12, width: '100%' }}>
                         + Добавить ребенка
                     </button>
+                </section>
+
+                <section style={{
+                    ...panelStyle
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <label className="label" style={{ fontSize: 16, color: '#334155', fontWeight: 600 }}>Доходы семьи</label>
+                    </div>
+                    <div style={{ display: 'grid', gap: 10 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: 14, alignItems: 'center' }}>
+                            <div style={{ color: '#334155', fontWeight: 500, paddingLeft: 4 }}>
+                                Доход клиента (по 2-НДФЛ)
+                            </div>
+                            <input
+                                type="number"
+                                min={0}
+                                value={data.avgMonthlyIncome || 0}
+                                onChange={(e) => setData((prev) => ({ ...prev, avgMonthlyIncome: Number(e.target.value) || 0 }))}
+                                placeholder="0"
+                                style={{
+                                    background: 'rgba(255,255,255,0.88)',
+                                    borderRadius: 12,
+                                    height: 44,
+                                    border: '1px solid rgba(148, 163, 184, 0.45)'
+                                }}
+                            />
+                        </div>
+
+                        {isMarried && (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: 14, alignItems: 'center' }}>
+                                <div style={{ color: '#334155', fontWeight: 500, paddingLeft: 4 }}>
+                                    {spouseIncomeLabel}
+                                </div>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    value={family.spouse?.monthly_income ?? 0}
+                                    onChange={(e) => setData((prev) => ({
+                                        ...prev,
+                                        familyProfile: {
+                                            ...prev.familyProfile,
+                                            spouse: {
+                                                ...prev.familyProfile.spouse,
+                                                monthly_income: Number(e.target.value) || 0
+                                            }
+                                        }
+                                    }))}
+                                    placeholder="0"
+                                    style={{
+                                        background: 'rgba(255,255,255,0.88)',
+                                        borderRadius: 12,
+                                        height: 44,
+                                        border: '1px solid rgba(148, 163, 184, 0.45)'
+                                    }}
+                                />
+                            </div>
+                        )}
+                    </div>
                 </section>
             </div>
 

@@ -313,23 +313,12 @@ paths:
         Если в настройках проекта включено «все агенты видят всех» (`settings.agents_see_all_clients` или `client_visibility: all`),
         возвращаются все клиенты проекта; у записи может быть поле `owner_label` (метка владельца: B2C / email агента / ФИО).
 
-        В каждом элементе `data[]` три массива историй чатов (пустые `[]`, если не грузили или диалога не было):
-
-        - **`chat_ai_messages`** — отдельный **chat_AI** (`POST …/ai-b2c/chat_AI/stream`, таблица `ai_b2c_chat_ai_messages`), не путать с обычным B2C site-чатом.
-        - **`b2c_site_chat_messages`** — обычный B2C site-чат.
-        - **`constructor_site_chat_messages`** — чат с лендинга конструктора (`POST /api/pfp/constructor/site-chat/stream`, история из `constructor_logs`), не путать с `ai-b2c/chat/stream`.
-          Для конструкторского чата бэк при первом сообщении может сам создать CRM-клиента и связь — в списке клиент возможен ещё до расчёта ПФП.
-
-        **Один переключатель чатов (название историческое): `include_chat_ai`.** Отдельных флагов `include_constructor_site_chat` / `include_b2c_site_chat` нет.
-        - `include_chat_ai=false` или `0` — не грузим **ни один** из трёх чатов из БД; у каждого клиента **`chat_ai_messages`**, **`b2c_site_chat_messages`** и **`constructor_site_chat_messages`** — пустые массивы `[]`.
-        - Любое другое значение или **параметр не передан** — для `GET /api/pfp/clients` и **`GET /api/client/:id`** подгружаются **сразу все три** массива (ветка **`GET /api/pfp/clients/{clientId}/plans`** — см. отдельный путь: там другой дефолт).
-
-        **Лимит: один параметр `chat_ai_limit`** (имя историческое):
-        - Для **`chat_ai_messages`** и **`b2c_site_chat_messages`** — лимит **сообщений на канал** (в списке клиентов по умолчанию 200, макс. 500; в карточке `GET /api/client/:id` по умолчанию 500, макс. 2000).
-        - Для **`constructor_site_chat_messages`**: на бэке `maxTurns = ceil(chat_ai_limit / 2)` (ходы в `constructor_logs`); каждый ход разворачивается в две строки (user + assistant), в массиве до **`2 * maxTurns`** сообщений.
-
-        Отдельно «выключить только конструктор» или «только B2C site» нельзя — только все три разом через `include_chat_ai=false`. Гранулярность — доработка API.
-
+        В каждом элементе `data[]` два массива истории (одинаковый формат сообщений):
+        - **`chat_ai_messages`** — отдельный поток **chat_AI** (`POST /my/ai-b2c/chat_AI/stream`, таблица `ai_b2c_chat_ai_messages`).
+        - **`b2c_site_chat_messages`** — обычный B2C-чат на сайте (`POST /my/ai-b2c/chat/stream`, таблица `ai_b2c_chat_messages`).
+        - **`constructor_site_chat_messages`** — чат конструктора на лендинге (`POST /pfp/constructor/site-chat/stream`), история из `constructor_logs`;
+          при первом сообщении пользователя бэкенд создаёт запись в `clients` и связывает её с `constructor_clients.pfp_client_id`, чтобы агент видел диалог **до** расчёта ПФП.
+        Пустые массивы, если по каналу не было переписки или выключена подгрузка (`include_chat_ai=false`).
         Клиенты без целей / без расчёта в списке остаются — как и раньше.
       parameters:
         - name: page
@@ -360,15 +349,13 @@ paths:
           required: false
           schema: { type: string, enum: ['0', '1', 'true', 'false'], default: '1' }
           description: |
-            Включает/выключает загрузку **всех трёх** чатов из БД: `chat_ai_messages`, `b2c_site_chat_messages`, `constructor_site_chat_messages`.
-            `false` или `0` — все три массива `[]`; иначе (или параметр не передан) — подгружаются все три. См. описание эндпоинта — лимит `chat_ai_limit`.
+            Подгружать обе истории (`chat_ai_messages` и `b2c_site_chat_messages`). Значения `0` или `false` — не ходить в БД
+            (оба массива будут `[]` у каждого клиента).
         - name: chat_ai_limit
           in: query
           required: false
           schema: { type: integer, default: 200, minimum: 1, maximum: 500 }
-          description: |
-            Лимит сообщений **на канал** для `chat_ai_messages` и `b2c_site_chat_messages` (макс. 500 в списке).
-            Для `constructor_site_chat_messages`: `maxTurns = ceil(chat_ai_limit / 2)` ходов, до `2 * maxTurns` сообщений в массиве.
+          description: Сколько последних сообщений **на каждый канал** (site и chat_AI) на одного клиента в этой выдаче (макс. 500).
       responses:
         '200':
           description: Список клиентов и пагинация
@@ -387,12 +374,8 @@ paths:
         **Фактическое поведение бэка:** возвращается **полная карточка клиента** (профиль, цели, активы, `goals_summary` в упрощённом виде),
         а не отдельный массив «планов». Используйте `goals` и агрегаты для выбора сценария работы.
 
-        Те же три поля, что у **`GET /api/client/:id`**: `chat_ai_messages`, `b2c_site_chat_messages`, `constructor_site_chat_messages`.
-
-        **Чаты по умолчанию не подгружаются** (skip): все три массива `[]`, пока не передан **`include_chat_ai=true`** (или `1`).
-        С **`include_chat_ai=true`** подтягиваются **все три** массива; **`chat_ai_limit`** действует так же, как на **`GET /api/client/:id`**
-        (дефолт 500 на канал для chat_AI и B2C site; конструктор — через `ceil(limit/2)` ходов, до `2 * maxTurns` сообщений).
-        Отдельной «матрицы» флагов для `plans` нет — отличие только в дефолте «не грузить чаты», пока не форсанули `include_chat_ai`.
+        Истории чатов по умолчанию **не** подмешиваются (чтобы не дублировать тяжёлый запрос при открытии этого URL).
+        Чтобы получить **`chat_ai_messages`** и **`b2c_site_chat_messages`** — передайте `include_chat_ai=true` (или откройте `GET /client/{clientId}` с теми же query).
       parameters:
         - name: clientId
           in: path
@@ -403,16 +386,12 @@ paths:
           in: query
           required: false
           schema: { type: string, enum: ['0', '1', 'true', 'false'], default: '0' }
-          description: |
-            `true`/`1` — подгрузить **все три** чата (`chat_ai_messages`, `b2c_site_chat_messages`, `constructor_site_chat_messages`).
-            По умолчанию для этого маршрута — `false`: все три массива `[]`.
+          description: Принудительно подгрузить оба массива истории (по умолчанию для этого маршрута — пустые массивы без запроса к БД).
         - name: chat_ai_limit
           in: query
           required: false
           schema: { type: integer, default: 500, minimum: 1, maximum: 2000 }
-          description: |
-            Как на `GET /api/client/:id`: лимит сообщений на канал для chat_AI и B2C site; конструктор — `ceil(limit/2)` ходов, до `2 * maxTurns` сообщений.
-            Учитывается при `include_chat_ai=true`.
+          description: Лимит сообщений **на каждый канал** (site и chat_AI), если включено `include_chat_ai=true`.
       responses:
         '200':
           description: Объект клиента (карточка)
@@ -1089,6 +1068,24 @@ paths:
         "502":
           description: Ошибка Comon
 
+  /pfp/comon/strategies/{comonId}/details:
+    get:
+      tags: [ "Comon (общее)" ]
+      summary: Урезанные поля карточки из __NEXT_DATA__ (без HTML)
+      description: |
+        Структура Next.js на comon.ru не является стабильным контрактом; в ответе `schema_version`, `fields` может быть null.
+      parameters:
+        - name: comonId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: success, data.strategyId, schema_version, page_props_keys, fields
+        "502":
+          description: Ошибка Comon
+
   /pfp/comon/strategies/{comonId}:
     get:
       tags: [ "Comon (общее)" ]
@@ -1253,16 +1250,13 @@ components:
   schemas:
     ChatAiMessage:
       type: object
-      description: |
-        **Один контракт строки для всех трёх массивов:** `id`, `stage_key`, `role`, `content`, `created_at`.
-        У `chat_ai_messages` и `b2c_site_chat_messages` значение `stage_key` приходит из БД (стадия B2C).
-        У `constructor_site_chat_messages` поле **всегда** присутствует, значение фиксированное: строка **`constructor`**.
+      description: Одно сообщение B2C-чата (общий формат для site и chat_AI)
       properties:
         id:
           type: integer
         stage_key:
           type: string
-          description: Стадия B2C из БД (chat_AI / B2C site) или литерал `constructor` для конструкторского чата
+          description: Стадия, с которой связано сообщение
         role:
           type: string
           enum: [user, assistant]
@@ -1303,19 +1297,19 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ChatAiMessage'
-          description: История chat_AI; `[]` если нет диалога или `include_chat_ai=false` (все три чата выключаются одним флагом)
+          description: История chat_AI (`chat_AI/stream`); пустой массив, если не было или выключено `include_chat_ai`
         b2c_site_chat_messages:
           type: array
           items:
             $ref: '#/components/schemas/ChatAiMessage'
-          description: Обычный B2C site-чат; `[]` при `include_chat_ai=false` или нет сообщений
+          description: История обычного B2C чата (`chat/stream`); пустой массив, если не было или выключено `include_chat_ai`
         constructor_site_chat_messages:
           type: array
           items:
             $ref: '#/components/schemas/ChatAiMessage'
           description: |
-            Чат лендинга конструктора (`POST /api/pfp/constructor/site-chat/stream`, `constructor_logs`).
-            `[]` при `include_chat_ai=false` или нет ходов. Клиент может появиться в CRM до ПФП.
+            Чат конструктора (`/pfp/constructor/site-chat/stream`); `stage_key` обычно `constructor`.
+            Пустой массив, если не было или выключено `include_chat_ai`.
         owner_label:
           type: string
           nullable: true

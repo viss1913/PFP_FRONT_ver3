@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { User, Phone } from 'lucide-react';
 import type { CJMData } from '../CJMFlow';
-import { formatRussianPhoneInput, PHONE_PLACEHOLDER } from '../../utils/phone';
+import { formatRussianPhoneInput, PHONE_MASK_TEMPLATE, PHONE_PLACEHOLDER, getPhoneInputCaretPosition, hasCompleteRussianPhone } from '../../utils/phone';
 
 interface StepClientDataProps {
     data: CJMData;
@@ -10,6 +10,23 @@ interface StepClientDataProps {
 }
 
 const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }) => {
+    const calculateAge = (birthDate: string): number => {
+        const today = new Date();
+        const dob = new Date(birthDate);
+        let age = today.getFullYear() - dob.getFullYear();
+        const monthDiff = today.getMonth() - dob.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+            age -= 1;
+        }
+        return age;
+    };
+
+    const getDateYearsAgo = (years: number): string => {
+        const d = new Date();
+        d.setFullYear(d.getFullYear() - years);
+        return d.toISOString().split('T')[0];
+    };
+
     const getGenderButtonStyle = (isActive: boolean): React.CSSProperties => ({
         padding: '16px',
         borderRadius: '16px',
@@ -45,8 +62,21 @@ const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }
         handleChange('phone', formatRussianPhoneInput(e.target.value));
     };
 
+    const handlePhoneFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+        const nextPos = getPhoneInputCaretPosition(e.target.value);
+        requestAnimationFrame(() => {
+            e.target.setSelectionRange(nextPos, nextPos);
+        });
+    };
+
+    const handleBirthDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const birthDate = e.target.value;
+        const age = calculateAge(birthDate);
+        setData(prev => ({ ...prev, birthDate, age }));
+    };
+
     const isFormValid = () => {
-        return !!data.fio && !!data.phone; // Gender and Age have defaults
+        return !!data.fio && hasCompleteRussianPhone(data.phone || '') && !!data.birthDate && data.age >= 18;
     };
 
     return (
@@ -77,8 +107,9 @@ const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }
                         <Phone size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                         <input
                             type="tel"
-                            value={data.phone || '+7 ('}
+                            value={data.phone || PHONE_MASK_TEMPLATE}
                             onChange={handlePhoneChange}
+                            onFocus={handlePhoneFocus}
                             placeholder={PHONE_PLACEHOLDER}
                             style={{ paddingLeft: '40px' }}
                         />
@@ -111,21 +142,20 @@ const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }
 
             <div style={{ marginBottom: '40px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                    <label className="label">Ваш возраст</label>
-                    <span style={{ color: '#334155', fontWeight: 700, fontSize: '36px', lineHeight: 1, letterSpacing: '-0.02em' }}>{data.age} лет</span>
+                    <label className="label">Дата рождения</label>
+                    <span style={{ color: '#334155', fontWeight: 700, fontSize: '28px', lineHeight: 1, letterSpacing: '-0.02em' }}>
+                        {data.birthDate ? `${data.age} лет` : '—'}
+                    </span>
                 </div>
                 <input
-                    className="age-slider"
-                    type="range"
-                    min="18"
-                    max="80"
-                    value={data.age}
-                    onChange={(e) => handleChange('age', parseInt(e.target.value))}
-                    style={{ width: '100%' }}
+                    type="date"
+                    value={data.birthDate || ''}
+                    onChange={handleBirthDateChange}
+                    max={getDateYearsAgo(18)}
+                    min={getDateYearsAgo(80)}
                 />
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', color: 'var(--text-muted)', fontSize: '12px' }}>
-                    <span>18 лет</span>
-                    <span>80 лет</span>
+                <div style={{ marginTop: '8px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                    Допустимый возраст: от 18 до 80 лет
                 </div>
             </div>
 

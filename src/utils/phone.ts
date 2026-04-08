@@ -1,30 +1,36 @@
-const PHONE_PREFIX = '+7 (';
+export const PHONE_MASK_TEMPLATE = '+7(___)___-__-__';
+export const PHONE_PLACEHOLDER = PHONE_MASK_TEMPLATE;
 
-export const formatRussianPhoneInput = (rawValue: string): string => {
+export const getRussianPhoneDigits = (rawValue: string): string => {
     let digits = rawValue.replace(/\D/g, '');
-
-    // Ignore country code if user types or pastes it.
     if (digits.startsWith('7') || digits.startsWith('8')) {
         digits = digits.substring(1);
     }
-
-    const nums = digits.slice(0, 10);
-    let formatted = PHONE_PREFIX;
-
-    if (nums.length > 0) {
-        formatted += nums.substring(0, 3);
-    }
-    if (nums.length >= 4) {
-        formatted += ') ' + nums.substring(3, 6);
-    }
-    if (nums.length >= 7) {
-        formatted += '-' + nums.substring(6, 8);
-    }
-    if (nums.length >= 9) {
-        formatted += '-' + nums.substring(8, 10);
-    }
-
-    return formatted;
+    return digits.slice(0, 10);
 };
 
-export const PHONE_PLACEHOLDER = '+7 (999) 000-00-00';
+export const formatRussianPhoneInput = (rawValue: string): string => {
+    const digits = getRussianPhoneDigits(rawValue);
+    const maskChars = PHONE_MASK_TEMPLATE.split('');
+    let digitIndex = 0;
+
+    for (let i = 0; i < maskChars.length; i += 1) {
+        if (maskChars[i] === '_') {
+            if (digitIndex < digits.length) {
+                maskChars[i] = digits[digitIndex];
+                digitIndex += 1;
+            }
+        }
+    }
+
+    return maskChars.join('');
+};
+
+export const getPhoneInputCaretPosition = (maskedValue: string): number => {
+    const nextPlaceholder = maskedValue.indexOf('_');
+    return nextPlaceholder >= 0 ? nextPlaceholder : maskedValue.length;
+};
+
+export const hasCompleteRussianPhone = (rawValue: string): boolean => {
+    return getRussianPhoneDigits(rawValue).length === 10;
+};

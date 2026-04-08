@@ -72,6 +72,7 @@ export interface Client {
     phone?: string;
     email?: string;
     avg_monthly_income?: number;
+    spouse_monthly_income?: number | null;
     employment_type?: string;
     tax_mode?: string;
     external_uuid?: string;

@@ -79,6 +79,12 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
         return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(amount);
     };
 
+    const getSpouseIncome = (client: Client): number | undefined => {
+        if (client.spouse_monthly_income != null) return client.spouse_monthly_income;
+        const fromFamily = client.family_profile?.spouse?.monthly_income;
+        return fromFamily == null ? undefined : fromFamily;
+    };
+
     /** Ежемесячное пополнение: с корня клиента, из goals_summary или сумма по целям */
     const getMonthlyReplenishment = (client: Client): number | undefined => {
         if (client.total_monthly_replenishment != null && client.total_monthly_replenishment > 0) {
@@ -219,6 +225,14 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
                                     </div>
                                     <div style={{ fontWeight: 600, fontSize: '14px' }}>
                                         {(() => { const v = getMonthlyReplenishment(client); return v != null ? formatMoney(v) : '—'; })()}
+                                    </div>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '13px', justifyContent: 'flex-end', marginBottom: '4px' }}>
+                                        <Wallet size={14} /> Доход супруга(и)
+                                    </div>
+                                    <div style={{ fontWeight: 600, fontSize: '14px' }}>
+                                        {(() => { const v = getSpouseIncome(client); return v != null ? formatMoney(v) : '—'; })()}
                                     </div>
                                 </div>
                                 <div style={{ textAlign: 'right', minWidth: '90px' }}>

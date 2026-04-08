@@ -27,6 +27,7 @@ export interface CJMData {
     // ... existing fields ...
     gender: 'male' | 'female';
     age: number;
+    birthDate?: string;
     // Legacy single-goal fields (deprecated but kept for compatibility during refactor)
     goalTypeId?: number;
     goalName?: string;
@@ -269,7 +270,8 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
 
             const familyProfilePayload = {
                 ...data.familyProfile,
-                spouse: (data.familyProfile.spouse && (data.familyProfile.spouse.employment_status || data.familyProfile.spouse.monthly_income))
+                spouse: (data.familyProfile.spouse &&
+                    (data.familyProfile.spouse.employment_status || data.familyProfile.spouse.monthly_income !== undefined))
                     ? {
                         employment_status: data.familyProfile.spouse.employment_status,
                         monthly_income: data.familyProfile.spouse.monthly_income ?? null
@@ -283,7 +285,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
             };
 
             const clientPayload: Record<string, any> = {
-                birth_date: new Date(new Date().getFullYear() - data.age, 0, 1).toISOString().split('T')[0],
+                birth_date: data.birthDate || new Date(new Date().getFullYear() - data.age, 0, 1).toISOString().split('T')[0],
                 gender: data.gender,
                 avg_monthly_income: data.avgMonthlyIncome,
                 total_liquid_capital: assetsInitial,
@@ -368,6 +370,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                         ...prev,
                         gender: client.gender || 'male',
                         age: client.birth_date ? new Date().getFullYear() - new Date(client.birth_date).getFullYear() : 35,
+                        birthDate: client.birth_date || undefined,
                         fio: `${client.first_name || ''} ${client.last_name || ''} ${client.middle_name || ''}`.trim(),
                         phone: client.phone,
                         uuid: client.external_uuid,
