@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { X, ArrowRight, ChevronLeft } from 'lucide-react';
 import type { CJMData } from '../CJMFlow';
 import type { ClientGoal } from '../../types/client';
-import { GOAL_GALLERY_ITEMS } from '../../utils/GoalImages';
+import { GOAL_GALLERY_ITEMS, getGoalImage } from '../../utils/GoalImages';
 import avatarImage from '../../assets/avatar_full.png';
 
 interface StepGoalSelectionProps {
@@ -209,28 +209,23 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
 
                         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                             {goals.map((g, idx) => (
-                                <div key={idx} style={{
-                                    display: 'flex', alignItems: 'center', gap: '12px',
-                                    padding: '12px 16px',
-                                    background: '#F3F4F6',
-                                    borderRadius: '12px',
-                                    fontSize: '14px',
-                                    fontWeight: '500'
-                                }}>
-                                    <span>{g.name}</span>
-                                    <span style={{ color: '#6B7280', fontWeight: '400' }}>| {formatCurrency(
-                                        (g.goal_type_id === 1 || g.goal_type_id === 2) ? (g.desired_monthly_income || 0) :
-                                            (g.goal_type_id === 8) ? (g.initial_capital || 0) :
-                                                (g.target_amount || 0)
-                                    )}</span>
+                                <div key={idx} className="selected-goal-mini-card">
+                                    <img
+                                        src={getGoalImage(g.name, g.goal_type_id)}
+                                        alt={g.name}
+                                        className="selected-goal-mini-card__image"
+                                    />
+                                    <div className="selected-goal-mini-card__content">
+                                        <span className="selected-goal-mini-card__title">{g.name}</span>
+                                        <span className="selected-goal-mini-card__sum">{formatCurrency(
+                                            (g.goal_type_id === 1 || g.goal_type_id === 2) ? (g.desired_monthly_income || 0) :
+                                                (g.goal_type_id === 8) ? (g.initial_capital || 0) :
+                                                    (g.target_amount || 0)
+                                        )}</span>
+                                    </div>
                                     <button
                                         onClick={() => removeGoal(idx)}
-                                        style={{
-                                            border: 'none', background: 'rgba(0,0,0,0.05)',
-                                            borderRadius: '50%', width: '20px', height: '20px',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            cursor: 'pointer', marginLeft: '4px'
-                                        }}
+                                        className="selected-goal-mini-card__remove"
                                     >
                                         <X size={12} color="#6B7280" />
                                     </button>

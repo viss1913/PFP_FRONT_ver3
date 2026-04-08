@@ -475,7 +475,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
 
         {/* Левая боковая панель */}
         {/* ... (existing sidebar code) ... */}
-        <aside style={{ width: '300px', flexShrink: 0 }}>
+        <aside style={{ width: '300px', flexShrink: 0, alignSelf: 'flex-start', position: 'sticky', top: '24px' }}>
           <div style={{
             background: '#FFFFFF',
             borderRadius: '24px',
@@ -545,32 +545,6 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                 >
                   <Send size={18} />
                 </button>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '24px' }}>
-              <h3 style={{ fontSize: '12px', fontWeight: '500', color: '#9CA3AF', marginBottom: '12px', textTransform: 'uppercase' }}>
-                Часто задаваемые вопросы
-              </h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                {['Что такое ПДС?', 'Какие гарантии?', 'Какие риски?', 'Как получить вычет?', 'С чего начать?'].map((q, i) => (
-                  <button
-                    key={i}
-                    style={{
-                      padding: '8px 16px',
-                      background: '#F3F4F6',
-                      border: 'none',
-                      borderRadius: '100px',
-                      color: '#4B5563',
-                      fontSize: '12px',
-                      fontWeight: '500',
-                      cursor: 'pointer',
-                      flex: i === 4 ? '1 1 100%' : '1 1 auto',
-                    }}
-                  >
-                    {q}
-                  </button>
-                ))}
               </div>
             </div>
 
