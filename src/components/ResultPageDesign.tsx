@@ -246,6 +246,28 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     }).format(value) + '₽';
   };
 
+  const clientAvgIncome = Number(client?.avg_monthly_income || 0);
+  const spouseAvgIncome = Number(
+    client?.spouse_avg_monthly_income
+    ?? client?.spouse_monthly_income
+    ?? client?.family_profile?.spouse?.monthly_income
+    ?? 0
+  );
+  const familyIncomeTotal = clientAvgIncome + spouseAvgIncome;
+  const monthlyObligations = (client?.family_profile?.family_obligations || []).reduce(
+    (sum: number, item: { amount_monthly?: number }) => sum + Number(item?.amount_monthly || 0),
+    0
+  );
+  const monthlyGoalsReplenishment = Number(consolidatedPortfolio?.total_monthly_replenishment || 0);
+  const freeMoney = familyIncomeTotal - monthlyObligations - monthlyGoalsReplenishment;
+
+  const budgetBars = [
+    { key: 'income', label: 'Доходы семьи', value: familyIncomeTotal, color: '#3B82F6' },
+    { key: 'obligations', label: 'Обязательные расходы', value: monthlyObligations, color: '#8B5CF6' },
+    { key: 'goals', label: 'Пополнение целей', value: monthlyGoalsReplenishment, color: '#0EA5E9' },
+  ];
+  const budgetMax = Math.max(1, ...budgetBars.map((b) => b.value), Math.abs(freeMoney));
+
   // Мапим результаты расчетов на карточки
   const goalCards: GoalResult[] = (calculatedGoals as any[]).map((goalResult: any, _index: number) => {
     const summary = goalResult?.summary || {};
@@ -564,6 +586,45 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
             >
               Задать вопрос
             </button>
+
+            <div style={{
+              marginTop: '16px',
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(241,245,249,0.82) 100%)',
+              border: '1px solid rgba(148, 163, 184, 0.28)',
+              borderRadius: '16px',
+              padding: '14px'
+            }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '10px' }}>
+                Бюджет семьи в месяц
+              </div>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', height: '110px', marginBottom: '8px' }}>
+                {budgetBars.map((bar) => (
+                  <div key={bar.key} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ width: '100%', height: `${Math.max(6, Math.round((bar.value / budgetMax) * 82))}px`, background: bar.color, borderRadius: '8px 8px 4px 4px', opacity: 0.9 }} />
+                    <div style={{ fontSize: '10px', color: '#64748b', textAlign: 'center', lineHeight: 1.1 }}>{bar.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'grid', gap: '6px', fontSize: '12px', color: '#475569' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Сумма доходов</span>
+                  <b>{formatCurrency(familyIncomeTotal)}</b>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Обязательные расходы</span>
+                  <b>{formatCurrency(monthlyObligations)}</b>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Пополнение на цели</span>
+                  <b>{formatCurrency(monthlyGoalsReplenishment)}</b>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', paddingTop: '6px', borderTop: '1px dashed rgba(148,163,184,0.38)' }}>
+                  <span>Свободные деньги</span>
+                  <b style={{ color: freeMoney < 0 ? '#DC2626' : '#0F766E' }}>{formatCurrency(freeMoney)}</b>
+                </div>
+              </div>
+            </div>
           </div>
         </aside>
 
