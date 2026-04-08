@@ -4,24 +4,31 @@ import React, { useState } from 'react';
 import { X, ArrowRight, ChevronLeft } from 'lucide-react';
 import type { CJMData } from '../CJMFlow';
 import type { ClientGoal } from '../../types/client';
-import { GOAL_GALLERY_ITEMS, buildChildEducationGalleryItems, getGoalImage, type GoalGalleryItem } from '../../utils/GoalImages';
+import {
+    GOAL_GALLERY_ITEMS,
+    buildChildEducationGalleryItems,
+    getGoalImage,
+    type GoalGalleryItem,
+    GOAL_TYPE_PENSION,
+    GOAL_TYPE_PASSIVE_INCOME,
+    GOAL_TYPE_INVESTMENT,
+    GOAL_TYPE_RENT,
+} from '../../utils/GoalImages';
 import avatarImage from '../../assets/avatar_full.png';
 
-/** Месяцев от «сегодня» до дня, когда ребёнку исполнится 17 лет (ISO YYYY-MM-DD). */
-function monthsUntil17thBirthday(birthIso: string, now = new Date()): number {
-    const parts = birthIso.trim().split('-');
-    if (parts.length !== 3) return 60;
-    const y = Number(parts[0]);
-    const m = Number(parts[1]);
-    const d = Number(parts[2]);
-    if (!y || !m || !d) return 60;
-    const birth = new Date(y, m - 1, d);
-    if (Number.isNaN(birth.getTime())) return 60;
-    const t17 = new Date(y + 17, m - 1, d);
-    if (t17 <= now) return 1;
-    let months = (t17.getFullYear() - now.getFullYear()) * 12 + (t17.getMonth() - now.getMonth());
-    if (t17.getDate() < now.getDate()) months -= 1;
-    return Math.max(1, months);
+const INVEST_SAVE_TITLE = 'Сохранить и преумножить';
+
+/**
+ * Срок накопления до 17 лет: (год рождения + 17 − текущий год) полных лет, минимум 1 год → в месяцах.
+ * Год берём из ISO даты ребёнка (YYYY-MM-DD).
+ */
+function educationTermMonthsFromBirthIso(birthIso: string, now = new Date()): number {
+    const yearStr = birthIso.trim().split('-')[0];
+    const birthYear = Number(yearStr);
+    if (!Number.isFinite(birthYear) || birthYear < 1900 || birthYear > 2100) return 60;
+    let years = birthYear + 17 - now.getFullYear();
+    years = Math.max(1, years);
+    return years * 12;
 }
 
 interface StepGoalSelectionProps {
@@ -57,8 +64,16 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
         setSelectedGalleryItem(item);
         // Reset defaults when opening new goal
         setTargetAmount(DEFAULT_TARGET_AMOUNT);
-        if (item.childFirstName && item.childBirthIso) {
-            setTermMonths(monthsUntil17thBirthday(item.childBirthIso));
+        let birthIso = (item.childBirthIso || '').trim();
+        if (item.childFirstName && data.familyProfile?.children?.length) {
+            const row = data.familyProfile.children.find(
+                (c) => (c.first_name || '').trim() === item.childFirstName
+            );
+            const fromProfile = (row?.birth_date || '').trim();
+            if (fromProfile) birthIso = fromProfile;
+        }
+        if (item.childFirstName && birthIso) {
+            setTermMonths(educationTermMonthsFromBirthIso(birthIso));
         } else {
             setTermMonths(DEFAULT_TERM_YEARS * 12);
         }
@@ -148,15 +163,38 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
     const isInvest = selectedGalleryItem?.typeId === 3;
     const isReserve = selectedGalleryItem?.typeId === 7;
     const isStandard = !isPension && !isPassive && !isRent && !isInvest && !isReserve;
-    const isChildEducationGoal = Boolean(selectedGalleryItem?.childFirstName);
 
     const totalAssetsSum = (data.assets || []).reduce((sum, a) => sum + (a.current_value || 0), 0);
+
+    const hasPensionGoal = goals.some((g) => g.goal_type_id === GOAL_TYPE_PENSION);
+    const hasPassiveGoal = goals.some((g) => g.goal_type_id === GOAL_TYPE_PASSIVE_INCOME);
+    const hasRentGoal = goals.some((g) => g.goal_type_id === GOAL_TYPE_RENT);
+    const hasInvestSaveGoal = goals.some(
+        (g) => g.goal_type_id === GOAL_TYPE_INVESTMENT && g.name === INVEST_SAVE_TITLE
+    );
+
     const featuredStrategyIds = new Set(['invest_save', 'rent']);
-    const strategyGoals = GOAL_GALLERY_ITEMS.filter((item) => featuredStrategyIds.has(item.id));
+    const pensionGalleryItem = GOAL_GALLERY_ITEMS.find((i) => i.id === 'pension');
+
     const educationGalleryItems = buildChildEducationGalleryItems(data.familyProfile?.children);
+    const educationVisible = educationGalleryItems.filter((item) => !goals.some((g) => g.name === item.title));
+
+    const strategyGoals: GoalGalleryItem[] = GOAL_GALLERY_ITEMS.filter((item) => featuredStrategyIds.has(item.id)).filter(
+        (item) => {
+            if (item.id === 'rent') return !hasRentGoal;
+            if (item.id === 'invest_save') return !hasInvestSaveGoal;
+            return true;
+        }
+    );
+
     const futureGoals: GoalGalleryItem[] = [
-        ...educationGalleryItems,
-        ...GOAL_GALLERY_ITEMS.filter((item) => !featuredStrategyIds.has(item.id)),
+        ...educationVisible,
+        ...GOAL_GALLERY_ITEMS.filter(
+            (item) => !featuredStrategyIds.has(item.id) && item.id !== 'pension'
+        ).filter((item) => {
+            if (item.id === 'passive') return !hasPassiveGoal;
+            return true;
+        }),
     ];
 
     return (
@@ -284,6 +322,30 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                         >
                             <ChevronLeft size={16} /> Назад
                         </button>
+                    </div>
+                )}
+
+                {pensionGalleryItem && !hasPensionGoal && (
+                    <div className="goal-section-card" style={{ gridColumn: '1 / -1' }}>
+                        <div style={{ marginBottom: 14 }}>
+                            <h3 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#0f172a' }}>Достойная пенсия</h3>
+                            <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: 14 }}>
+                                Отдельная цель — комфортный уровень жизни после выхода на пенсию
+                            </p>
+                        </div>
+                        <div className="goal-section-grid">
+                            <button
+                                key={pensionGalleryItem.id}
+                                onClick={() => handleCardClick(pensionGalleryItem)}
+                                className="goal-glass-card"
+                                type="button"
+                            >
+                                <div className="goal-glass-card__title">{pensionGalleryItem.title}</div>
+                                <div className="goal-glass-card__image-wrap">
+                                    <img src={pensionGalleryItem.image} alt={pensionGalleryItem.title} className="goal-glass-card__image" />
+                                </div>
+                            </button>
+                        </div>
                     </div>
                 )}
 
@@ -445,9 +507,9 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                     </div>
                                     <input
                                         type="range"
-                                        min="1" max="50" step={isChildEducationGoal ? 'any' : '1'}
+                                        min="1" max="50" step="1"
                                         value={termMonths / 12}
-                                        onChange={(e) => setTermMonths(Math.round(Number(e.target.value) * 12))}
+                                        onChange={(e) => setTermMonths(Number(e.target.value) * 12)}
                                         style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
                                     />
                                     <div style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '8px', textAlign: 'right' }}>
