@@ -6,6 +6,7 @@ import ResultPage from './components/ResultPage'
 import ResultPageTest from './components/ResultPageTest'
 import AiCrmPage from './components/AiCrmPage'
 import Header from './components/Header'
+import HtmlReportPreviewPage from './components/HtmlReportPreviewPage'
 import AiAssistantPage from './pages/AiAssistantPage'
 import AiAgentPage from './pages/AiAgentPage'
 import ReportPreviewPage from './components/ReportPreviewPage'
@@ -24,6 +25,7 @@ type Page =
     | 'test'
     | 'ai-assistant'
     | 'report-preview'
+    | 'html-report-preview'
     | 'ai-agent'
     | 'news'
     | 'macro'
@@ -41,6 +43,8 @@ function App() {
         const params = new URLSearchParams(window.location.search);
         if (params.get('page') === 'preview') {
             setCurrentPage('report-preview');
+        } else if (params.get('page') === 'html-report-preview') {
+            setCurrentPage('html-report-preview');
         }
     }, []);
 
@@ -219,6 +223,9 @@ function App() {
 
     if (currentPage === 'report-preview') {
         return <ReportPreviewPage />;
+    }
+    if (currentPage === 'html-report-preview') {
+        return <HtmlReportPreviewPage />;
     }
 
     return (

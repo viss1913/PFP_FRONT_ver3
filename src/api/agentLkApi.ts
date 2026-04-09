@@ -415,6 +415,13 @@ export interface PdfSettingsImageReadMeta {
     expires_at?: string | null;
 }
 
+export interface PlanReportHtmlPreviewResponse {
+    html: string;
+    pages?: string[];
+    toc?: unknown[];
+    generated_at?: string;
+}
+
 /** Собрать абсолютный URL эндпоинта из `path` в editor_schema (upload / read_url). */
 export function resolveAgentPdfApiUrl(path: string): string {
     const p = path.trim();
@@ -847,6 +854,23 @@ export const agentLkApi = {
             { lines },
             { headers: getHeaders() }
         );
+    },
+
+    /** HTML-превью клиентского отчёта (без генерации PDF). */
+    getPlanReportHtmlPreview: async (params?: {
+        includeCover?: boolean;
+        includeSummary?: boolean;
+        goalTypes?: string[];
+    }): Promise<PlanReportHtmlPreviewResponse> => {
+        const response = await axios.get<PlanReportHtmlPreviewResponse>(`${API_BASE_URL}/api/my/plan/report/html`, {
+            params: {
+                includeCover: params?.includeCover === false ? 0 : undefined,
+                includeSummary: params?.includeSummary === false ? 0 : undefined,
+                goalTypes: params?.goalTypes?.length ? params.goalTypes.join(',') : undefined,
+            },
+            headers: getHeaders(),
+        });
+        return response.data;
     },
 
     // --- Обложка PDF-отчёта ---

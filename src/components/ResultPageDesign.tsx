@@ -166,6 +166,11 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     // REMOVED: setEditingGoal(null); // Don't close the window
   };
 
+  const handleOpenHtmlReport = () => {
+    const url = `${window.location.origin}${window.location.pathname}?page=html-report-preview`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   // Access data directly from the root structure: { client_id, summary, goals }
   const calcRoot = calculationData || {};
   const calculatedGoals = calcRoot.goals || [];
@@ -260,6 +265,11 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   );
   const monthlyGoalsReplenishment = Number(consolidatedPortfolio?.total_monthly_replenishment || 0);
   const freeMoney = familyIncomeTotal - monthlyObligations - monthlyGoalsReplenishment;
+  const portfolioYieldPercent = Number(
+    consolidatedPortfolio?.yield_percent
+    ?? consolidatedPortfolio?.accumulation_yield_percent
+    ?? 0
+  );
 
   const budgetBars = [
     { key: 'income', label: 'Доходы семьи', value: familyIncomeTotal, color: '#3B82F6' },
@@ -493,16 +503,15 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
 
 
       {/* Основной контент */}
-      <div style={{ display: 'flex', maxWidth: '1440px', margin: '0 auto', padding: '40px', gap: '40px' }}>
-
-        {/* Левая боковая панель */}
-        {/* ... (existing sidebar code) ... */}
-        <aside style={{ width: '300px', flexShrink: 0, alignSelf: 'flex-start', position: 'sticky', top: '24px' }}>
-          <div style={{
+      <div style={{ maxWidth: '1120px', margin: '0 auto', padding: '40px' }}>
+        {/* Сетка целей */}
+        <main>
+          <section style={{
             background: '#FFFFFF',
             borderRadius: '24px',
             padding: '24px',
-            boxShadow: '0px 4px 6px -1px rgba(0, 0, 0, 0.05), 0px 2px 4px -1px rgba(0, 0, 0, 0.03)'
+            boxShadow: '0px 4px 6px -1px rgba(0, 0, 0, 0.05), 0px 2px 4px -1px rgba(0, 0, 0, 0.03)',
+            marginBottom: '24px'
           }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '24px' }}>
               <div style={{ display: 'flex', gap: '16px' }}>
@@ -625,16 +634,52 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                 </div>
               </div>
             </div>
-          </div>
-        </aside>
+          </section>
 
-        {/* Сетка целей */}
-        <main style={{ flex: 1 }}>
+          <div style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
+            <button
+              onClick={onGoToReport}
+              style={{
+                background: '#C2185B',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '100px',
+                padding: '16px 32px',
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                boxShadow: '0px 4px 6px -1px rgba(194, 24, 91, 0.4)',
+                transition: 'transform 0.1s',
+                minWidth: '240px',
+              }}
+            >
+              Перейти в отчет
+            </button>
+            <button
+              onClick={handleOpenHtmlReport}
+              style={{
+                background: '#0F172A',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '100px',
+                padding: '16px 32px',
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                boxShadow: '0px 4px 6px -1px rgba(15, 23, 42, 0.35)',
+                transition: 'transform 0.1s',
+                minWidth: '240px',
+              }}
+            >
+              HTML-отчет
+            </button>
+          </div>
 
           {/* Portfolio Distribution Charts */}
           <PortfolioDistribution
             assetsAllocation={assetsAllocation}
             cashFlowAllocation={cashFlowAllocation}
+            totalYieldPercent={portfolioYieldPercent}
           />
 
           <div style={{
@@ -836,27 +881,6 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
             </button>
           </div>
 
-          <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-            <button
-              onClick={onGoToReport}
-              style={{
-                background: '#C2185B',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '100px',
-                padding: '16px 48px',
-                fontSize: '16px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                boxShadow: '0px 4px 6px -1px rgba(194, 24, 91, 0.4)',
-                transition: 'transform 0.1s',
-                maxWidth: '300px',
-                width: '100%'
-              }}
-            >
-              Перейти в отчет
-            </button>
-          </div>
         </main>
       </div>
 

@@ -13,6 +13,7 @@ interface AllocationItem {
 interface PortfolioDistributionProps {
     assetsAllocation?: AllocationItem[];
     cashFlowAllocation?: AllocationItem[];
+    totalYieldPercent?: number;
 }
 
 const COLORS = [
@@ -109,12 +110,26 @@ const DonutChart: React.FC<{ items: AllocationItem[], title: string, total: numb
     );
 };
 
-export const PortfolioDistribution: React.FC<PortfolioDistributionProps> = ({ assetsAllocation, cashFlowAllocation }) => {
+export const PortfolioDistribution: React.FC<PortfolioDistributionProps> = ({ assetsAllocation, cashFlowAllocation, totalYieldPercent }) => {
     // Helper to sum amounts
     const getTotal = (items?: AllocationItem[]) => items?.reduce((acc, item) => acc + item.amount, 0) || 0;
+    const getWeightedYield = (items?: AllocationItem[]) => {
+        if (!items || items.length === 0) return 0;
+        const total = getTotal(items);
+        if (total <= 0) return 0;
+        const weighted = items.reduce((acc, item: any) => {
+            const itemYield = Number(item?.yield ?? item?.yield_percent ?? 0);
+            return acc + (Number(item.amount || 0) * itemYield);
+        }, 0);
+        return weighted / total;
+    };
 
     const hasAssets = assetsAllocation && assetsAllocation.length > 0;
     const hasCashFlow = cashFlowAllocation && cashFlowAllocation.length > 0;
+    const computedYield = hasAssets ? getWeightedYield(assetsAllocation) : getWeightedYield(cashFlowAllocation);
+    const effectiveYield = Number.isFinite(totalYieldPercent) && (totalYieldPercent || 0) > 0
+        ? Number(totalYieldPercent)
+        : computedYield;
 
     // If no data, show a placeholder or nothing? 
     // User complained about not seeing it, so let's render something to debug or inform.
@@ -127,7 +142,25 @@ export const PortfolioDistribution: React.FC<PortfolioDistributionProps> = ({ as
     }
 
     return (
-        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '40px' }}>
+        <div style={{ marginBottom: '40px' }}>
+            <div style={{
+                background: 'linear-gradient(108.52deg, #0F172A 0%, #1E293B 100%)',
+                borderRadius: '20px',
+                padding: '16px 20px',
+                color: '#fff',
+                marginBottom: '20px',
+                boxShadow: '0px 4px 6px -1px rgba(15, 23, 42, 0.2)'
+            }}>
+                <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Общая доходность портфеля
+                </div>
+                <div style={{ fontSize: '26px', fontWeight: 800, lineHeight: 1 }}>
+                    {effectiveYield > 0 ? `${effectiveYield.toFixed(1)}%` : '—'}
+                    <span style={{ fontSize: '13px', fontWeight: 500, opacity: 0.75, marginLeft: '6px' }}>годовых</span>
+                </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
             {hasAssets && (
                 <DonutChart
                     items={assetsAllocation!}
@@ -142,6 +175,7 @@ export const PortfolioDistribution: React.FC<PortfolioDistributionProps> = ({ as
                     total={getTotal(cashFlowAllocation)}
                 />
             )}
+            </div>
         </div>
     );
 };
