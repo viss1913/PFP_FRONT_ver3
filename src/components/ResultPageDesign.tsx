@@ -94,6 +94,8 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   });
   const [snapshotForm, setSnapshotForm] = React.useState<EditFormState | null>(null);
   const [htmlReportOpening, setHtmlReportOpening] = React.useState(false);
+  const [htmlReportModalOpen, setHtmlReportModalOpen] = React.useState(false);
+  const [htmlReportSrcDoc, setHtmlReportSrcDoc] = React.useState<string | null>(null);
 
   const handleEditGoal = (goal: GoalResult) => {
     setEditingGoal(goal);
@@ -168,6 +170,25 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     // REMOVED: setEditingGoal(null); // Don't close the window
   };
 
+  const closeHtmlReportModal = React.useCallback(() => {
+    setHtmlReportModalOpen(false);
+    setHtmlReportSrcDoc(null);
+  }, []);
+
+  React.useEffect(() => {
+    if (!htmlReportModalOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeHtmlReportModal();
+    };
+    window.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [htmlReportModalOpen, closeHtmlReportModal]);
+
   const handleOpenHtmlReport = async () => {
     const calcRoot = calculationData || {};
     const clientId = calcRoot.client_id ?? calcRoot.id ?? client?.id;
@@ -177,7 +198,9 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     }
     setHtmlReportOpening(true);
     try {
-      await clientApi.openClientHtmlReportInNewTab(Number(clientId));
+      const html = await clientApi.buildClientFullReportHtmlDocument(Number(clientId));
+      setHtmlReportSrcDoc(html);
+      setHtmlReportModalOpen(true);
     } catch (e: unknown) {
       const msg =
         e && typeof e === 'object' && 'message' in e && typeof (e as { message: unknown }).message === 'string'
@@ -1162,6 +1185,64 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {htmlReportModalOpen && htmlReportSrcDoc != null && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="HTML-отчёт"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 10000,
+            display: 'flex',
+            flexDirection: 'column',
+            background: '#0f172a',
+          }}
+        >
+          <div
+            style={{
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: '12px',
+              padding: '10px 12px',
+              borderBottom: '1px solid rgba(255,255,255,0.12)',
+              minHeight: '48px',
+              boxSizing: 'border-box',
+            }}
+          >
+            <button
+              type="button"
+              onClick={closeHtmlReportModal}
+              style={{
+                background: 'rgba(255,255,255,0.12)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '100px',
+                padding: '10px 20px',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Закрыть
+            </button>
+          </div>
+          <iframe
+            title="HTML-отчёт"
+            srcDoc={htmlReportSrcDoc}
+            style={{
+              flex: 1,
+              width: '100%',
+              minHeight: 0,
+              border: 'none',
+              background: '#fff',
+            }}
+          />
         </div>
       )}
     </div>
