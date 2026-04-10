@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { CJMData } from '../CJMFlow';
-import { Loader2 } from 'lucide-react';
 import avatarImage from '../../assets/avatar_full.png';
 
 interface StepProps {
@@ -65,6 +64,7 @@ const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPre
     const allAnswered = answeredCount === questions.length;
     const firstUnansweredIndex = questions.findIndex((q) => typeof answers[q.id] !== 'number');
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(firstUnansweredIndex >= 0 ? firstUnansweredIndex : 0);
+    const calculateTriggeredRef = useRef(false);
 
     useEffect(() => {
         if (allAnswered) return;
@@ -75,6 +75,7 @@ const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPre
     }, [answers, currentQuestionIndex, allAnswered]);
 
     const setAnswer = (questionId: string, points: number) => {
+        let justCompletedAll = false;
         setData((prev) => {
             const nextAnswers = {
                 ...prev.riskProfileAnswers,
@@ -84,12 +85,18 @@ const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPre
             const answered = Object.values(nextAnswers).filter((value) => typeof value === 'number').length || 1;
             const avg = total / answered;
             const nextProfile = avg >= 4 ? 'AGGRESSIVE' : avg >= 2.5 ? 'BALANCED' : 'CONSERVATIVE';
+            justCompletedAll = questions.every((q) => typeof nextAnswers[q.id] === 'number');
             return {
                 ...prev,
                 riskProfile: nextProfile,
                 riskProfileAnswers: nextAnswers
             };
         });
+
+        if (justCompletedAll && !loading && !calculateTriggeredRef.current) {
+            calculateTriggeredRef.current = true;
+            queueMicrotask(() => onComplete());
+        }
 
         const currentIdx = questions.findIndex((q) => q.id === questionId);
         const nextIdx = questions.findIndex((q, idx) => idx > currentIdx && typeof answers[q.id] !== 'number');
@@ -143,7 +150,7 @@ const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPre
                 background: 'rgba(255,255,255,0.03)',
                 color: 'var(--text-main)'
             }}>
-                Прогресс: {answeredCount}/9
+                Прогресс: {answeredCount}/{questions.length}
             </div>
 
             <div style={{ marginBottom: 26 }}>
@@ -181,7 +188,7 @@ const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPre
 
             <div style={{ display: 'flex', gap: '12px' }}>
                 <button className="btn-secondary" style={{ flex: 1 }} onClick={onPrev} disabled={loading}>Назад</button>
-                {!allAnswered && currentQuestionIndex > 0 && (
+                {currentQuestionIndex > 0 && (
                     <button
                         className="btn-secondary"
                         style={{ flex: 1 }}
@@ -191,15 +198,12 @@ const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPre
                         Предыдущий вопрос
                     </button>
                 )}
-                <button
-                    className="btn-primary"
-                    style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                    onClick={onComplete}
-                    disabled={loading || !allAnswered}
-                >
-                    {loading ? <Loader2 className="animate-spin" size={20} /> : 'Рассчитать план'}
-                </button>
             </div>
+            {loading && (
+                <p style={{ marginTop: 16, textAlign: 'center', color: 'var(--text-muted)', fontSize: 15 }}>
+                    Считаем план…
+                </p>
+            )}
         </div>
     );
 };

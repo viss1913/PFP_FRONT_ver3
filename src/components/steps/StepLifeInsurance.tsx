@@ -9,15 +9,29 @@ interface StepLifeInsuranceProps {
     onPrev: () => void;
 }
 
+const CAPITAL_FLOOR = 500_000;
+const LIFE_CAP_CEILING = 10_000_000;
+const STEP = 50_000;
+
 const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, onNext, onPrev }) => {
     const [limit, setLimit] = useState<number>(data.lifeInsuranceLimit !== undefined ? data.lifeInsuranceLimit : 0);
+
+    /** Тот же пул, что в StepFinReserve: активы или ввод по «Сохранить и преумножить» / Рента (без подмешивания финрезерва). */
     const assetsCapital = (data.assets || []).reduce((sum, a) => sum + (a.current_value || 0), 0);
     const investmentOrRentGoalCapital = (data.goals || [])
         .filter((g) => g.goal_type_id === 3 || g.goal_type_id === 8)
         .reduce((sum, g) => sum + (g.initial_capital || 0), 0);
-    const sourceCapital = assetsCapital > 0 ? assetsCapital : Math.max(investmentOrRentGoalCapital, data.initialCapital || 0);
-    const shouldShowRecommendation = sourceCapital >= 500000;
-    const recommendedLimit = Math.round(sourceCapital * 0.1 * 15);
+    const clientPoolCapital = assetsCapital > 0 ? assetsCapital : investmentOrRentGoalCapital;
+
+    const finReserveInitial = data.initialCapital ?? 0;
+    const netForLifeFormula = clientPoolCapital - finReserveInitial;
+    const showLifeInsuranceUi = clientPoolCapital >= CAPITAL_FLOOR;
+    const maxLifeFromFormula = Math.min(LIFE_CAP_CEILING, Math.max(0, netForLifeFormula * 15));
+    /** Как раньше по ощущениям: 10% × 15 от пула, но не выше потолка по формуле. */
+    const recommendedLimit = Math.min(maxLifeFromFormula, Math.round(clientPoolCapital * 0.1 * 15));
+
+    const MIN_LIMIT = 0;
+    const MAX_LIMIT = maxLifeFromFormula;
 
     useEffect(() => {
         setData(prev => ({
@@ -27,18 +41,28 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
     }, [limit, setData]);
 
     useEffect(() => {
-        if (shouldShowRecommendation && (!data.lifeInsuranceLimit || data.lifeInsuranceLimit === 0)) {
+        if (!showLifeInsuranceUi) {
+            setLimit(0);
+        }
+    }, [showLifeInsuranceUi]);
+
+    useEffect(() => {
+        if (!showLifeInsuranceUi) return;
+        if (limit > maxLifeFromFormula) {
+            setLimit(maxLifeFromFormula);
+        }
+    }, [showLifeInsuranceUi, maxLifeFromFormula, limit]);
+
+    useEffect(() => {
+        if (!showLifeInsuranceUi) return;
+        if (!data.lifeInsuranceLimit && recommendedLimit > 0) {
             setLimit(recommendedLimit);
         }
-    }, [shouldShowRecommendation, recommendedLimit, data.lifeInsuranceLimit]);
+    }, [showLifeInsuranceUi, recommendedLimit, data.lifeInsuranceLimit]);
 
     const formatCurrency = (val: number) => new Intl.NumberFormat('ru-RU').format(Math.round(val)) + ' ₽';
     const formatNumber = (val: number) => new Intl.NumberFormat('ru-RU').format(Math.round(val));
     const parseNumber = (val: string) => Number(val.replace(/\D/g, '')) || 0;
-
-    const MIN_LIMIT = 0;
-    const MAX_LIMIT = Math.max(10000000, recommendedLimit || 0);
-    const STEP = 50000;
 
     return (
         <div>
@@ -73,13 +97,16 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
                         maxWidth: '620px',
                         fontWeight: '500'
                     }}>
-                        {shouldShowRecommendation
-                            ? `Давайте еще создадим резерв для Защиты Жизни. Я рекомендую создать доп резерв в размере ${formatCurrency(recommendedLimit)}.`
-                            : 'Для текущего капитала дополнительный резерв Защиты Жизни можно не создавать.'}
+                        {!showLifeInsuranceUi
+                            ? `Если капитал меньше ${formatCurrency(CAPITAL_FLOOR)}, блок Защиты Жизни не показываем — лимит 0 ₽. Можно сразу жать «Далее».`
+                            : MAX_LIMIT <= 0
+                                ? 'После вычета финансового резерва для страховой суммы не остаётся запаса — верхняя граница 0 ₽.'
+                                : `Давайте еще создадим резерв для Защиты Жизни. Я рекомендую создать доп резерв в размере ${formatCurrency(recommendedLimit)}.`}
                     </div>
                 </div>
             </div>
 
+            {showLifeInsuranceUi && (
             <div style={{
                 background: 'var(--card-bg)',
                 backdropFilter: 'blur(20px)',
@@ -93,6 +120,7 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
                         Страховая сумма по риску "Уход из жизни"
                     </label>
 
+                    {MAX_LIMIT > 0 ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '24px', marginBottom: '24px' }}>
                         <div style={{ flex: 1 }}>
                             <input
@@ -101,7 +129,7 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
                                 min={MIN_LIMIT}
                                 max={MAX_LIMIT}
                                 step={STEP}
-                                value={limit}
+                                value={Math.min(limit, MAX_LIMIT)}
                                 onChange={(e) => setLimit(Number(e.target.value))}
                                 style={{ width: '100%' }}
                             />
@@ -124,13 +152,10 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
                         }}>
                             <input
                                 type="text"
-                                min={MIN_LIMIT}
-                                max={MAX_LIMIT}
-                                step={STEP}
-                                value={formatNumber(limit)}
+                                value={formatNumber(Math.min(limit, MAX_LIMIT))}
                                 onChange={(e) => {
                                     const val = parseNumber(e.target.value);
-                                    setLimit(Math.min(MAX_LIMIT, val));
+                                    setLimit(Math.min(MAX_LIMIT, Math.max(MIN_LIMIT, val)));
                                 }}
                                 style={{
                                     border: 'none',
@@ -145,12 +170,18 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
                             />
                         </div>
                     </div>
+                    ) : (
+                        <p style={{ color: 'var(--text-muted)', fontSize: '15px', lineHeight: 1.5, marginBottom: '16px' }}>
+                            Максимум по формуле — 0 ₽ (капитал после резерва не даёт запас ×15 в пределах 10 млн).
+                        </p>
+                    )}
 
                     <div style={{ textAlign: 'center', fontSize: '14px', color: 'var(--text-muted)' }}>
-                        Текущий выбор: <span style={{ color: '#334155', fontWeight: 'bold' }}>{formatCurrency(limit)}</span>
+                        Текущий выбор: <span style={{ color: '#334155', fontWeight: 'bold' }}>{formatCurrency(Math.min(limit, MAX_LIMIT))}</span>
                     </div>
                 </div>
             </div>
+            )}
 
             <div style={{ display: 'flex', gap: '16px' }}>
                 <button className="btn-secondary" onClick={onPrev} style={{ flex: 1 }}>Назад</button>

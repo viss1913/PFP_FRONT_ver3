@@ -1,6 +1,7 @@
 
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, ArrowRight, ChevronLeft } from 'lucide-react';
 import type { CJMData } from '../CJMFlow';
 import type { ClientGoal } from '../../types/client';
@@ -58,6 +59,15 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
     const [initialCapital, setInitialCapital] = useState<number>(DEFAULT_INITIAL_CAPITAL);
     // monthlyReplenishment state removed/unused for inputs now, but needed if we want to support it for other goals later. 
     // For now, it's always 0 for new goals via this modal.
+
+    useEffect(() => {
+        if (!selectedGalleryItem) return;
+        const prev = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = prev;
+        };
+    }, [selectedGalleryItem]);
 
     // Handle clicking a card in the gallery
     const handleCardClick = (item: GoalGalleryItem) => {
@@ -394,19 +404,33 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                 </div>
             </div>
 
-            {/* Modal / Overlay for Adding Goal - FIXED POSITIONING */}
-            {selectedGalleryItem && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0, left: 0, right: 0, bottom: 0,
-                    zIndex: 9999, // Ensure it's on top
-                    backgroundColor: 'rgba(0,0,0,0.6)',
-                    backdropFilter: 'blur(8px)',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'center', // Horizontally center
-                    padding: '8vh 24px 24px'
-                }}>
+            {/* Modal: portal + viewport centering — fixed внутри transform у предков ломался */}
+            {selectedGalleryItem &&
+                createPortal(
+                    <div
+                        role="presentation"
+                        style={{
+                            position: 'fixed',
+                            inset: 0,
+                            zIndex: 10000,
+                            overflowY: 'auto',
+                            overscrollBehavior: 'contain',
+                            backgroundColor: 'rgba(15, 23, 42, 0.52)',
+                            backdropFilter: 'blur(10px)',
+                            WebkitBackdropFilter: 'blur(10px)',
+                        }}
+                    >
+                        <div
+                            style={{
+                                minHeight: '100vh',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding:
+                                    'max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(28px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left))',
+                                boxSizing: 'border-box',
+                            }}
+                        >
                     <div className="goal-modal" style={{
                         background: '#fff',
                         borderRadius: '32px',
@@ -480,7 +504,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                         min="100000" max="50000000" step="100000"
                                         value={targetAmount}
                                         onChange={(e) => setTargetAmount(Number(e.target.value))}
-                                        style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
+                                        style={{ width: '100%' }}
                                     />
                                 </div>
                                 <div style={{ marginBottom: '40px' }}>
@@ -510,7 +534,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                         min="1" max="50" step="1"
                                         value={termMonths / 12}
                                         onChange={(e) => setTermMonths(Number(e.target.value) * 12)}
-                                        style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
+                                        style={{ width: '100%' }}
                                     />
                                     <div style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '8px', textAlign: 'right' }}>
                                         {termMonths} месяцев
@@ -540,7 +564,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                     min="10000" max="1000000" step="5000"
                                     value={desiredIncome}
                                     onChange={(e) => setDesiredIncome(Number(e.target.value))}
-                                    style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
+                                    style={{ width: '100%' }}
                                 />
                                 {isPassive && (
                                     <div style={{ marginTop: '24px' }}>
@@ -565,7 +589,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                             min="1" max="30" step="1"
                                             value={termMonths / 12}
                                             onChange={(e) => setTermMonths(Number(e.target.value) * 12)}
-                                            style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
+                                            style={{ width: '100%' }}
                                         />
                                     </div>
                                 )}
@@ -594,7 +618,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                         min="0" max="10000000" step="100000"
                                         value={initialCapital}
                                         onChange={(e) => setInitialCapital(Number(e.target.value))}
-                                        style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
+                                        style={{ width: '100%' }}
                                     />
                                 </div>
                                 <div style={{ marginBottom: '24px' }}>
@@ -616,7 +640,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                         min="0" max="500000" step="5000"
                                         value={desiredIncome}
                                         onChange={(e) => setDesiredIncome(Number(e.target.value))}
-                                        style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
+                                        style={{ width: '100%' }}
                                     />
                                 </div>
                                 <div style={{ marginBottom: '32px' }}>
@@ -641,7 +665,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                         min="1" max="50" step="1"
                                         value={termMonths / 12}
                                         onChange={(e) => setTermMonths(Number(e.target.value) * 12)}
-                                        style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
+                                        style={{ width: '100%' }}
                                     />
                                 </div>
                             </>
@@ -669,7 +693,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                         min="0" max={totalAssetsSum || 10000000} step={Math.max(1000, Math.floor((totalAssetsSum || 10000000) / 100))}
                                         value={initialCapital}
                                         onChange={(e) => setInitialCapital(Number(e.target.value))}
-                                        style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
+                                        style={{ width: '100%' }}
                                     />
                                     <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '8px' }}>Доступно из активов: {formatCurrency(totalAssetsSum)}</div>
                                 </div>
@@ -692,7 +716,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                         min="0" max="200000" step="5000"
                                         value={desiredIncome}
                                         onChange={(e) => setDesiredIncome(Number(e.target.value))}
-                                        style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
+                                        style={{ width: '100%' }}
                                     />
                                 </div>
                             </>
@@ -725,7 +749,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                         min="0" max="100000000" step="500000"
                                         value={initialCapital}
                                         onChange={(e) => setInitialCapital(Number(e.target.value))}
-                                        style={{ width: '100%', height: '6px', background: '#E5E7EB', borderRadius: '3px', accentColor: '#E91E63', cursor: 'pointer' }}
+                                        style={{ width: '100%' }}
                                     />
                                 </div>
                             </>
@@ -739,8 +763,10 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                             Добавить цель
                         </button>
                     </div>
-                </div>
-            )}
+                        </div>
+                    </div>,
+                    document.body
+                )}
         </div>
     );
 };

@@ -67,8 +67,8 @@ const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }
         borderRadius: '16px',
         border: isActive ? '1px solid rgba(255, 255, 255, 0.75)' : '1px solid rgba(255, 255, 255, 0.55)',
         background: isActive
-            ? 'linear-gradient(135deg, rgba(233,242,252,0.78) 0%, rgba(195,210,228,0.7) 100%)'
-            : 'linear-gradient(135deg, rgba(255,255,255,0.32) 0%, rgba(226,236,248,0.24) 100%)',
+            ? 'linear-gradient(135deg, rgba(208,222,242,0.9) 0%, rgba(168,190,218,0.88) 100%)'
+            : 'linear-gradient(135deg, rgba(232,240,250,0.5) 0%, rgba(198,214,234,0.42) 100%)',
         color: '#1F2937',
         cursor: 'pointer',
         fontWeight: 700,

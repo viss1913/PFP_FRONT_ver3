@@ -55,6 +55,113 @@ const getProjectId = (): number => {
 
 const PROJECT_KEY = 'pk_proj_0e9fdde1e8cd961121906f04507af06e4afec281a58012c4';
 
+const REPORT_PAGE_TYPES: readonly ReportPageType[] = [
+    'SUMMARY',
+    'FIN_RESERVE',
+    'LIFE',
+    'INVESTMENT',
+    'OTHER',
+];
+
+function isReportPageType(id: string): id is ReportPageType {
+    return (REPORT_PAGE_TYPES as readonly string[]).includes(id);
+}
+
+function extractBodyInnerHtml(html: string): string {
+    const trimmed = html.trim();
+    if (!trimmed) return '';
+    if (typeof window === 'undefined') return html;
+    try {
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const inner = doc.body?.innerHTML?.trim() || '';
+        return inner || trimmed;
+    } catch {
+        return html;
+    }
+}
+
+function assembleFullReportDocument(innerBodies: string[]): string {
+    return `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Финансовый план</title>
+<style>
+  body { margin: 0; padding: 16px; background: #e5e7eb; font-family: system-ui, sans-serif; }
+  .pfp-report-sheet { background: #fff; margin: 0 auto 24px; max-width: 1200px; border-radius: 8px; overflow: hidden; }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .pfp-report-sheet { box-shadow: none; border-radius: 0; page-break-after: always; }
+  }
+</style>
+</head>
+<body>
+${innerBodies.map((b) => `<div class="pfp-report-sheet">${b}</div>`).join('\n')}
+</body>
+</html>`;
+}
+
+/** Если на бэке есть единый HTML-документ клиента — используем его. */
+async function tryFetchSingleClientReportHtml(clientId: number): Promise<string | null> {
+    try {
+        const r = await api.get(`/pfp/reports/${clientId}/html`, {
+            responseType: 'text',
+            params: { inline: 1 },
+            headers: { Accept: 'text/html' },
+        });
+        const text = r.data as string;
+        if (typeof text === 'string' && text.trim().startsWith('<')) return text;
+    } catch (e: unknown) {
+        const status = (e as { response?: { status?: number } })?.response?.status;
+        if (status === 404 || status === 405) return null;
+        throw e;
+    }
+    return null;
+}
+
+/** Собирает один документ из HTML-страниц по оглавлению pdf-url (с client_id в URL — контекст для токена агента). */
+async function aggregateClientReportHtmlFromToc(clientId: number): Promise<string> {
+    const response = await api.get<MyPlanReportPdfUrlResponse>(`/pfp/reports/${clientId}/pdf-url`, {
+        params: { includeCover: 'true', includeSummary: 'true' },
+        timeout: 120_000,
+    });
+    const meta = response.data;
+    const toc = [...(meta.toc || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const bodies: string[] = [];
+    for (const item of toc) {
+        const rawId = String(item.id || '').toUpperCase();
+        if (!isReportPageType(rawId)) continue;
+        const pageResponse = await api.get(`/pfp/reports/${clientId}/pages/${rawId}/html`, {
+            responseType: 'text',
+            params: { inline: 1 },
+            headers: { Accept: 'text/html' },
+        });
+        bodies.push(extractBodyInnerHtml(pageResponse.data as string));
+    }
+    if (!bodies.length) {
+        throw new Error('Пустое оглавление отчёта или нет ни одной страницы SUMMARY/FIN_RESERVE/LIFE/INVESTMENT/OTHER.');
+    }
+    return assembleFullReportDocument(bodies);
+}
+
+async function resolveClientFullReportHtml(clientId: number): Promise<string> {
+    const single = await tryFetchSingleClientReportHtml(clientId);
+    if (single) return single;
+    return aggregateClientReportHtmlFromToc(clientId);
+}
+
+function openHtmlStringInNewTab(html: string): void {
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!w) {
+        URL.revokeObjectURL(url);
+        throw new Error('Браузер заблокировал новую вкладку. Разрешите всплывающие окна для этого сайта.');
+    }
+    window.setTimeout(() => URL.revokeObjectURL(url), 120_000);
+}
+
 // Add request interceptor to inject the token and project key
 api.interceptors.request.use((config) => {
     const token = localStorage.getItem('token');
@@ -206,14 +313,31 @@ export const clientApi = {
         return response.data;
     },
 
-    getReportPageHtml: async (clientId: number, pageType: ReportPageType): Promise<string> => {
+    getReportPageHtml: async (
+        clientId: number,
+        pageType: ReportPageType,
+        opts?: { inline?: boolean }
+    ): Promise<string> => {
         const response = await api.get(`/pfp/reports/${clientId}/pages/${pageType}/html`, {
             responseType: 'text',
+            params: opts?.inline ? { inline: 1 } : undefined,
             headers: {
                 Accept: 'text/html',
             },
         });
         return response.data;
+    },
+
+    /**
+     * Полный HTML отчёта по клиенту: Bearer + X-Project-Key (как остальной pfp API).
+     * Сначала пробует GET /pfp/reports/:id/html; иначе собирает страницы по оглавлению pdf-url.
+     */
+    buildClientFullReportHtmlDocument: (clientId: number) => resolveClientFullReportHtml(clientId),
+
+    /** Открывает в новой вкладке только HTML с бэка (blob URL), без UI приложения. */
+    openClientHtmlReportInNewTab: async (clientId: number): Promise<void> => {
+        const html = await resolveClientFullReportHtml(clientId);
+        openHtmlStringInNewTab(html);
     },
 
     getReportPdfBlob: async (

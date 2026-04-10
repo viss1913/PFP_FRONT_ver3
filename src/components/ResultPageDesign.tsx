@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Plus, ArrowLeft, Trash2, Send } from 'lucide-react';
 import avatarImage from '../assets/avatar_full.png';
+import { clientApi } from '../api/clientApi';
 import { getGoalImage, GOAL_GALLERY_ITEMS } from '../utils/GoalImages';
 import { PortfolioDistribution } from './PortfolioDistribution';
 import { formatMonthsToDate } from '../utils/dateUtils';
@@ -92,6 +93,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     initial_capital: 0
   });
   const [snapshotForm, setSnapshotForm] = React.useState<EditFormState | null>(null);
+  const [htmlReportOpening, setHtmlReportOpening] = React.useState(false);
 
   const handleEditGoal = (goal: GoalResult) => {
     setEditingGoal(goal);
@@ -166,9 +168,25 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     // REMOVED: setEditingGoal(null); // Don't close the window
   };
 
-  const handleOpenHtmlReport = () => {
-    const url = `${window.location.origin}${window.location.pathname}?page=html-report-preview`;
-    window.open(url, '_blank', 'noopener,noreferrer');
+  const handleOpenHtmlReport = async () => {
+    const calcRoot = calculationData || {};
+    const clientId = calcRoot.client_id ?? calcRoot.id ?? client?.id;
+    if (clientId == null || Number.isNaN(Number(clientId))) {
+      window.alert('Не найден клиент для отчёта (client_id).');
+      return;
+    }
+    setHtmlReportOpening(true);
+    try {
+      await clientApi.openClientHtmlReportInNewTab(Number(clientId));
+    } catch (e: unknown) {
+      const msg =
+        e && typeof e === 'object' && 'message' in e && typeof (e as { message: unknown }).message === 'string'
+          ? (e as { message: string }).message
+          : 'Не удалось открыть HTML-отчёт';
+      window.alert(msg);
+    } finally {
+      setHtmlReportOpening(false);
+    }
   };
 
   // Access data directly from the root structure: { client_id, summary, goals }
@@ -656,7 +674,9 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
               Перейти в отчет
             </button>
             <button
-              onClick={handleOpenHtmlReport}
+              type="button"
+              onClick={() => void handleOpenHtmlReport()}
+              disabled={htmlReportOpening || !!isCalculating}
               style={{
                 background: '#0F172A',
                 color: '#fff',
@@ -665,13 +685,14 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                 padding: '16px 32px',
                 fontSize: '16px',
                 fontWeight: '600',
-                cursor: 'pointer',
+                cursor: htmlReportOpening || isCalculating ? 'wait' : 'pointer',
+                opacity: htmlReportOpening || isCalculating ? 0.75 : 1,
                 boxShadow: '0px 4px 6px -1px rgba(15, 23, 42, 0.35)',
                 transition: 'transform 0.1s',
                 minWidth: '240px',
               }}
             >
-              HTML-отчет
+              {htmlReportOpening ? 'Открываем…' : 'HTML-отчет'}
             </button>
           </div>
 
