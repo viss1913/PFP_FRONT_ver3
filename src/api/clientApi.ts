@@ -34,6 +34,14 @@ export interface MyPlanReportPdfUrlResponse {
     generated_at: string;
 }
 
+/** Ответ GET /api/pfp/reports/:clientId/html (application/json). */
+export interface ClientFullReportHtmlResponse {
+    html: string;
+    pages?: string[];
+    toc?: unknown[];
+    generated_at?: string;
+}
+
 export interface AgentReportPdfUrlQuery {
     includeCover?: boolean;
     includeSummary?: boolean;
@@ -102,16 +110,41 @@ ${innerBodies.map((b) => `<div class="pfp-report-sheet">${b}</div>`).join('\n')}
 </html>`;
 }
 
-/** Если на бэке есть единый HTML-документ клиента — используем его. */
-async function tryFetchSingleClientReportHtml(clientId: number): Promise<string | null> {
+export type ClientReportHtmlQuery = Pick<ReportPdfQuery, 'includeCover' | 'includeSummary' | 'goalTypes'>;
+
+/** GET /api/pfp/reports/:clientId/html — JSON { html, pages, ... }; иначе (старый контур) пусто → сборка по TOC. */
+async function tryFetchSingleClientReportHtml(
+    clientId: number,
+    query?: ClientReportHtmlQuery
+): Promise<string | null> {
     try {
-        const r = await api.get(`/pfp/reports/${clientId}/html`, {
-            responseType: 'text',
-            params: { inline: 1 },
-            headers: { Accept: 'text/html' },
+        const params: Record<string, string> = {};
+        if (query?.includeCover !== undefined) params.includeCover = String(query.includeCover);
+        if (query?.includeSummary !== undefined) params.includeSummary = String(query.includeSummary);
+        if (query?.goalTypes?.length) params.goalTypes = query.goalTypes.join(',');
+
+        const r = await api.get<string | ClientFullReportHtmlResponse>(`/pfp/reports/${clientId}/html`, {
+            params: Object.keys(params).length ? params : undefined,
+            headers: { Accept: 'application/json, text/html;q=0.9' },
         });
-        const text = r.data as string;
-        if (typeof text === 'string' && text.trim().startsWith('<')) return text;
+        const data = r.data;
+
+        if (typeof data === 'string') {
+            const t = data.trim();
+            if (t.startsWith('<')) return data;
+            return null;
+        }
+
+        if (data && typeof data === 'object' && 'html' in data) {
+            const payload = data as ClientFullReportHtmlResponse;
+            const html = typeof payload.html === 'string' ? payload.html.trim() : '';
+            if (html) return payload.html;
+            const pages = payload.pages;
+            if (Array.isArray(pages) && pages.length) {
+                const bodies = pages.map((p) => extractBodyInnerHtml(typeof p === 'string' ? p : ''));
+                return assembleFullReportDocument(bodies);
+            }
+        }
     } catch (e: unknown) {
         const status = (e as { response?: { status?: number } })?.response?.status;
         if (status === 404 || status === 405) return null;
@@ -145,8 +178,11 @@ async function aggregateClientReportHtmlFromToc(clientId: number): Promise<strin
     return assembleFullReportDocument(bodies);
 }
 
-async function resolveClientFullReportHtml(clientId: number): Promise<string> {
-    const single = await tryFetchSingleClientReportHtml(clientId);
+async function resolveClientFullReportHtml(
+    clientId: number,
+    query?: ClientReportHtmlQuery
+): Promise<string> {
+    const single = await tryFetchSingleClientReportHtml(clientId, query);
     if (single) return single;
     return aggregateClientReportHtmlFromToc(clientId);
 }
@@ -330,13 +366,14 @@ export const clientApi = {
 
     /**
      * Полный HTML отчёта по клиенту: Bearer + X-Project-Key (как остальной pfp API).
-     * Сначала пробует GET /pfp/reports/:id/html; иначе собирает страницы по оглавлению pdf-url.
+     * GET /api/pfp/reports/:id/html (JSON с полем `html`); иначе сборка страниц по оглавлению pdf-url.
      */
-    buildClientFullReportHtmlDocument: (clientId: number) => resolveClientFullReportHtml(clientId),
+    buildClientFullReportHtmlDocument: (clientId: number, query?: ClientReportHtmlQuery) =>
+        resolveClientFullReportHtml(clientId, query),
 
     /** Открывает в новой вкладке только HTML с бэка (blob URL), без UI приложения. */
-    openClientHtmlReportInNewTab: async (clientId: number): Promise<void> => {
-        const html = await resolveClientFullReportHtml(clientId);
+    openClientHtmlReportInNewTab: async (clientId: number, query?: ClientReportHtmlQuery): Promise<void> => {
+        const html = await resolveClientFullReportHtml(clientId, query);
         openHtmlStringInNewTab(html);
     },
 
