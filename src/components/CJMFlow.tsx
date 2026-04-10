@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Target, ShieldCheck, Briefcase, PiggyBank, Heart, Users } from 'lucide-react';
 import StepClientData from './steps/StepClientData';
@@ -72,6 +72,17 @@ export type FamilyObligation =
     | 'other';
 export type FamilyRealEstateStatus = 'owned' | 'mortgage';
 
+/** Тот же пул, что в StepLifeInsurance / StepFinReserve. */
+function clientPoolCapitalForLifeStep(d: CJMData): number {
+    const assetsCapital = (d.assets || []).reduce((sum, a) => sum + (a.current_value || 0), 0);
+    const investmentOrRentGoalCapital = (d.goals || [])
+        .filter((g) => g.goal_type_id === 3 || g.goal_type_id === 8)
+        .reduce((sum, g) => sum + (g.initial_capital || 0), 0);
+    return assetsCapital > 0 ? assetsCapital : investmentOrRentGoalCapital;
+}
+
+const CAPITAL_FLOOR_LIFE_INSURANCE = 500_000;
+
 const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, onBack }) => {
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
@@ -109,12 +120,29 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
         return goalIds.includes(3) || goalIds.includes(8);
     };
 
+    const shouldSkipLifeInsuranceStep = (): boolean =>
+        clientPoolCapitalForLifeStep(data) < CAPITAL_FLOOR_LIFE_INSURANCE;
+
     const nextStep = () => {
-        setStep((s) => (s === 3 && shouldSkipAssetsStep() ? 5 : s + 1));
+        setStep((s) => {
+            if (s === 3 && shouldSkipAssetsStep()) return 5;
+            if (s === 5 && shouldSkipLifeInsuranceStep()) return 7;
+            return s + 1;
+        });
     };
     const prevStep = () => {
-        setStep((s) => (s === 5 && shouldSkipAssetsStep() ? 3 : s - 1));
+        setStep((s) => {
+            if (s === 5 && shouldSkipAssetsStep()) return 3;
+            if (s === 7 && shouldSkipLifeInsuranceStep()) return 5;
+            return s - 1;
+        });
     };
+
+    useLayoutEffect(() => {
+        if (step === 6 && clientPoolCapitalForLifeStep(data) < CAPITAL_FLOOR_LIFE_INSURANCE) {
+            setStep(7);
+        }
+    }, [step, data]);
 
     const handleCalculate = async () => {
         setLoading(true);
@@ -354,6 +382,9 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
         { title: 'Риск-профиль', icon: <ShieldCheck size={20} /> }
     ];
 
+    const skipLifeInsurance = shouldSkipLifeInsuranceStep();
+    const stepsForHeader = skipLifeInsurance ? steps.filter((_, i) => i !== 5) : steps;
+
     useEffect(() => {
         // If editing, fetch client data
         if (clientId) {
@@ -415,14 +446,16 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                         ← Назад
                     </div>
                 )}
-                {steps.map((s, i) => (
-                    <div key={i} style={{ flex: 1, textAlign: 'center', position: 'relative' }}>
+                {stepsForHeader.map((s, i) => {
+                    const actualStep = skipLifeInsurance ? (i < 5 ? i + 1 : 7) : i + 1;
+                    return (
+                    <div key={actualStep} style={{ flex: 1, textAlign: 'center', position: 'relative' }}>
                         <div style={{
                             width: '40px',
                             height: '40px',
                             borderRadius: '50%',
-                            background: step > i + 1 ? 'var(--secondary)' : step === i + 1 ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
-                            color: step === i + 1 ? '#000' : '#fff',
+                            background: step > actualStep ? 'var(--secondary)' : step === actualStep ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+                            color: step === actualStep ? '#000' : '#fff',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -431,19 +464,20 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                         }}>
                             {s.icon}
                         </div>
-                        <span style={{ fontSize: '12px', color: step === i + 1 ? 'var(--primary)' : 'var(--text-muted)' }}>{s.title}</span>
-                        {i < steps.length - 1 && (
+                        <span style={{ fontSize: '12px', color: step === actualStep ? 'var(--primary)' : 'var(--text-muted)' }}>{s.title}</span>
+                        {i < stepsForHeader.length - 1 && (
                             <div style={{
                                 position: 'absolute',
                                 top: '20px',
                                 left: 'calc(50% + 25px)',
                                 right: 'calc(-50% + 25px)',
                                 height: '2px',
-                                background: step > i + 1 ? 'var(--secondary)' : 'rgba(255,255,255,0.1)'
+                                background: step > actualStep ? 'var(--secondary)' : 'rgba(255,255,255,0.1)'
                             }} />
                         )}
                     </div>
-                ))}
+                    );
+                })}
             </div>
 
             <AnimatePresence mode="wait">

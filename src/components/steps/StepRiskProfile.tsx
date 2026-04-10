@@ -64,7 +64,8 @@ const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPre
     const allAnswered = answeredCount === questions.length;
     const firstUnansweredIndex = questions.findIndex((q) => typeof answers[q.id] !== 'number');
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(firstUnansweredIndex >= 0 ? firstUnansweredIndex : 0);
-    const calculateTriggeredRef = useRef(false);
+    /** Без этого при вызове onComplete сразу после setData родитель ещё со старым data — расчёт отваливается по проверке анкеты. */
+    const pendingCompleteRef = useRef(false);
 
     useEffect(() => {
         if (allAnswered) return;
@@ -74,8 +75,18 @@ const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPre
         }
     }, [answers, currentQuestionIndex, allAnswered]);
 
+    useEffect(() => {
+        if (!allAnswered) {
+            pendingCompleteRef.current = false;
+            return;
+        }
+        if (loading) return;
+        if (!pendingCompleteRef.current) return;
+        pendingCompleteRef.current = false;
+        onComplete();
+    }, [allAnswered, loading, onComplete]);
+
     const setAnswer = (questionId: string, points: number) => {
-        let justCompletedAll = false;
         setData((prev) => {
             const nextAnswers = {
                 ...prev.riskProfileAnswers,
@@ -85,7 +96,6 @@ const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPre
             const answered = Object.values(nextAnswers).filter((value) => typeof value === 'number').length || 1;
             const avg = total / answered;
             const nextProfile = avg >= 4 ? 'AGGRESSIVE' : avg >= 2.5 ? 'BALANCED' : 'CONSERVATIVE';
-            justCompletedAll = questions.every((q) => typeof nextAnswers[q.id] === 'number');
             return {
                 ...prev,
                 riskProfile: nextProfile,
@@ -93,14 +103,17 @@ const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPre
             };
         });
 
-        if (justCompletedAll && !loading && !calculateTriggeredRef.current) {
-            calculateTriggeredRef.current = true;
-            queueMicrotask(() => onComplete());
-        }
-
         const currentIdx = questions.findIndex((q) => q.id === questionId);
         const nextIdx = questions.findIndex((q, idx) => idx > currentIdx && typeof answers[q.id] !== 'number');
         if (nextIdx >= 0) setCurrentQuestionIndex(nextIdx);
+
+        const wasAllAnswered = questions.every((q) => typeof answers[q.id] === 'number');
+        const willCompleteAll = questions.every((q) =>
+            q.id === questionId ? true : typeof answers[q.id] === 'number'
+        );
+        if (!wasAllAnswered && willCompleteAll && !loading) {
+            pendingCompleteRef.current = true;
+        }
     };
 
     const currentQuestion = questions[currentQuestionIndex];
@@ -138,7 +151,7 @@ const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPre
                         maxWidth: '620px',
                         fontWeight: '500'
                     }}>
-                        Что бы правильно создать финансовый план, надо обязательно сделать Риск-профилирование.
+                        Чтобы правильно создать финансовый план, надо обязательно сделать Риск-профилирование.
                     </div>
                 </div>
             </div>
@@ -186,16 +199,27 @@ const StepRiskProfile: React.FC<StepProps> = ({ data, setData, onComplete, onPre
                 </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px' }}>
-                <button className="btn-secondary" style={{ flex: 1 }} onClick={onPrev} disabled={loading}>Назад</button>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                <button className="btn-secondary" style={{ flex: 1, minWidth: 120 }} onClick={onPrev} disabled={loading}>Назад</button>
                 {currentQuestionIndex > 0 && (
                     <button
                         className="btn-secondary"
-                        style={{ flex: 1 }}
+                        style={{ flex: 1, minWidth: 120 }}
                         onClick={() => setCurrentQuestionIndex((prev) => Math.max(0, prev - 1))}
                         disabled={loading}
                     >
                         Предыдущий вопрос
+                    </button>
+                )}
+                {allAnswered && (
+                    <button
+                        className="btn-primary"
+                        type="button"
+                        style={{ flex: '1 1 100%', minWidth: 200 }}
+                        onClick={() => onComplete()}
+                        disabled={loading}
+                    >
+                        Рассчитать план
                     </button>
                 )}
             </div>

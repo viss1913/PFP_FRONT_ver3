@@ -64,6 +64,10 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
     const formatNumber = (val: number) => new Intl.NumberFormat('ru-RU').format(Math.round(val));
     const parseNumber = (val: string) => Number(val.replace(/\D/g, '')) || 0;
 
+    if (!showLifeInsuranceUi) {
+        return null;
+    }
+
     return (
         <div>
             <div style={{ marginBottom: '30px' }}>
@@ -97,11 +101,9 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
                         maxWidth: '620px',
                         fontWeight: '500'
                     }}>
-                        {!showLifeInsuranceUi
-                            ? `Если капитал меньше ${formatCurrency(CAPITAL_FLOOR)}, блок Защиты Жизни не показываем — лимит 0 ₽. Можно сразу жать «Далее».`
-                            : MAX_LIMIT <= 0
-                                ? 'После вычета финансового резерва для страховой суммы не остаётся запаса — верхняя граница 0 ₽.'
-                                : `Давайте еще создадим резерв для Защиты Жизни. Я рекомендую создать доп резерв в размере ${formatCurrency(recommendedLimit)}.`}
+                        {MAX_LIMIT <= 0
+                            ? 'После вычета финансового резерва для страховой суммы не остаётся запаса — верхняя граница 0 ₽.'
+                            : `Давайте еще создадим резерв для Защиты Жизни. Я рекомендую создать доп резерв в размере ${formatCurrency(recommendedLimit)}.`}
                     </div>
                 </div>
             </div>
