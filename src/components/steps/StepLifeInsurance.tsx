@@ -14,8 +14,6 @@ const LIFE_CAP_CEILING = 10_000_000;
 const STEP = 50_000;
 
 const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, onNext, onPrev }) => {
-    const [limit, setLimit] = useState<number>(data.lifeInsuranceLimit !== undefined ? data.lifeInsuranceLimit : 0);
-
     /** Тот же пул, что в StepFinReserve: активы или ввод по «Сохранить и преумножить» / Рента (без подмешивания финрезерва). */
     const assetsCapital = (data.assets || []).reduce((sum, a) => sum + (a.current_value || 0), 0);
     const investmentOrRentGoalCapital = (data.goals || [])
@@ -32,6 +30,12 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
 
     const MIN_LIMIT = 0;
     const MAX_LIMIT = maxLifeFromFormula;
+
+    const [limit, setLimit] = useState<number>(() => {
+        const fromData = data.lifeInsuranceLimit;
+        if (fromData !== undefined && fromData !== null) return fromData;
+        return recommendedLimit > 0 ? recommendedLimit : 0;
+    });
 
     useEffect(() => {
         setData(prev => ({
@@ -52,13 +56,6 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
             setLimit(maxLifeFromFormula);
         }
     }, [showLifeInsuranceUi, maxLifeFromFormula, limit]);
-
-    useEffect(() => {
-        if (!showLifeInsuranceUi) return;
-        if (!data.lifeInsuranceLimit && recommendedLimit > 0) {
-            setLimit(recommendedLimit);
-        }
-    }, [showLifeInsuranceUi, recommendedLimit, data.lifeInsuranceLimit]);
 
     const formatCurrency = (val: number) => new Intl.NumberFormat('ru-RU').format(Math.round(val)) + ' ₽';
     const formatNumber = (val: number) => new Intl.NumberFormat('ru-RU').format(Math.round(val));

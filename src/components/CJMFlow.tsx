@@ -93,11 +93,9 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
         goalName: 'Инвестиции',
         targetAmount: 1500000,
         termMonths: 60,
-        initialCapital: 100000,
         monthlyReplenishment: 5000,
         avgMonthlyIncome: 150000,
         riskProfile: 'BALANCED',
-        lifeInsuranceLimit: 0,
         familyProfile: {
             marital_status: 'married',
             children: [],

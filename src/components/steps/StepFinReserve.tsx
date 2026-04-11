@@ -18,8 +18,19 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
         .reduce((sum, g) => sum + (g.initial_capital || 0), 0);
     const totalLiquidCapital = assetsCapital > 0 ? assetsCapital : investmentOrRentGoalCapital;
 
+    /** По умолчанию: min(доход × 3, 20% доступного капитала), в рублях. */
+    const defaultInitialFinReserve = Math.max(
+        0,
+        Math.min(
+            Math.round((data.avgMonthlyIncome || 0) * 3),
+            Math.round(totalLiquidCapital * 0.2)
+        )
+    );
+
     // Initialize with default values if not set
-    const [initialCapital, setInitialCapital] = useState<number>(data.initialCapital || 0);
+    const [initialCapital, setInitialCapital] = useState<number>(
+        data.initialCapital ?? defaultInitialFinReserve
+    );
     const [monthlyReplenishment, setMonthlyReplenishment] = useState<number>(
         data.monthlyReplenishment && data.monthlyReplenishment > 0 ? data.monthlyReplenishment : 5000
     );
