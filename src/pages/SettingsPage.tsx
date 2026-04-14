@@ -2588,8 +2588,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         }
         const trimmedContent = chatBrainForm.content.trim();
         const isCreate = editingChatBrainId == null;
+        const isMainContextEdit =
+            !isCreate &&
+            chatBrainForm.title.trim().toLowerCase().replace(/\s+/g, ' ').includes('главный контекст');
         if (isCreate && !trimmedContent && !chatBrainDocument) {
             setError('Нужно заполнить содержимое или прикрепить документ.');
+            return;
+        }
+        if (!isCreate && chatBrainDocument && !isMainContextEdit) {
+            setError('Загрузка файла доступна только для Главного контекста.');
             return;
         }
         try {
@@ -2601,7 +2608,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                 is_active: chatBrainForm.is_active,
                 priority: Number(chatBrainForm.priority) || 0,
             };
-            if (editingChatBrainId != null) {
+            if (editingChatBrainId != null && !(isMainContextEdit && chatBrainDocument)) {
                 await agentLkApi.updateChatBrainContext(editingChatBrainId, payload);
             } else {
                 await agentLkApi.createChatBrainContext({ ...payload, document: chatBrainDocument ?? undefined });
@@ -6950,7 +6957,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                         placeholder="Подробный промпт для чат-ассистента (или приложи документ ниже)..."
                                     />
                                 </div>
-                                {editingChatBrainId == null && (
+                                {editingChatBrainId != null &&
+                                chatBrainForm.title.trim().toLowerCase().replace(/\s+/g, ' ').includes('главный контекст') ? (
                                     <div>
                                         <label style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
                                             Документ (опционально, если есть текст)
@@ -6977,7 +6985,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                             </div>
                                         )}
                                     </div>
-                                )}
+                                ) : editingChatBrainId != null ? (
+                                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                        Загрузка документа доступна только для Главного контекста.
+                                    </div>
+                                ) : null}
                                 <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px' }}>
                                         <input
