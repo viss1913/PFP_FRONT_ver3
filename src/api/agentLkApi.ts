@@ -273,6 +273,8 @@ export interface ChatBrainContextDocument {
     original_filename?: string;
     mime_type?: string;
     file_size?: number;
+    size_bytes?: number;
+    text_length?: number;
     extracted_text?: string;
     is_active?: boolean;
     created_at?: string;

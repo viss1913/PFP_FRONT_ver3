@@ -554,6 +554,19 @@ function formatComonMetricCell(key: string, v: unknown): string {
     return String(v);
 }
 
+function formatDocumentSize(bytes?: number): string {
+    if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) return '—';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function normalizeChatDocTextLength(doc: ChatBrainContextDocument): number | null {
+    if (typeof doc.text_length === 'number' && Number.isFinite(doc.text_length)) return doc.text_length;
+    if (typeof doc.extracted_text === 'string') return doc.extracted_text.length;
+    return null;
+}
+
 type ComonFormState = {
     comon_url: string;
     name: string;
@@ -1165,6 +1178,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                 ]);
                 setChatBrainContexts(ctx);
                 setChatStages(st);
+                await loadChatBrainDocumentsForContexts(ctx);
             } catch (e) {
                 console.error('Failed to load AI B2C chat:', e);
                 setError('Не удалось загрузить AI B2C (чат). Проверьте API.');
@@ -1463,6 +1477,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     const [chatBrainDeletingDocId, setChatBrainDeletingDocId] = useState<string | null>(null);
     const [chatBrainSelectedDoc, setChatBrainSelectedDoc] = useState<ChatBrainContextDocument | null>(null);
     const [chatBrainViewingDocId, setChatBrainViewingDocId] = useState<string | null>(null);
+    const [chatDocumentsByContextId, setChatDocumentsByContextId] = useState<Record<string, ChatBrainContextDocument[]>>({});
     const [chatStageModalOpen, setChatStageModalOpen] = useState(false);
     const [editingChatStageId, setEditingChatStageId] = useState<number | string | null>(null);
     const [chatStageForm, setChatStageForm] = useState<{
@@ -2562,11 +2577,31 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         setChatBrainSelectedDoc(null);
         setChatBrainModalOpen(true);
     };
+    const loadChatBrainDocumentsForContexts = async (contexts: ConstructorBrainContext[]) => {
+        if (!contexts.length) {
+            setChatDocumentsByContextId({});
+            return;
+        }
+        const entries = await Promise.all(
+            contexts.map(async (context) => {
+                try {
+                    const docs = await agentLkApi.getChatBrainContextDocuments(context.id);
+                    return [String(context.id), Array.isArray(docs) ? docs : []] as const;
+                } catch (e) {
+                    console.error('Failed to load documents for context:', context.id, e);
+                    return [String(context.id), []] as const;
+                }
+            }),
+        );
+        setChatDocumentsByContextId(Object.fromEntries(entries));
+    };
     const loadChatBrainDocuments = async (contextId: number | string, includeInactive = false) => {
         setChatBrainDocumentsLoading(true);
         try {
             const docs = await agentLkApi.getChatBrainContextDocuments(contextId, includeInactive);
-            setChatBrainDocuments(Array.isArray(docs) ? docs : []);
+            const safeDocs = Array.isArray(docs) ? docs : [];
+            setChatBrainDocuments(safeDocs);
+            setChatDocumentsByContextId((prev) => ({ ...prev, [String(contextId)]: safeDocs.filter((d) => d.is_active !== false) }));
         } catch (e) {
             console.error('Failed to load chat brain documents:', e);
             setError('Не удалось загрузить документы контекста.');
@@ -2632,6 +2667,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             }
             const ctx = await agentLkApi.getChatBrainContexts();
             setChatBrainContexts(ctx);
+            await loadChatBrainDocumentsForContexts(ctx);
             setChatBrainDocument(null);
             setChatBrainDocuments([]);
             setChatBrainSelectedDoc(null);
@@ -2755,6 +2791,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             await agentLkApi.deleteChatBrainContext(id);
             const ctx = await agentLkApi.getChatBrainContexts();
             setChatBrainContexts(ctx);
+            await loadChatBrainDocumentsForContexts(ctx);
         } catch (e) {
             console.error('Failed to delete chat brain context:', e);
             setError('Не удалось удалить чат-контекст.');
@@ -3518,6 +3555,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                             + Контекст для чата
                                         </button>
                                     </div>
+                                    <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px' }}>
+                                        ИИ использует base content + тексты активных документов.
+                                    </div>
                                     {(chatBrainContexts ?? []).length === 0 ? (
                                         <p style={{ fontSize: '14px', color: '#9ca3af' }}>
                                             Нет чат-контекстов. Добавьте первый.
@@ -3548,7 +3588,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                         gap: '8px',
                                                     }}
                                                 >
-                                                    <div>
+                                                    <div style={{ minWidth: '260px', flex: '1 1 auto' }}>
                                                         <span
                                                             style={{ fontWeight: 600, color: '#111' }}
                                                         >
@@ -3576,6 +3616,36 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                 неактивен
                                                             </span>
                                                         )}
+                                                        <div style={{ marginTop: '6px', fontSize: '12px', color: '#4b5563' }}>
+                                                            base content: {String(c.content ?? '').trim() || '—'}
+                                                        </div>
+                                                        <div style={{ marginTop: '8px', display: 'grid', gap: '6px' }}>
+                                                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#374151' }}>
+                                                                Документы ({(chatDocumentsByContextId[String(c.id)] ?? []).length})
+                                                            </div>
+                                                            {(chatDocumentsByContextId[String(c.id)] ?? []).length === 0 ? (
+                                                                <div style={{ fontSize: '12px', color: '#9ca3af' }}>Нет активных документов.</div>
+                                                            ) : (
+                                                                (chatDocumentsByContextId[String(c.id)] ?? []).map((doc) => (
+                                                                    <div key={String(doc.id)} style={{ fontSize: '12px', color: '#374151' }}>
+                                                                        <span style={{ fontWeight: 500 }}>
+                                                                            {String(doc.original_filename ?? doc.filename ?? `Документ ${doc.id}`)}
+                                                                        </span>
+                                                                        <span style={{ marginLeft: '8px', color: '#6b7280' }}>
+                                                                            размер {formatDocumentSize(doc.size_bytes ?? doc.file_size)}
+                                                                        </span>
+                                                                        <span style={{ marginLeft: '8px', color: '#6b7280' }}>
+                                                                            текст {normalizeChatDocTextLength(doc) ?? '—'} симв.
+                                                                        </span>
+                                                                        <span style={{ marginLeft: '8px', color: '#6b7280' }}>
+                                                                            {doc.created_at
+                                                                                ? new Date(doc.created_at).toLocaleString('ru-RU')
+                                                                                : 'дата —'}
+                                                                        </span>
+                                                                    </div>
+                                                                ))
+                                                            )}
+                                                        </div>
                                                     </div>
                                                     <div style={{ display: 'flex', gap: '8px' }}>
                                                         <button
