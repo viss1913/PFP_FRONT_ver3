@@ -250,9 +250,13 @@ export interface ConstructorBrainContext {
 
 export interface ConstructorBrainContextCreate {
     title: string;
-    content: string;
+    content?: string;
     is_active?: boolean;
     priority?: number;
+}
+
+export interface ConstructorBrainContextCreateWithDocument extends ConstructorBrainContextCreate {
+    document?: File;
 }
 
 export interface ConstructorBrainContextUpdate {
@@ -683,8 +687,33 @@ export const agentLkApi = {
         return response.data;
     },
 
-    createChatBrainContext: async (payload: ConstructorBrainContextCreate): Promise<unknown> => {
-        const response = await axios.post(`${API_BASE}/constructor/brain-contexts`, payload, {
+    createChatBrainContext: async (payload: ConstructorBrainContextCreateWithDocument): Promise<unknown> => {
+        const hasDocument = payload.document instanceof File;
+        const endpoint = `${API_BASE}/ai-b2c-chat/brain-contexts`;
+        if (hasDocument) {
+            const formData = new FormData();
+            formData.append('title', payload.title);
+            if (typeof payload.content === 'string' && payload.content.trim()) {
+                formData.append('content', payload.content);
+            }
+            formData.append('document', payload.document as File);
+            if (typeof payload.is_active === 'boolean') {
+                formData.append('is_active', String(payload.is_active));
+            }
+            if (typeof payload.priority === 'number' && Number.isFinite(payload.priority)) {
+                formData.append('priority', String(payload.priority));
+            }
+            const token = localStorage.getItem('token');
+            const response = await axios.post(endpoint, formData, {
+                headers: {
+                    Authorization: token ? `Bearer ${token}` : '',
+                    'X-Project-Key': PROJECT_KEY,
+                },
+            });
+            return response.data;
+        }
+        const { document: _document, ...jsonPayload } = payload;
+        const response = await axios.post(endpoint, jsonPayload, {
             headers: getHeaders(),
         });
         return response.data;

@@ -139,6 +139,9 @@ const GOAL_REPORT_TEMPLATE_IDS: readonly string[] = [
     'report_other',
 ];
 
+const CHAT_BRAIN_ALLOWED_DOCUMENT_EXTENSIONS = new Set(['pdf', 'doc', 'docx', 'txt', 'md', 'rtf']);
+const CHAT_BRAIN_MAX_DOCUMENT_SIZE_BYTES = 8 * 1024 * 1024;
+
 const FIXED_REPORT_NAV_ORDER: readonly string[] = [
     PDF_COVER_TEMPLATE_ID,
     PDF_SUMMARY_TEMPLATE_ID,
@@ -1452,6 +1455,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         is_active: true,
         priority: '10',
     });
+    const [chatBrainDocument, setChatBrainDocument] = useState<File | null>(null);
     const [chatStageModalOpen, setChatStageModalOpen] = useState(false);
     const [editingChatStageId, setEditingChatStageId] = useState<number | string | null>(null);
     const [chatStageForm, setChatStageForm] = useState<{
@@ -2546,6 +2550,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     const openChatBrainCreate = () => {
         setEditingChatBrainId(null);
         setChatBrainForm({ title: '', content: '', is_active: true, priority: '10' });
+        setChatBrainDocument(null);
         setChatBrainModalOpen(true);
     };
     const openChatBrainEdit = (c: ConstructorBrainContext) => {
@@ -2556,11 +2561,35 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             is_active: c.is_active !== false,
             priority: String(c.priority ?? 10),
         });
+        setChatBrainDocument(null);
         setChatBrainModalOpen(true);
+    };
+    const onChatBrainDocumentChange = (file: File | null) => {
+        if (!file) {
+            setChatBrainDocument(null);
+            return;
+        }
+        const extension = file.name.split('.').pop()?.trim().toLowerCase() ?? '';
+        if (!CHAT_BRAIN_ALLOWED_DOCUMENT_EXTENSIONS.has(extension)) {
+            setError('Неподдерживаемый файл. Разрешены: pdf, doc, docx, txt, md, rtf.');
+            return;
+        }
+        if (file.size > CHAT_BRAIN_MAX_DOCUMENT_SIZE_BYTES) {
+            setError('Файл слишком большой. Лимит: 8MB.');
+            return;
+        }
+        setError(null);
+        setChatBrainDocument(file);
     };
     const saveChatBrainContext = async () => {
         if (!chatBrainForm.title.trim()) {
             setError('Введите название контекста для чата.');
+            return;
+        }
+        const trimmedContent = chatBrainForm.content.trim();
+        const isCreate = editingChatBrainId == null;
+        if (isCreate && !trimmedContent && !chatBrainDocument) {
+            setError('Нужно заполнить содержимое или прикрепить документ.');
             return;
         }
         try {
@@ -2568,21 +2597,75 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             setError(null);
             const payload: ConstructorBrainContextCreate = {
                 title: chatBrainForm.title.trim(),
-                content: chatBrainForm.content.trim(),
+                content: trimmedContent || undefined,
                 is_active: chatBrainForm.is_active,
                 priority: Number(chatBrainForm.priority) || 0,
             };
             if (editingChatBrainId != null) {
                 await agentLkApi.updateChatBrainContext(editingChatBrainId, payload);
             } else {
-                await agentLkApi.createChatBrainContext(payload);
+                await agentLkApi.createChatBrainContext({ ...payload, document: chatBrainDocument ?? undefined });
             }
             const ctx = await agentLkApi.getChatBrainContexts();
             setChatBrainContexts(ctx);
+            setChatBrainDocument(null);
             setChatBrainModalOpen(false);
         } catch (e) {
             console.error('Failed to save chat brain context:', e);
-            setError('Не удалось сохранить чат-контекст. Проверьте API.');
+            const status = (e as { response?: { status?: number } })?.response?.status;
+            const responseData = (e as { response?: { data?: unknown } })?.response?.data;
+            let backendMessage = '';
+            if (typeof responseData === 'string') {
+                backendMessage = responseData.trim();
+            } else if (responseData && typeof responseData === 'object') {
+                const dataObj = responseData as Record<string, unknown>;
+                const direct = dataObj.message ?? dataObj.error ?? dataObj.detail;
+                if (typeof direct === 'string') {
+                    backendMessage = direct.trim();
+                } else if (Array.isArray(dataObj.errors) && dataObj.errors.length > 0) {
+                    const firstError = dataObj.errors[0];
+                    if (typeof firstError === 'string') {
+                        backendMessage = firstError.trim();
+                    } else if (firstError && typeof firstError === 'object') {
+                        const nested = (firstError as Record<string, unknown>).message;
+                        if (typeof nested === 'string') backendMessage = nested.trim();
+                    }
+                }
+            }
+            const backendMessageLower = backendMessage.toLowerCase();
+            if (status === 400) {
+                if (backendMessageLower.includes('title')) {
+                    setError('Нужно указать название контекста (title).');
+                } else if (
+                    backendMessageLower.includes('content') ||
+                    backendMessageLower.includes('document') ||
+                    backendMessageLower.includes('ни') ||
+                    backendMessageLower.includes('either')
+                ) {
+                    setError('Передай хотя бы что-то одно: текст в "Содержимое" или файл-документ.');
+                } else if (backendMessageLower.includes('type') || backendMessageLower.includes('mime') || backendMessageLower.includes('format')) {
+                    setError('Формат файла не поддерживается. Разрешены: pdf, doc, docx, txt, md, rtf.');
+                } else if (
+                    backendMessageLower.includes('8mb') ||
+                    backendMessageLower.includes('8 mb') ||
+                    backendMessageLower.includes('size') ||
+                    backendMessageLower.includes('слишком большой')
+                ) {
+                    setError('Файл больше 8MB, ужми его и повтори.');
+                } else if (
+                    backendMessageLower.includes('extract') ||
+                    backendMessageLower.includes('извлеч') ||
+                    backendMessageLower.includes('parse')
+                ) {
+                    setError('Не получилось вытащить текст из документа. Попробуй другой файл.');
+                } else if (backendMessage) {
+                    setError(`Не удалось сохранить чат-контекст: ${backendMessage}`);
+                } else {
+                    setError('Не удалось сохранить чат-контекст. Проверь поля формы.');
+                }
+            } else {
+                setError(backendMessage ? `Не удалось сохранить чат-контекст: ${backendMessage}` : 'Не удалось сохранить чат-контекст. Проверьте API.');
+            }
         } finally {
             setSavingAiB2c(false);
         }
@@ -6864,9 +6947,37 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                         value={chatBrainForm.content}
                                         onChange={(e) => setChatBrainForm((prev) => ({ ...prev, content: e.target.value }))}
                                         style={{ width: '100%', padding: '12px 14px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '15px', lineHeight: 1.5, minHeight: '260px', resize: 'vertical' }}
-                                        placeholder="Подробный промпт для чат-ассистента..."
+                                        placeholder="Подробный промпт для чат-ассистента (или приложи документ ниже)..."
                                     />
                                 </div>
+                                {editingChatBrainId == null && (
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
+                                            Документ (опционально, если есть текст)
+                                        </label>
+                                        <input
+                                            type="file"
+                                            accept=".pdf,.doc,.docx,.txt,.md,.rtf"
+                                            onChange={(e) => onChatBrainDocumentChange(e.target.files?.[0] ?? null)}
+                                            style={{ fontSize: '13px' }}
+                                        />
+                                        <div style={{ marginTop: '4px', fontSize: '12px', color: '#6b7280' }}>
+                                            Форматы: pdf/doc/docx/txt/md/rtf, до 8MB. Если поле "Содержимое" пустое, документ обязателен.
+                                        </div>
+                                        {chatBrainDocument && (
+                                            <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#111827' }}>
+                                                <span>{chatBrainDocument.name}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setChatBrainDocument(null)}
+                                                    style={{ border: 'none', background: 'transparent', color: '#6b7280', cursor: 'pointer', padding: 0 }}
+                                                >
+                                                    Убрать
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                                 <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px' }}>
                                         <input
