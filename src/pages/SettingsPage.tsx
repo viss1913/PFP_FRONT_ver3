@@ -29,6 +29,7 @@ import {
     type AiB2cBrainContextCreate,
     type ConstructorBrainContext,
     type ConstructorBrainContextCreate,
+    type ChatBrainContextDocument,
     type AiB2cStage,
     type AiB2cStageCreate,
     type ConstructorCommand,
@@ -1456,6 +1457,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         priority: '10',
     });
     const [chatBrainDocument, setChatBrainDocument] = useState<File | null>(null);
+    const [chatBrainDocuments, setChatBrainDocuments] = useState<ChatBrainContextDocument[]>([]);
+    const [chatBrainDocumentsLoading, setChatBrainDocumentsLoading] = useState(false);
+    const [chatBrainDocumentUploading, setChatBrainDocumentUploading] = useState(false);
+    const [chatBrainDeletingDocId, setChatBrainDeletingDocId] = useState<string | null>(null);
+    const [chatBrainSelectedDoc, setChatBrainSelectedDoc] = useState<ChatBrainContextDocument | null>(null);
+    const [chatBrainViewingDocId, setChatBrainViewingDocId] = useState<string | null>(null);
     const [chatStageModalOpen, setChatStageModalOpen] = useState(false);
     const [editingChatStageId, setEditingChatStageId] = useState<number | string | null>(null);
     const [chatStageForm, setChatStageForm] = useState<{
@@ -2551,9 +2558,23 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         setEditingChatBrainId(null);
         setChatBrainForm({ title: '', content: '', is_active: true, priority: '10' });
         setChatBrainDocument(null);
+        setChatBrainDocuments([]);
+        setChatBrainSelectedDoc(null);
         setChatBrainModalOpen(true);
     };
-    const openChatBrainEdit = (c: ConstructorBrainContext) => {
+    const loadChatBrainDocuments = async (contextId: number | string, includeInactive = false) => {
+        setChatBrainDocumentsLoading(true);
+        try {
+            const docs = await agentLkApi.getChatBrainContextDocuments(contextId, includeInactive);
+            setChatBrainDocuments(Array.isArray(docs) ? docs : []);
+        } catch (e) {
+            console.error('Failed to load chat brain documents:', e);
+            setError('Не удалось загрузить документы контекста.');
+        } finally {
+            setChatBrainDocumentsLoading(false);
+        }
+    };
+    const openChatBrainEdit = async (c: ConstructorBrainContext) => {
         setEditingChatBrainId(c.id);
         setChatBrainForm({
             title: (c.title ?? '').toString(),
@@ -2562,7 +2583,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             priority: String(c.priority ?? 10),
         });
         setChatBrainDocument(null);
+        setChatBrainSelectedDoc(null);
+        setChatBrainDocuments([]);
         setChatBrainModalOpen(true);
+        await loadChatBrainDocuments(c.id);
     };
     const onChatBrainDocumentChange = (file: File | null) => {
         if (!file) {
@@ -2588,15 +2612,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         }
         const trimmedContent = chatBrainForm.content.trim();
         const isCreate = editingChatBrainId == null;
-        const isMainContextEdit =
-            !isCreate &&
-            chatBrainForm.title.trim().toLowerCase().replace(/\s+/g, ' ').includes('главный контекст');
         if (isCreate && !trimmedContent && !chatBrainDocument) {
             setError('Нужно заполнить содержимое или прикрепить документ.');
-            return;
-        }
-        if (!isCreate && chatBrainDocument && !isMainContextEdit) {
-            setError('Загрузка файла доступна только для Главного контекста.');
             return;
         }
         try {
@@ -2608,7 +2625,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                 is_active: chatBrainForm.is_active,
                 priority: Number(chatBrainForm.priority) || 0,
             };
-            if (editingChatBrainId != null && !(isMainContextEdit && chatBrainDocument)) {
+            if (editingChatBrainId != null) {
                 await agentLkApi.updateChatBrainContext(editingChatBrainId, payload);
             } else {
                 await agentLkApi.createChatBrainContext({ ...payload, document: chatBrainDocument ?? undefined });
@@ -2616,6 +2633,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             const ctx = await agentLkApi.getChatBrainContexts();
             setChatBrainContexts(ctx);
             setChatBrainDocument(null);
+            setChatBrainDocuments([]);
+            setChatBrainSelectedDoc(null);
             setChatBrainModalOpen(false);
         } catch (e) {
             console.error('Failed to save chat brain context:', e);
@@ -2675,6 +2694,59 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             }
         } finally {
             setSavingAiB2c(false);
+        }
+    };
+    const uploadChatBrainDocumentToContext = async () => {
+        if (editingChatBrainId == null) {
+            setError('Сначала сохрани контекст, потом загружай документы.');
+            return;
+        }
+        if (!chatBrainDocument) {
+            setError('Сначала выбери файл документа.');
+            return;
+        }
+        try {
+            setChatBrainDocumentUploading(true);
+            setError(null);
+            await agentLkApi.uploadChatBrainContextDocument(editingChatBrainId, chatBrainDocument);
+            setChatBrainDocument(null);
+            await loadChatBrainDocuments(editingChatBrainId, true);
+        } catch (e) {
+            console.error('Failed to upload chat brain document:', e);
+            setError('Не удалось загрузить документ в контекст.');
+        } finally {
+            setChatBrainDocumentUploading(false);
+        }
+    };
+    const viewChatBrainDocument = async (docId: number | string) => {
+        if (editingChatBrainId == null) return;
+        try {
+            setChatBrainViewingDocId(String(docId));
+            setError(null);
+            const doc = await agentLkApi.getChatBrainContextDocument(editingChatBrainId, docId);
+            setChatBrainSelectedDoc(doc);
+        } catch (e) {
+            console.error('Failed to fetch chat brain document:', e);
+            setError('Не удалось открыть документ.');
+        } finally {
+            setChatBrainViewingDocId(null);
+        }
+    };
+    const deleteChatBrainDocumentFromContext = async (docId: number | string) => {
+        if (editingChatBrainId == null) return;
+        try {
+            setChatBrainDeletingDocId(String(docId));
+            setError(null);
+            await agentLkApi.deleteChatBrainContextDocument(editingChatBrainId, docId);
+            if (chatBrainSelectedDoc && String(chatBrainSelectedDoc.id) === String(docId)) {
+                setChatBrainSelectedDoc(null);
+            }
+            await loadChatBrainDocuments(editingChatBrainId, true);
+        } catch (e) {
+            console.error('Failed to delete chat brain document:', e);
+            setError('Не удалось удалить документ.');
+        } finally {
+            setChatBrainDeletingDocId(null);
         }
     };
     const deleteChatBrainContext = async (id: number | string) => {
@@ -6957,8 +7029,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                         placeholder="Подробный промпт для чат-ассистента (или приложи документ ниже)..."
                                     />
                                 </div>
-                                {editingChatBrainId != null &&
-                                chatBrainForm.title.trim().toLowerCase().replace(/\s+/g, ' ').includes('главный контекст') ? (
+                                {editingChatBrainId == null ? (
                                     <div>
                                         <label style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
                                             Документ (опционально, если есть текст)
@@ -6985,11 +7056,97 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                             </div>
                                         )}
                                     </div>
-                                ) : editingChatBrainId != null ? (
-                                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                                        Загрузка документа доступна только для Главного контекста.
+                                ) : (
+                                    <div style={{ display: 'grid', gap: '10px', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '12px' }}>
+                                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>Документы контекста</div>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                            <input
+                                                type="file"
+                                                accept=".pdf,.doc,.docx,.txt,.md,.rtf"
+                                                onChange={(e) => onChatBrainDocumentChange(e.target.files?.[0] ?? null)}
+                                                style={{ fontSize: '13px' }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={uploadChatBrainDocumentToContext}
+                                                disabled={chatBrainDocumentUploading || !chatBrainDocument}
+                                                style={{
+                                                    padding: '6px 12px',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid #d1d5db',
+                                                    background: '#fff',
+                                                    fontSize: '12px',
+                                                    cursor: chatBrainDocumentUploading || !chatBrainDocument ? 'not-allowed' : 'pointer',
+                                                    opacity: chatBrainDocumentUploading || !chatBrainDocument ? 0.6 : 1,
+                                                }}
+                                            >
+                                                {chatBrainDocumentUploading ? 'Загрузка...' : 'Загрузить документ'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => editingChatBrainId != null && loadChatBrainDocuments(editingChatBrainId, true)}
+                                                disabled={chatBrainDocumentsLoading}
+                                                style={{
+                                                    padding: '6px 12px',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid #d1d5db',
+                                                    background: '#fff',
+                                                    fontSize: '12px',
+                                                    cursor: chatBrainDocumentsLoading ? 'wait' : 'pointer',
+                                                }}
+                                            >
+                                                Обновить список
+                                            </button>
+                                        </div>
+                                        <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                            Форматы: pdf/doc/docx/txt/md/rtf, до 8MB.
+                                        </div>
+                                        {chatBrainDocumentsLoading ? (
+                                            <div style={{ fontSize: '12px', color: '#6b7280' }}>Грузим документы...</div>
+                                        ) : chatBrainDocuments.length === 0 ? (
+                                            <div style={{ fontSize: '12px', color: '#6b7280' }}>Документов пока нет.</div>
+                                        ) : (
+                                            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: '8px' }}>
+                                                {chatBrainDocuments.map((doc) => (
+                                                    <li key={String(doc.id)} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                        <div style={{ fontSize: '12px', color: '#111827' }}>
+                                                            {String(doc.original_filename ?? doc.filename ?? `Документ ${doc.id}`)}
+                                                            {doc.is_active === false ? ' (неактивен)' : ''}
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: '6px' }}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => viewChatBrainDocument(doc.id)}
+                                                                disabled={chatBrainViewingDocId === String(doc.id)}
+                                                                style={{ padding: '4px 10px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#fff', fontSize: '12px', cursor: chatBrainViewingDocId === String(doc.id) ? 'wait' : 'pointer' }}
+                                                            >
+                                                                {chatBrainViewingDocId === String(doc.id) ? 'Открываем...' : 'Текст'}
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => deleteChatBrainDocumentFromContext(doc.id)}
+                                                                disabled={chatBrainDeletingDocId === String(doc.id)}
+                                                                style={{ padding: '4px 10px', borderRadius: '8px', border: '1px solid #fecaca', background: '#fef2f2', fontSize: '12px', cursor: chatBrainDeletingDocId === String(doc.id) ? 'wait' : 'pointer', color: '#b91c1c' }}
+                                                            >
+                                                                {chatBrainDeletingDocId === String(doc.id) ? 'Удаляем...' : 'Удалить'}
+                                                            </button>
+                                                        </div>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                        {chatBrainSelectedDoc && (
+                                            <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '10px', background: '#f9fafb' }}>
+                                                <div style={{ fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
+                                                    {String(chatBrainSelectedDoc.original_filename ?? chatBrainSelectedDoc.filename ?? `Документ ${chatBrainSelectedDoc.id}`)}
+                                                </div>
+                                                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: '12px', lineHeight: 1.5, maxHeight: '220px', overflow: 'auto' }}>
+                                                    {String(chatBrainSelectedDoc.extracted_text ?? 'Пустой extracted_text')}
+                                                </pre>
+                                            </div>
+                                        )}
                                     </div>
-                                ) : null}
+                                )}
                                 <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px' }}>
                                         <input

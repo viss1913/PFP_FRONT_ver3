@@ -266,6 +266,20 @@ export interface ConstructorBrainContextUpdate {
     priority?: number;
 }
 
+export interface ChatBrainContextDocument {
+    id: number | string;
+    brain_context_id?: number | string;
+    filename?: string;
+    original_filename?: string;
+    mime_type?: string;
+    file_size?: number;
+    extracted_text?: string;
+    is_active?: boolean;
+    created_at?: string;
+    updated_at?: string;
+    [key: string]: unknown;
+}
+
 export interface ConstructorCommand {
     id: number | string;
     bot_id?: number | null;
@@ -681,7 +695,7 @@ export const agentLkApi = {
     // --- Constructor ИИ: brain-contexts ---
 
     getChatBrainContexts: async (): Promise<ConstructorBrainContext[]> => {
-        const response = await axios.get(`${API_BASE}/constructor/brain-contexts`, {
+        const response = await axios.get(`${API_BASE}/ai-b2c-chat/brain-contexts`, {
             headers: getHeaders(),
         });
         return response.data;
@@ -723,16 +737,63 @@ export const agentLkApi = {
         id: number | string,
         payload: ConstructorBrainContextUpdate,
     ): Promise<unknown> => {
-        const response = await axios.put(`${API_BASE}/constructor/brain-contexts/${id}`, payload, {
+        const response = await axios.put(`${API_BASE}/ai-b2c-chat/brain-contexts/${id}`, payload, {
             headers: getHeaders(),
         });
         return response.data;
     },
 
     deleteChatBrainContext: async (id: number | string): Promise<void> => {
-        await axios.delete(`${API_BASE}/constructor/brain-contexts/${id}`, {
+        await axios.delete(`${API_BASE}/ai-b2c-chat/brain-contexts/${id}`, {
             headers: getHeaders(),
         });
+    },
+
+    getChatBrainContextDocuments: async (
+        id: number | string,
+        includeInactive = false,
+    ): Promise<ChatBrainContextDocument[]> => {
+        const response = await axios.get(`${API_BASE}/ai-b2c-chat/brain-contexts/${id}/documents`, {
+            params: includeInactive ? { include_inactive: true } : undefined,
+            headers: getHeaders(),
+        });
+        return response.data;
+    },
+
+    uploadChatBrainContextDocument: async (
+        id: number | string,
+        document: File,
+    ): Promise<ChatBrainContextDocument> => {
+        const formData = new FormData();
+        formData.append('document', document);
+        const token = localStorage.getItem('token');
+        const response = await axios.post(`${API_BASE}/ai-b2c-chat/brain-contexts/${id}/documents`, formData, {
+            headers: {
+                Authorization: token ? `Bearer ${token}` : '',
+                'X-Project-Key': PROJECT_KEY,
+            },
+        });
+        return response.data;
+    },
+
+    getChatBrainContextDocument: async (
+        id: number | string,
+        docId: number | string,
+    ): Promise<ChatBrainContextDocument> => {
+        const response = await axios.get(`${API_BASE}/ai-b2c-chat/brain-contexts/${id}/documents/${docId}`, {
+            headers: getHeaders(),
+        });
+        return response.data;
+    },
+
+    deleteChatBrainContextDocument: async (id: number | string, docId: number | string): Promise<boolean> => {
+        const response = await axios.delete(`${API_BASE}/ai-b2c-chat/brain-contexts/${id}/documents/${docId}`, {
+            headers: getHeaders(),
+        });
+        if (response?.data && typeof response.data === 'object' && 'success' in response.data) {
+            return Boolean((response.data as { success?: unknown }).success);
+        }
+        return true;
     },
 
     // --- Constructor ИИ: commands (stages) ---
