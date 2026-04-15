@@ -45,6 +45,8 @@ const createInitialReportState = (): ReportState => ({
 
 const PDF_URL_POLL_INTERVAL_MS = 2500;
 const PDF_URL_POLL_MAX_ATTEMPTS = 60;
+const TRANSIENT_PDF_ERROR_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
+const MAX_TRANSIENT_PDF_ERRORS = 8;
 
 /**
  * pdf_url с бэка часто приходит как путь вида `.dev/pdf-reports/...` — это не URL с корня домена,
@@ -72,6 +74,14 @@ const readPdfBlobErrorMessage = async (blob: Blob): Promise<string | null> => {
         /* ignore */
     }
     return 'Не удалось скачать PDF.';
+};
+
+const isTransientPdfError = (error: unknown): boolean => {
+    if (!axios.isAxiosError(error)) return false;
+    const status = error.response?.status;
+    if (status && TRANSIENT_PDF_ERROR_STATUSES.has(status)) return true;
+    const msg = String(error.message || '').toLowerCase();
+    return msg.includes('timeout') || msg.includes('network') || msg.includes('econnreset');
 };
 
 const formatGeneratedAt = (value: string | null) => {
@@ -177,6 +187,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
             };
 
             let attempts = 0;
+            let transientErrors = 0;
             let lastLoadedRemoteUrl: string | null = null;
 
             while (!cancelled) {
@@ -185,6 +196,20 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                     meta = await clientApi.getAgentReportPdfUrl(clientId);
                 } catch (error) {
                     if (cancelled) return;
+                    if (isTransientPdfError(error)) {
+                        transientErrors += 1;
+                        if (transientErrors <= MAX_TRANSIENT_PDF_ERRORS) {
+                            setReportState((prev) => ({
+                                ...prev,
+                                metaLoading: true,
+                                pdfLoading: true,
+                                pdfProgress: null,
+                                error: null,
+                            }));
+                            await waitNextPoll();
+                            continue;
+                        }
+                    }
                     setReportState((prev) => ({
                         ...prev,
                         metaLoading: false,
@@ -217,7 +242,23 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
 
                 if (shouldRefreshBlob) {
                     setReportState((prev) => ({ ...prev, pdfLoading: true, pdfProgress: null }));
-                    const blob = await tryLoadBlobByPdfUrl(remotePdfUrl, isReady);
+                    let blob: Blob | null = null;
+                    try {
+                        blob = await tryLoadBlobByPdfUrl(remotePdfUrl, isReady);
+                    } catch (error) {
+                        if (isTransientPdfError(error) && transientErrors < MAX_TRANSIENT_PDF_ERRORS) {
+                            transientErrors += 1;
+                            setReportState((prev) => ({
+                                ...prev,
+                                pdfLoading: false,
+                                pdfProgress: null,
+                                error: null,
+                            }));
+                            await waitNextPoll();
+                            continue;
+                        }
+                        throw error;
+                    }
                     if (cancelled) return;
 
                     if (blob) {
@@ -233,6 +274,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                                 return;
                             }
                         } else {
+                            transientErrors = 0;
                             revokePdfBlobUrl();
                             const objectUrl = URL.createObjectURL(toPdfObjectBlob(blob));
                             pdfBlobUrlRef.current = objectUrl;
@@ -245,12 +287,14 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                 }
 
                 if (isReady) {
-                    if (!remotePdfUrl && !pdfBlobUrlRef.current) {
+                    if (!pdfBlobUrlRef.current) {
                         setReportState((prev) => ({
                             ...prev,
                             pdfLoading: false,
                             pdfProgress: null,
-                            error: 'Сервер не вернул ссылку на PDF.',
+                            error: remotePdfUrl
+                                ? 'PDF отмечен как готовый, но файл пока недоступен. Попробуй ещё раз через пару секунд.'
+                                : 'Сервер не вернул ссылку на PDF.',
                         }));
                     }
                     return;
