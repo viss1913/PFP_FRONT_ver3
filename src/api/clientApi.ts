@@ -29,9 +29,11 @@ export interface ReportTocItem {
 }
 
 export interface MyPlanReportPdfUrlResponse {
-    pdf_url: string;
+    status?: 'ready' | 'processing';
+    pdf_url?: string;
+    compressed?: boolean;
     toc: ReportTocItem[];
-    generated_at: string;
+    generated_at?: string;
 }
 
 /** Ответ GET /api/pfp/reports/:clientId/html (application/json). */

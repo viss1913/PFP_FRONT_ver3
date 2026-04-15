@@ -43,6 +43,9 @@ const createInitialReportState = (): ReportState => ({
     error: null,
 });
 
+const PDF_URL_POLL_INTERVAL_MS = 2500;
+const PDF_URL_POLL_MAX_ATTEMPTS = 60;
+
 /**
  * pdf_url с бэка часто приходит как путь вида `.dev/pdf-reports/...` — это не URL с корня домена,
  * а путь относительно префикса /api; иначе запрос уходит на хост/.dev/... без Bearer.
@@ -145,44 +148,10 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                 error: null,
             });
 
-            let meta: Awaited<ReturnType<typeof clientApi.getAgentReportPdfUrl>>;
-            try {
-                meta = await clientApi.getAgentReportPdfUrl(clientId);
-            } catch (error) {
-                if (cancelled) return;
-                setReportState({
-                    ...createInitialReportState(),
-                    error: getErrorMessage(error),
+            const waitNextPoll = async () =>
+                new Promise<void>((resolve) => {
+                    window.setTimeout(resolve, PDF_URL_POLL_INTERVAL_MS);
                 });
-                return;
-            }
-
-            if (cancelled) return;
-
-            const sortedToc = [...(meta.toc || [])].sort((a, b) => a.order - b.order);
-            const remotePdfUrl = meta.pdf_url?.trim();
-            if (!remotePdfUrl) {
-                setReportState({
-                    toc: sortedToc,
-                    generatedAt: meta.generated_at || null,
-                    metaLoading: false,
-                    pdfLoading: false,
-                    pdfProgress: null,
-                    error: 'Сервер не вернул ссылку на PDF.',
-                });
-                return;
-            }
-
-            setReportState({
-                toc: sortedToc,
-                generatedAt: meta.generated_at || null,
-                metaLoading: false,
-                pdfLoading: true,
-                pdfProgress: null,
-                error: null,
-            });
-
-            const fetchUrl = resolvePdfFetchUrl(remotePdfUrl);
 
             const onDlProgress = (loaded: number, total?: number) => {
                 if (cancelled) return;
@@ -194,60 +163,123 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                 }
             };
 
-            try {
-                let blob: Blob | null = null;
-
+            const tryLoadBlobByPdfUrl = async (remotePdfUrl: string, allowPdfEndpointFallback: boolean): Promise<Blob | null> => {
+                const fetchUrl = resolvePdfFetchUrl(remotePdfUrl);
                 try {
-                    blob = await clientApi.fetchReportPdfBlobFromUrl(fetchUrl, onDlProgress);
-                } catch {
-                    blob = null;
-                }
-
-                if (blob) {
+                    const blob = await clientApi.fetchReportPdfBlobFromUrl(fetchUrl, onDlProgress);
                     const jsonErr = await readPdfBlobErrorMessage(blob);
-                    if (jsonErr) blob = null;
+                    if (!jsonErr) return blob;
+                } catch {
+                    /* ignore */
                 }
+                if (!allowPdfEndpointFallback) return null;
+                return clientApi.getReportPdfBlob(clientId, { includeCover: 1, includeSummary: 1 }, onDlProgress);
+            };
 
-                if (!blob) {
-                    blob = await clientApi.getReportPdfBlob(
-                        clientId,
-                        { includeCover: 1, includeSummary: 1 },
-                        onDlProgress
-                    );
-                }
+            let attempts = 0;
+            let lastLoadedRemoteUrl: string | null = null;
 
-                if (cancelled) return;
-
-                const jsonErr = await readPdfBlobErrorMessage(blob);
-                if (jsonErr) {
+            while (!cancelled) {
+                let meta: Awaited<ReturnType<typeof clientApi.getAgentReportPdfUrl>>;
+                try {
+                    meta = await clientApi.getAgentReportPdfUrl(clientId);
+                } catch (error) {
+                    if (cancelled) return;
                     setReportState((prev) => ({
                         ...prev,
+                        metaLoading: false,
                         pdfLoading: false,
                         pdfProgress: null,
-                        error: jsonErr,
+                        error: getErrorMessage(error),
                     }));
                     return;
                 }
 
-                revokePdfBlobUrl();
-                const objectUrl = URL.createObjectURL(toPdfObjectBlob(blob));
-                pdfBlobUrlRef.current = objectUrl;
-                setPdfBlobUrl(objectUrl);
+                if (cancelled) return;
+
+                const sortedToc = [...(meta.toc || [])].sort((a, b) => a.order - b.order);
+                const remotePdfUrl = meta.pdf_url?.trim() || '';
+                const status = String(meta.status || 'ready').toLowerCase();
+                const isProcessing = status === 'processing';
+                const isReady = status === 'ready';
 
                 setReportState((prev) => ({
                     ...prev,
-                    pdfLoading: false,
-                    pdfProgress: null,
+                    toc: sortedToc,
+                    generatedAt: meta.generated_at || null,
+                    metaLoading: false,
                     error: null,
                 }));
-            } catch (error) {
-                if (cancelled) return;
-                setReportState((prev) => ({
-                    ...prev,
-                    pdfLoading: false,
-                    pdfProgress: null,
-                    error: getErrorMessage(error),
-                }));
+
+                const shouldRefreshBlob =
+                    Boolean(remotePdfUrl) &&
+                    (isReady || !pdfBlobUrlRef.current || remotePdfUrl !== lastLoadedRemoteUrl);
+
+                if (shouldRefreshBlob) {
+                    setReportState((prev) => ({ ...prev, pdfLoading: true, pdfProgress: null }));
+                    const blob = await tryLoadBlobByPdfUrl(remotePdfUrl, isReady);
+                    if (cancelled) return;
+
+                    if (blob) {
+                        const jsonErr = await readPdfBlobErrorMessage(blob);
+                        if (jsonErr) {
+                            if (isReady) {
+                                setReportState((prev) => ({
+                                    ...prev,
+                                    pdfLoading: false,
+                                    pdfProgress: null,
+                                    error: jsonErr,
+                                }));
+                                return;
+                            }
+                        } else {
+                            revokePdfBlobUrl();
+                            const objectUrl = URL.createObjectURL(toPdfObjectBlob(blob));
+                            pdfBlobUrlRef.current = objectUrl;
+                            setPdfBlobUrl(objectUrl);
+                            lastLoadedRemoteUrl = remotePdfUrl;
+                        }
+                    }
+
+                    setReportState((prev) => ({ ...prev, pdfLoading: false, pdfProgress: null }));
+                }
+
+                if (isReady) {
+                    if (!remotePdfUrl && !pdfBlobUrlRef.current) {
+                        setReportState((prev) => ({
+                            ...prev,
+                            pdfLoading: false,
+                            pdfProgress: null,
+                            error: 'Сервер не вернул ссылку на PDF.',
+                        }));
+                    }
+                    return;
+                }
+
+                if (!isProcessing) {
+                    if (!pdfBlobUrlRef.current) {
+                        setReportState((prev) => ({
+                            ...prev,
+                            pdfLoading: false,
+                            pdfProgress: null,
+                            error: 'Неизвестный статус генерации PDF.',
+                        }));
+                    }
+                    return;
+                }
+
+                attempts += 1;
+                if (attempts >= PDF_URL_POLL_MAX_ATTEMPTS) {
+                    setReportState((prev) => ({
+                        ...prev,
+                        pdfLoading: false,
+                        pdfProgress: null,
+                        error: 'PDF всё ещё генерируется. Попробуй открыть превью чуть позже.',
+                    }));
+                    return;
+                }
+
+                await waitNextPoll();
             }
         };
 
