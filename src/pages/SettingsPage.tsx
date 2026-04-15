@@ -554,19 +554,6 @@ function formatComonMetricCell(key: string, v: unknown): string {
     return String(v);
 }
 
-function formatDocumentSize(bytes?: number): string {
-    if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) return '—';
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-}
-
-function normalizeChatDocTextLength(doc: ChatBrainContextDocument): number | null {
-    if (typeof doc.text_length === 'number' && Number.isFinite(doc.text_length)) return doc.text_length;
-    if (typeof doc.extracted_text === 'string') return doc.extracted_text.length;
-    return null;
-}
-
 type ComonFormState = {
     comon_url: string;
     name: string;
@@ -1178,7 +1165,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                 ]);
                 setChatBrainContexts(ctx);
                 setChatStages(st);
-                await loadChatBrainDocumentsForContexts(ctx);
             } catch (e) {
                 console.error('Failed to load AI B2C chat:', e);
                 setError('Не удалось загрузить AI B2C (чат). Проверьте API.');
@@ -1477,7 +1463,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     const [chatBrainDeletingDocId, setChatBrainDeletingDocId] = useState<string | null>(null);
     const [chatBrainSelectedDoc, setChatBrainSelectedDoc] = useState<ChatBrainContextDocument | null>(null);
     const [chatBrainViewingDocId, setChatBrainViewingDocId] = useState<string | null>(null);
-    const [chatDocumentsByContextId, setChatDocumentsByContextId] = useState<Record<string, ChatBrainContextDocument[]>>({});
     const [chatStageModalOpen, setChatStageModalOpen] = useState(false);
     const [editingChatStageId, setEditingChatStageId] = useState<number | string | null>(null);
     const [chatStageForm, setChatStageForm] = useState<{
@@ -2577,31 +2562,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         setChatBrainSelectedDoc(null);
         setChatBrainModalOpen(true);
     };
-    const loadChatBrainDocumentsForContexts = async (contexts: ConstructorBrainContext[]) => {
-        if (!contexts.length) {
-            setChatDocumentsByContextId({});
-            return;
-        }
-        const entries = await Promise.all(
-            contexts.map(async (context) => {
-                try {
-                    const docs = await agentLkApi.getChatBrainContextDocuments(context.id);
-                    return [String(context.id), Array.isArray(docs) ? docs : []] as const;
-                } catch (e) {
-                    console.error('Failed to load documents for context:', context.id, e);
-                    return [String(context.id), []] as const;
-                }
-            }),
-        );
-        setChatDocumentsByContextId(Object.fromEntries(entries));
-    };
     const loadChatBrainDocuments = async (contextId: number | string, includeInactive = false) => {
         setChatBrainDocumentsLoading(true);
         try {
             const docs = await agentLkApi.getChatBrainContextDocuments(contextId, includeInactive);
             const safeDocs = Array.isArray(docs) ? docs : [];
             setChatBrainDocuments(safeDocs);
-            setChatDocumentsByContextId((prev) => ({ ...prev, [String(contextId)]: safeDocs.filter((d) => d.is_active !== false) }));
         } catch (e) {
             console.error('Failed to load chat brain documents:', e);
             setError('Не удалось загрузить документы контекста.');
@@ -2667,7 +2633,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             }
             const ctx = await agentLkApi.getChatBrainContexts();
             setChatBrainContexts(ctx);
-            await loadChatBrainDocumentsForContexts(ctx);
             setChatBrainDocument(null);
             setChatBrainDocuments([]);
             setChatBrainSelectedDoc(null);
@@ -2791,7 +2756,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             await agentLkApi.deleteChatBrainContext(id);
             const ctx = await agentLkApi.getChatBrainContexts();
             setChatBrainContexts(ctx);
-            await loadChatBrainDocumentsForContexts(ctx);
         } catch (e) {
             console.error('Failed to delete chat brain context:', e);
             setError('Не удалось удалить чат-контекст.');
