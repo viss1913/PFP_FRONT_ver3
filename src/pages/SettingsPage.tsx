@@ -3555,9 +3555,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                             + Контекст для чата
                                         </button>
                                     </div>
-                                    <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px' }}>
-                                        ИИ использует base content + тексты активных документов.
-                                    </div>
                                     {(chatBrainContexts ?? []).length === 0 ? (
                                         <p style={{ fontSize: '14px', color: '#9ca3af' }}>
                                             Нет чат-контекстов. Добавьте первый.
@@ -3616,36 +3613,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                 неактивен
                                                             </span>
                                                         )}
-                                                        <div style={{ marginTop: '6px', fontSize: '12px', color: '#4b5563' }}>
-                                                            base content: {String(c.content ?? '').trim() || '—'}
-                                                        </div>
-                                                        <div style={{ marginTop: '8px', display: 'grid', gap: '6px' }}>
-                                                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#374151' }}>
-                                                                Документы ({(chatDocumentsByContextId[String(c.id)] ?? []).length})
-                                                            </div>
-                                                            {(chatDocumentsByContextId[String(c.id)] ?? []).length === 0 ? (
-                                                                <div style={{ fontSize: '12px', color: '#9ca3af' }}>Нет активных документов.</div>
-                                                            ) : (
-                                                                (chatDocumentsByContextId[String(c.id)] ?? []).map((doc) => (
-                                                                    <div key={String(doc.id)} style={{ fontSize: '12px', color: '#374151' }}>
-                                                                        <span style={{ fontWeight: 500 }}>
-                                                                            {String(doc.original_filename ?? doc.filename ?? `Документ ${doc.id}`)}
-                                                                        </span>
-                                                                        <span style={{ marginLeft: '8px', color: '#6b7280' }}>
-                                                                            размер {formatDocumentSize(doc.size_bytes ?? doc.file_size)}
-                                                                        </span>
-                                                                        <span style={{ marginLeft: '8px', color: '#6b7280' }}>
-                                                                            текст {normalizeChatDocTextLength(doc) ?? '—'} симв.
-                                                                        </span>
-                                                                        <span style={{ marginLeft: '8px', color: '#6b7280' }}>
-                                                                            {doc.created_at
-                                                                                ? new Date(doc.created_at).toLocaleString('ru-RU')
-                                                                                : 'дата —'}
-                                                                        </span>
-                                                                    </div>
-                                                                ))
-                                                            )}
-                                                        </div>
                                                     </div>
                                                     <div style={{ display: 'flex', gap: '8px' }}>
                                                         <button
