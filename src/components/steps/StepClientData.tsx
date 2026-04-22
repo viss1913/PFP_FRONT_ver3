@@ -1,7 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { User, Phone } from 'lucide-react';
+import { User, Phone, Mail } from 'lucide-react';
 import type { CJMData } from '../CJMFlow';
 import { formatRussianPhoneInput, PHONE_MASK_TEMPLATE, PHONE_PLACEHOLDER, getPhoneInputCaretPosition, hasCompleteRussianPhone } from '../../utils/phone';
+
+function isValidClientEmail(value: string): boolean {
+    const t = value.trim();
+    if (!t) return false;
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t);
+}
 
 interface StepClientDataProps {
     data: CJMData;
@@ -125,7 +131,13 @@ const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }
     };
 
     const isFormValid = () => {
-        return !!data.fio && hasCompleteRussianPhone(data.phone || '') && !!data.birthDate && data.age >= 18;
+        return (
+            !!data.fio &&
+            hasCompleteRussianPhone(data.phone || '') &&
+            isValidClientEmail(data.email || '') &&
+            !!data.birthDate &&
+            data.age >= 18
+        );
     };
 
     return (
@@ -160,6 +172,21 @@ const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }
                             onChange={handlePhoneChange}
                             onFocus={handlePhoneFocus}
                             placeholder={PHONE_PLACEHOLDER}
+                            style={{ paddingLeft: '40px' }}
+                        />
+                    </div>
+                </div>
+
+                <div className="input-group" style={{ marginBottom: '16px' }}>
+                    <label className="label">Email</label>
+                    <div style={{ position: 'relative' }}>
+                        <Mail size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                        <input
+                            type="email"
+                            value={data.email || ''}
+                            onChange={(e) => handleChange('email', e.target.value)}
+                            placeholder="email@example.com"
+                            autoComplete="email"
                             style={{ paddingLeft: '40px' }}
                         />
                     </div>

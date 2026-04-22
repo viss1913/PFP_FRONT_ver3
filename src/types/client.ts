@@ -59,6 +59,12 @@ export interface FamilyProfile {
     spouse?: FamilySpouse;
     family_obligations?: Array<{ type: FamilyObligation; amount_monthly: number }>;
     real_estate?: FamilyRealEstateItem[];
+    credits?: Array<{
+        type: 'MORTGAGE' | 'CONSUMER_LOAN' | 'CREDIT_CARD' | 'AUTO_LOAN' | 'OTHER';
+        balance: number;
+        monthlyPayment: number;
+        rate: number;
+    }>;
     confidentiality?: FamilyConfidentiality;
 }
 
@@ -84,6 +90,18 @@ export interface Client {
     // New fields for v3
     assets?: Asset[];
     goals?: ClientGoal[];
+    liabilities?: Array<{
+        type: 'MORTGAGE' | 'CONSUMER_LOAN' | 'CREDIT_CARD' | 'AUTO_LOAN' | 'OTHER';
+        remaining_amount: number;
+        monthly_payment: number;
+        interest_rate?: number;
+    }>;
+    credits?: Array<{
+        type: 'MORTGAGE' | 'CONSUMER_LOAN' | 'CREDIT_CARD' | 'AUTO_LOAN' | 'OTHER';
+        balance: number;
+        monthlyPayment: number;
+        rate: number;
+    }>;
 
     // Read-only aggregates
     assets_total?: number;

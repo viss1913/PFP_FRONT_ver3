@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Banknote, GraduationCap, HandCoins, HeartHandshake, Home, Landmark, Trash2 } from 'lucide-react';
-import type { CJMData, FamilyObligation, FamilyRealEstateStatus } from '../CJMFlow';
+import type { CJMData, ClientCreditType, FamilyObligation, FamilyRealEstateStatus } from '../CJMFlow';
 
 interface StepFamilyProfileProps {
     data: CJMData;
@@ -48,6 +48,13 @@ const realEstateTypeOptions = [
     'Земельный участок',
     'Другое'
 ] as const;
+const creditTypeOptions: Array<{ value: ClientCreditType; label: string }> = [
+    { value: 'MORTGAGE', label: 'Ипотека' },
+    { value: 'CONSUMER_LOAN', label: 'Потребительский кредит' },
+    { value: 'CREDIT_CARD', label: 'Кредитная карта' },
+    { value: 'AUTO_LOAN', label: 'Автокредит' },
+    { value: 'OTHER', label: 'Другое' }
+];
 
 const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, onNext, onPrev }) => {
     const family = data.familyProfile;
@@ -105,6 +112,43 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
             familyProfile: {
                 ...prev.familyProfile,
                 real_estate: [...prev.familyProfile.real_estate, { name: 'Квартира', estimated_value: 0, status: 'owned' }]
+            }
+        }));
+    };
+
+    const updateCredit = (
+        index: number,
+        patch: { type?: ClientCreditType; balance?: number; monthlyPayment?: number; rate?: number }
+    ) => {
+        setData((prev) => {
+            const next = [...(prev.familyProfile.credits || [])];
+            next[index] = { ...next[index], ...patch };
+            return {
+                ...prev,
+                familyProfile: {
+                    ...prev.familyProfile,
+                    credits: next
+                }
+            };
+        });
+    };
+
+    const addCredit = () => {
+        setData((prev) => ({
+            ...prev,
+            familyProfile: {
+                ...prev.familyProfile,
+                credits: [...(prev.familyProfile.credits || []), { type: 'MORTGAGE', balance: 0, monthlyPayment: 0, rate: 0 }]
+            }
+        }));
+    };
+
+    const removeCredit = (index: number) => {
+        setData((prev) => ({
+            ...prev,
+            familyProfile: {
+                ...prev.familyProfile,
+                credits: (prev.familyProfile.credits || []).filter((_, i) => i !== index)
             }
         }));
     };
@@ -413,6 +457,169 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                     ))}
                     <button type="button" className="btn-primary" onClick={addEstate} style={{ marginTop: 12, width: '100%' }}>
                         + Добавить объект
+                    </button>
+                </section>
+
+                <section style={{
+                    ...panelStyle
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, paddingTop: 4 }}>
+                        <label className="label" style={{ fontSize: 16, color: '#334155', fontWeight: 600 }}>Кредиты клиента</label>
+                    </div>
+                    {(family.credits || []).length === 0 && (
+                        <div style={{ color: '#64748b', fontSize: 14, padding: '8px 0' }}>
+                            Пока нет кредитов.
+                        </div>
+                    )}
+                    {(family.credits || []).length > 0 && (
+                        <div
+                            style={{
+                                display: 'grid',
+                                gridTemplateColumns: '1.2fr 1fr 1fr 0.8fr auto',
+                                gap: 10,
+                                marginBottom: 8,
+                                padding: '0 6px'
+                            }}
+                        >
+                            <div style={{ color: '#64748b', fontSize: 12, fontWeight: 600 }}>Тип кредита</div>
+                            <div style={{ color: '#64748b', fontSize: 12, fontWeight: 600 }}>Остаток</div>
+                            <div style={{ color: '#64748b', fontSize: 12, fontWeight: 600 }}>Платёж/мес</div>
+                            <div style={{ color: '#64748b', fontSize: 12, fontWeight: 600 }}>Ставка, %</div>
+                            <div />
+                        </div>
+                    )}
+                    {(family.credits || []).map((item, index) => (
+                        <motion.div
+                            key={index}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.2 }}
+                            style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 0.8fr auto', gap: 10, marginBottom: 10 }}
+                        >
+                            <select
+                                value={item.type}
+                                onChange={(e) => updateCredit(index, { type: e.target.value as ClientCreditType })}
+                                style={{
+                                    background: 'rgba(255,255,255,0.9)',
+                                    borderRadius: 12,
+                                    height: 44,
+                                    border: '1px solid #cbd5e1',
+                                    fontSize: 15,
+                                    fontWeight: 600,
+                                    color: '#334155',
+                                    paddingLeft: 14
+                                }}
+                            >
+                                {creditTypeOptions.map((option) => (
+                                    <option key={option.value} value={option.value}>{option.label}</option>
+                                ))}
+                            </select>
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={formatMoneyInput(item.balance || 0)}
+                                    onChange={(e) => updateCredit(index, { balance: parseMoneyInput(e.target.value) })}
+                                    placeholder="0"
+                                    style={{
+                                        background: '#ffffff',
+                                        borderRadius: 12,
+                                        height: 44,
+                                        border: '1px solid #cbd5e1',
+                                        paddingRight: 32
+                                    }}
+                                />
+                                <span
+                                    style={{
+                                        position: 'absolute',
+                                        right: 10,
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        color: '#64748b',
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        pointerEvents: 'none'
+                                    }}
+                                >
+                                    ₽
+                                </span>
+                            </div>
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={formatMoneyInput(item.monthlyPayment || 0)}
+                                    onChange={(e) => updateCredit(index, { monthlyPayment: parseMoneyInput(e.target.value) })}
+                                    placeholder="0"
+                                    style={{
+                                        background: '#ffffff',
+                                        borderRadius: 12,
+                                        height: 44,
+                                        border: '1px solid #cbd5e1',
+                                        paddingRight: 32
+                                    }}
+                                />
+                                <span
+                                    style={{
+                                        position: 'absolute',
+                                        right: 10,
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        color: '#64748b',
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        pointerEvents: 'none'
+                                    }}
+                                >
+                                    ₽
+                                </span>
+                            </div>
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    type="number"
+                                    inputMode="decimal"
+                                    min={0}
+                                    step="0.1"
+                                    value={item.rate || 0}
+                                    onChange={(e) => updateCredit(index, { rate: Number(e.target.value) || 0 })}
+                                    placeholder="0"
+                                    style={{
+                                        background: '#ffffff',
+                                        borderRadius: 12,
+                                        height: 44,
+                                        border: '1px solid #cbd5e1',
+                                        paddingRight: 28
+                                    }}
+                                />
+                                <span
+                                    style={{
+                                        position: 'absolute',
+                                        right: 10,
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        color: '#64748b',
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        pointerEvents: 'none'
+                                    }}
+                                >
+                                    %
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                className="btn-secondary"
+                                onClick={() => removeCredit(index)}
+                                aria-label="Удалить кредит"
+                                title="Удалить кредит"
+                                style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 52, padding: 0 }}
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        </motion.div>
+                    ))}
+                    <button type="button" className="btn-primary" onClick={addCredit} style={{ marginTop: 12, width: '100%' }}>
+                        + Добавить кредит
                     </button>
                 </section>
 

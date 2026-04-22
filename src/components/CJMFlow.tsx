@@ -16,6 +16,7 @@ interface CJMFlowProps {
     initialData?: {
         fio?: string;
         phone?: string;
+        email?: string;
         uuid?: string;
     };
     clientId?: number;
@@ -46,6 +47,7 @@ export interface CJMData {
     // Identifiers
     fio?: string;
     phone?: string;
+    email?: string;
     uuid?: string;
 
     // Life Insurance
@@ -57,6 +59,7 @@ export interface CJMData {
         spouse?: { employment_status?: 'employed' | 'self_employed' | 'unemployed' | 'retired' | 'other'; monthly_income?: number | null };
         family_obligations: Array<{ type: FamilyObligation; amount_monthly: number }>;
         real_estate: Array<{ name?: string; estimated_value: number; status: FamilyRealEstateStatus }>;
+        credits: ClientCreditDraft[];
         confidentiality: { allow_spouse_access: boolean; allow_family_contact: boolean; notes?: string };
     };
     riskProfileAnswers: Partial<Record<'q2' | 'q3' | 'q4' | 'q5' | 'q6' | 'q7' | 'q8' | 'q9' | 'q10', number>>;
@@ -71,6 +74,14 @@ export type FamilyObligation =
     | 'elder_support'
     | 'other';
 export type FamilyRealEstateStatus = 'owned' | 'mortgage';
+export type ClientCreditType = 'MORTGAGE' | 'CONSUMER_LOAN' | 'CREDIT_CARD' | 'AUTO_LOAN' | 'OTHER';
+
+export interface ClientCreditDraft {
+    type: ClientCreditType;
+    balance: number;
+    monthlyPayment: number;
+    rate: number;
+}
 
 /** Тот же пул, что в StepLifeInsurance / StepFinReserve. */
 function clientPoolCapitalForLifeStep(d: CJMData): number {
@@ -103,6 +114,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
             spouse: {},
             family_obligations: [{ type: 'loans', amount_monthly: 0 }],
             real_estate: [],
+            credits: [],
             confidentiality: {
                 allow_spouse_access: false,
                 allow_family_contact: false,
@@ -309,6 +321,36 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                 }
             };
 
+            const normalizedCredits = (data.familyProfile.credits || [])
+                .filter((credit) => {
+                    const hasBalance = Number(credit.balance) > 0;
+                    const hasMonthlyPayment = Number(credit.monthlyPayment) > 0;
+                    return hasBalance || hasMonthlyPayment;
+                })
+                .map((credit) => ({
+                    type: credit.type,
+                    balance: Number(credit.balance) || 0,
+                    monthlyPayment: Number(credit.monthlyPayment) || 0,
+                    rate: Number(credit.rate) || 0
+                }));
+
+            const creditTypeToName: Record<ClientCreditType, string> = {
+                MORTGAGE: 'Ипотека',
+                CONSUMER_LOAN: 'Потребительский кредит',
+                CREDIT_CARD: 'Кредитная карта',
+                AUTO_LOAN: 'Автокредит',
+                OTHER: 'Кредит'
+            };
+
+            const mappedLiabilities = normalizedCredits.map((credit) => ({
+                type: credit.type,
+                name: creditTypeToName[credit.type] || 'Кредит',
+                remaining_amount: credit.balance,
+                monthly_payment: credit.monthlyPayment,
+                interest_rate: credit.rate
+            }));
+
+            const emailTrimmed = (data.email || '').trim();
             const clientPayload: Record<string, any> = {
                 birth_date: data.birthDate || new Date(new Date().getFullYear() - data.age, 0, 1).toISOString().split('T')[0],
                 gender: data.gender,
@@ -320,6 +362,9 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                 phone: data.phone,
                 external_uuid: data.uuid
             };
+            if (emailTrimmed) {
+                clientPayload.email = emailTrimmed;
+            }
 
             if (!clientId) {
                 clientPayload.family_profile = familyProfilePayload;
@@ -340,7 +385,8 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     start_date: new Date().toISOString().split('T')[0],
                     risk_level: 'conservative'
                 })),
-                liabilities: [],
+                credits: normalizedCredits,
+                liabilities: mappedLiabilities,
                 expenses: []
             };
 
@@ -400,8 +446,19 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                         birthDate: client.birth_date || undefined,
                         fio: `${client.first_name || ''} ${client.last_name || ''} ${client.middle_name || ''}`.trim(),
                         phone: client.phone,
+                        email: client.email,
                         uuid: client.external_uuid,
                         avgMonthlyIncome: client.avg_monthly_income || 150000,
+                        familyProfile: {
+                            ...prev.familyProfile,
+                            ...(client.family_profile || {}),
+                            credits: ((client as any).credits || (client as any).liabilities || []).map((credit: any) => ({
+                                type: (credit.type || 'OTHER') as ClientCreditType,
+                                balance: Number(credit.balance ?? credit.remaining_amount) || 0,
+                                monthlyPayment: Number(credit.monthlyPayment ?? credit.monthly_payment) || 0,
+                                rate: Number(credit.rate ?? credit.interest_rate) || 0
+                            }))
+                        },
                         // Note: Goals are not easily mapped 1-to-1 to the single-goal flow without more logic
                         // We'll keep the goal defaults for now or take the first one if exists
                     }));
