@@ -647,13 +647,45 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
               <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '10px' }}>
                 Бюджет семьи в месяц
               </div>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', height: '110px', marginBottom: '8px' }}>
-                {budgetBars.map((bar) => (
-                  <div key={bar.key} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                    <div style={{ width: '100%', height: `${Math.max(6, Math.round((bar.value / budgetMax) * 82))}px`, background: bar.color, borderRadius: '8px 8px 4px 4px', opacity: 0.9 }} />
-                    <div style={{ fontSize: '10px', color: '#64748b', textAlign: 'center', lineHeight: 1.1 }}>{bar.label}</div>
-                  </div>
-                ))}
+              <div style={{ display: 'grid', gap: '10px', marginBottom: '10px' }}>
+                {budgetBars.map((bar) => {
+                  const widthPercent = Math.max(3, Math.round((bar.value / budgetMax) * 100));
+                  return (
+                    <div
+                      key={bar.key}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '180px 1fr',
+                        alignItems: 'center',
+                        gap: '10px'
+                      }}
+                    >
+                      <div style={{ fontSize: '11px', color: '#64748b', lineHeight: 1.1 }}>
+                        {bar.label}
+                      </div>
+                      <div
+                        style={{
+                          width: '100%',
+                          height: '12px',
+                          background: 'rgba(148,163,184,0.22)',
+                          borderRadius: '999px',
+                          overflow: 'hidden'
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: `${widthPercent}%`,
+                            minWidth: '10px',
+                            height: '100%',
+                            background: bar.color,
+                            borderRadius: '999px',
+                            opacity: 0.95
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               <div style={{ display: 'grid', gap: '6px', fontSize: '12px', color: '#475569' }}>

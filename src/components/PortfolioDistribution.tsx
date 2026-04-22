@@ -152,7 +152,7 @@ export const PortfolioDistribution: React.FC<PortfolioDistributionProps> = ({ as
                 boxShadow: '0px 4px 6px -1px rgba(15, 23, 42, 0.2)'
             }}>
                 <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Общая доходность портфеля
+                    Прогноз доходности портфеля
                 </div>
                 <div style={{ fontSize: '26px', fontWeight: 800, lineHeight: 1 }}>
                     {effectiveYield > 0 ? `${effectiveYield.toFixed(1)}%` : '—'}
