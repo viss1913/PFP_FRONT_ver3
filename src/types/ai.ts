@@ -23,3 +23,9 @@ export interface AiChatRequest {
     message: string;
     context?: ChatContext;
 }
+
+export interface AiAgentClientChatRequest {
+    client_id: number;
+    message: string;
+    assistant_id?: number;
+}

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { AiAssistant, AiMessage, AiChatRequest } from '../types/ai';
+import type { AiAssistant, AiMessage, AiChatRequest, AiAgentClientChatRequest } from '../types/ai';
 import { API_BASE_URL } from '../api/config';
 
 const API_URL = `${API_BASE_URL}/api`;
@@ -7,6 +7,52 @@ const API_URL = `${API_BASE_URL}/api`;
 // Helper to get token (assuming it's stored in localStorage like in most apps, 
 // or you might use a context. For a simple service file, we'll try to get it directly)
 const getToken = () => localStorage.getItem('token');
+
+const parseSseStream = async (
+    response: Response,
+    onChunk: (chunk: string) => void,
+) => {
+    if (!response.body) {
+        throw new Error('No response body');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        buffer += chunk;
+
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+            const trimmedLine = line.trim();
+            if (!trimmedLine || trimmedLine === 'data: [DONE]') continue;
+
+            if (trimmedLine.startsWith('data: ')) {
+                const payload = trimmedLine.slice(6);
+                try {
+                    const data = JSON.parse(payload);
+                    const content = data?.choices?.[0]?.delta?.content
+                        || data?.delta?.content
+                        || data?.content
+                        || data?.message;
+                    if (typeof content === 'string' && content.length > 0) {
+                        onChunk(content);
+                    }
+                } catch {
+                    // Some SSE providers send plain text in data line.
+                    onChunk(payload);
+                }
+            }
+        }
+    }
+};
 
 export const aiService = {
     // 1. Get List of Assistants
@@ -52,43 +98,7 @@ export const aiService = {
             if (!response.ok) {
                 throw new Error(`Error: ${response.status} ${response.statusText}`);
             }
-
-            if (!response.body) {
-                throw new Error('No response body');
-            }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                const chunk = decoder.decode(value, { stream: true });
-                buffer += chunk;
-
-                const lines = buffer.split('\n');
-                buffer = lines.pop() || ''; // Keep the incomplete line in buffer
-
-                for (const line of lines) {
-                    const trimmedLine = line.trim();
-                    if (!trimmedLine || trimmedLine === 'data: [DONE]') continue;
-
-                    if (trimmedLine.startsWith('data: ')) {
-                        try {
-                            const jsonStr = trimmedLine.slice(6);
-                            const data = JSON.parse(jsonStr);
-                            const content = data.choices?.[0]?.delta?.content;
-                            if (content) {
-                                onChunk(content);
-                            }
-                        } catch (e) {
-                            console.warn('Failed to parse SSE line:', line, e);
-                        }
-                    }
-                }
-            }
+            await parseSseStream(response, onChunk);
 
             if (onComplete) {
                 onComplete();
@@ -96,6 +106,58 @@ export const aiService = {
 
         } catch (error) {
             console.error('Streaming error:', error);
+            if (onError) onError(error);
+        }
+    },
+
+    getAgentClientHistory: async (clientId: number, assistantId?: number): Promise<AiMessage[]> => {
+        const token = getToken();
+        const params = typeof assistantId === 'number' ? { assistant_id: assistantId } : undefined;
+        const response = await axios.get<AiMessage[]>(`${API_URL}/pfp/ai/agent-client/history/${clientId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+            params
+        });
+        return response.data;
+    },
+
+    clearAgentClientHistory: async (clientId: number, assistantId?: number): Promise<void> => {
+        const token = getToken();
+        const params = typeof assistantId === 'number' ? { assistant_id: assistantId } : undefined;
+        await axios.delete(`${API_URL}/pfp/ai/agent-client/history/${clientId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+            params
+        });
+    },
+
+    sendAgentClientMessageStream: async (
+        request: AiAgentClientChatRequest,
+        onChunk: (chunk: string) => void,
+        onError?: (err: any) => void,
+        onComplete?: () => void
+    ) => {
+        const token = getToken();
+        try {
+            const response = await fetch(`${API_URL}/pfp/ai/agent-client/chat/stream`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'text/event-stream'
+                },
+                body: JSON.stringify(request)
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error: ${response.status} ${response.statusText}`);
+            }
+
+            await parseSseStream(response, onChunk);
+
+            if (onComplete) {
+                onComplete();
+            }
+        } catch (error) {
+            console.error('Agent-client streaming error:', error);
             if (onError) onError(error);
         }
     }
