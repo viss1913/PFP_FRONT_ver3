@@ -159,79 +159,6 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
 
     return (
         <>
-            <div
-                onClick={() => setIsChatOpen(true)}
-                style={{
-                    margin: '0 auto 16px',
-                    maxWidth: '1280px',
-                    background: 'linear-gradient(135deg, #fdf4ff, #eff6ff)',
-                    borderRadius: '20px',
-                    padding: '16px 20px',
-                    boxShadow: '0 8px 24px rgba(15,23,42,0.06)',
-                    cursor: 'pointer',
-                }}
-            >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                    <div style={{ fontWeight: 700, color: '#111827' }}>AI ПФП ассистент</div>
-                    <div style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>
-                        {isAiLoading || isTyping ? 'Генерирует ответ...' : 'Online'}
-                    </div>
-                </div>
-                <p
-                    style={{
-                        margin: '8px 0 12px',
-                        color: '#374151',
-                        fontSize: 14,
-                        lineHeight: 1.45,
-                        whiteSpace: 'pre-line',
-                    }}
-                >
-                    {previewText}
-                </p>
-                <div style={{ display: 'flex', gap: 10 }}>
-                    <input
-                        type="text"
-                        readOnly
-                        value=""
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setIsChatOpen(true);
-                        }}
-                        onFocus={(e) => {
-                            e.preventDefault();
-                            setIsChatOpen(true);
-                        }}
-                        placeholder="Написать сообщение AI..."
-                        style={{
-                            flex: 1,
-                            border: '1px solid #d1d5db',
-                            borderRadius: 12,
-                            padding: '10px 14px',
-                            background: '#ffffff',
-                            cursor: 'text',
-                        }}
-                    />
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setIsChatOpen(true);
-                        }}
-                        style={{
-                            border: 'none',
-                            borderRadius: 12,
-                            background: '#D946EF',
-                            color: '#fff',
-                            fontWeight: 600,
-                            padding: '0 16px',
-                            cursor: 'pointer',
-                        }}
-                    >
-                        Отправить
-                    </button>
-                </div>
-            </div>
-
             <ResultPageDesign
                 calculationData={data}
                 client={client}
@@ -249,6 +176,9 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
                 }}
                 onRecalculate={onRecalculate}
                 isCalculating={isCalculating}
+                aiPreviewText={previewText}
+                aiStatusText={isAiLoading || isTyping ? 'Генерирует ответ...' : 'Задать вопрос'}
+                onOpenAiChat={() => setIsChatOpen(true)}
             />
             <ReportPreviewModal
                 isOpen={isReportPreviewOpen}

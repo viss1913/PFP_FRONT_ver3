@@ -58,6 +58,9 @@ interface ResultPageDesignProps {
   onRecalculate?: (payload: any) => void;
   onRestart?: () => void;
   isCalculating?: boolean;
+  aiPreviewText?: string;
+  aiStatusText?: string;
+  onOpenAiChat?: () => void;
 }
 
 interface EditFormState {
@@ -83,6 +86,9 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   onRecalculate,
   onRestart,
   isCalculating,
+  aiPreviewText,
+  aiStatusText,
+  onOpenAiChat,
 }: ResultPageDesignProps) => {
   const [editingGoal, setEditingGoal] = React.useState<GoalResult | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = React.useState(false);
@@ -577,7 +583,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                   lineHeight: '1.5',
                   color: '#1F2937'
                 }}>
-                  Я подготовила для вас финансовый план с учетом ваших целей и ресурсов. Может быть мы что-то поменяем?
+                  {aiPreviewText || 'AI анализирует финансовый план клиента. Нажмите, чтобы открыть чат.'}
                 </div>
               </div>
 
@@ -585,7 +591,13 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
               <div style={{ position: 'relative' }}>
                 <input
                   type="text"
+                  readOnly
                   placeholder="Напишите ваш вопрос..."
+                  onClick={() => onOpenAiChat?.()}
+                  onFocus={(e) => {
+                    e.preventDefault();
+                    onOpenAiChat?.();
+                  }}
                   style={{
                     width: '100%',
                     padding: '12px 48px 12px 16px',
@@ -594,12 +606,13 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                     fontSize: '14px',
                     outline: 'none',
                     transition: 'border-color 0.2s',
-                    background: '#FAFAFA'
+                    background: '#FAFAFA',
+                    cursor: 'text'
                   }}
-                  onFocus={(e) => e.target.style.borderColor = '#C2185B'}
-                  onBlur={(e) => e.target.style.borderColor = '#E5E7EB'}
                 />
                 <button
+                  type="button"
+                  onClick={() => onOpenAiChat?.()}
                   style={{
                     position: 'absolute',
                     right: '8px',
@@ -621,6 +634,8 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
             </div>
 
             <button
+              type="button"
+              onClick={() => onOpenAiChat?.()}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -634,7 +649,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                 transition: 'background 0.2s',
               }}
             >
-              Задать вопрос
+              {aiStatusText || 'Задать вопрос'}
             </button>
 
             <div style={{
@@ -655,7 +670,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                       key={bar.key}
                       style={{
                         display: 'grid',
-                        gridTemplateColumns: '180px 1fr',
+                        gridTemplateColumns: '180px 1fr auto',
                         alignItems: 'center',
                         gap: '10px'
                       }}
@@ -683,28 +698,17 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                           }}
                         />
                       </div>
+                      <div style={{ fontSize: '12px', color: '#334155', fontWeight: 700, minWidth: '88px', textAlign: 'right' }}>
+                        {formatCurrency(bar.value)}
+                      </div>
                     </div>
                   );
                 })}
               </div>
 
-              <div style={{ display: 'grid', gap: '6px', fontSize: '12px', color: '#475569' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Сумма доходов</span>
-                  <b>{formatCurrency(familyIncomeTotal)}</b>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Обязательные расходы</span>
-                  <b>{formatCurrency(monthlyObligations)}</b>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Пополнение на цели</span>
-                  <b>{formatCurrency(monthlyGoalsReplenishment)}</b>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', paddingTop: '6px', borderTop: '1px dashed rgba(148,163,184,0.38)' }}>
-                  <span>Свободные деньги</span>
-                  <b style={{ color: freeMoney < 0 ? '#DC2626' : '#0F766E' }}>{formatCurrency(freeMoney)}</b>
-                </div>
+              <div style={{ marginTop: '4px', paddingTop: '6px', borderTop: '1px dashed rgba(148,163,184,0.38)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#475569' }}>
+                <span>Свободные деньги</span>
+                <b style={{ color: freeMoney < 0 ? '#DC2626' : '#0F766E' }}>{formatCurrency(freeMoney)}</b>
               </div>
             </div>
           </section>
