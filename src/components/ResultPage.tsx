@@ -22,7 +22,7 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
     const [isReportPreviewOpen, setIsReportPreviewOpen] = useState(false);
     const [isAiLoading, setIsAiLoading] = useState(false);
     const lastBootstrappedClientIdRef = useRef<number | null>(null);
-    const AUTO_PROMPT = 'Сделай краткий разбор финансового плана клиента: ключевые сильные стороны, риски и 3 ближайших шага.';
+    const AUTO_PROMPT = 'Клиент сделал первый план. Дай краткий разбор: что получилось хорошо, где риски и какие 3 шага сделать дальше.';
 
     const resolveClientId = () => {
         return client?.id || (client as any)?.client_id || data?.client_id || data?.client?.id || null;
@@ -30,7 +30,12 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
 
     const resolvedClientId = useMemo(() => {
         const id = resolveClientId();
-        return typeof id === 'number' ? id : null;
+        if (typeof id === 'number' && Number.isFinite(id)) return id;
+        if (typeof id === 'string' && id.trim()) {
+            const parsedId = Number(id);
+            return Number.isFinite(parsedId) ? parsedId : null;
+        }
+        return null;
     }, [client, data]);
 
     const sendAgentClientMessage = async (
@@ -101,6 +106,7 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
 
         const bootstrapAiChat = async () => {
             setIsAiLoading(true);
+            let shouldTriggerAutoPrompt = false;
             try {
                 const history = await aiService.getAgentClientHistory(resolvedClientId);
                 if (cancelled) return;
@@ -110,13 +116,18 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
                     (msg) => msg.role === 'assistant' && Boolean(msg.content?.trim())
                 );
                 if (!hasAssistantAnswer) {
-                    await sendAgentClientMessage(resolvedClientId, AUTO_PROMPT, { appendUserMessage: false });
+                    shouldTriggerAutoPrompt = true;
                 }
             } catch (error) {
                 if (!cancelled) {
                     console.error('Failed to bootstrap AI chat:', error);
                 }
+                // If history endpoint is temporarily unavailable, still try to seed first AI response.
+                shouldTriggerAutoPrompt = true;
             } finally {
+                if (!cancelled && shouldTriggerAutoPrompt) {
+                    await sendAgentClientMessage(resolvedClientId, AUTO_PROMPT, { appendUserMessage: false });
+                }
                 if (!cancelled) {
                     setIsAiLoading(false);
                 }
