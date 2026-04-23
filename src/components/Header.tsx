@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { User, ChevronDown } from 'lucide-react';
 
 type NavPage = 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings';
@@ -6,14 +6,44 @@ type NavPage = 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 
 interface HeaderProps {
     activePage?: NavPage;
     onNavigate?: (page: NavPage) => void;
+    onLogout?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ activePage = 'crm', onNavigate }) => {
+const Header: React.FC<HeaderProps> = ({ activePage = 'crm', onNavigate, onLogout }) => {
+    const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+    const profileMenuRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (!profileMenuRef.current) return;
+            if (!profileMenuRef.current.contains(event.target as Node)) {
+                setIsProfileMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
     const handleNavClick = (page: NavPage, e: React.MouseEvent) => {
         e.preventDefault();
+        setIsProfileMenuOpen(false);
         if (onNavigate) {
             onNavigate(page);
         }
+    };
+
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('uuid');
+
+        if (onLogout) {
+            onLogout();
+            return;
+        }
+
+        window.location.reload();
     };
 
     const getLinkStyle = (page: string) => ({
@@ -78,20 +108,71 @@ const Header: React.FC<HeaderProps> = ({ activePage = 'crm', onNavigate }) => {
             </nav>
 
             {/* User Profile */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                <div style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '50%',
-                    border: '1px solid #ddd',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#666'
-                }}>
-                    <User size={18} />
-                </div>
-                <ChevronDown size={16} color="#666" />
+            <div ref={profileMenuRef} style={{ position: 'relative' }}>
+                <button
+                    type="button"
+                    onClick={() => setIsProfileMenuOpen(prev => !prev)}
+                    aria-label="Профиль"
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        cursor: 'pointer',
+                        border: 'none',
+                        background: 'transparent',
+                        padding: 0
+                    }}
+                >
+                    <div style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '50%',
+                        border: '1px solid #ddd',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#666'
+                    }}>
+                        <User size={18} />
+                    </div>
+                    <ChevronDown size={16} color="#666" />
+                </button>
+
+                {isProfileMenuOpen && (
+                    <div
+                        style={{
+                            position: 'absolute',
+                            top: 'calc(100% + 10px)',
+                            right: 0,
+                            width: '180px',
+                            background: '#fff',
+                            border: '1px solid #e9e9e9',
+                            borderRadius: '12px',
+                            boxShadow: '0 16px 36px rgba(15, 23, 42, 0.12)',
+                            padding: '8px',
+                            zIndex: 150
+                        }}
+                    >
+                        <button
+                            type="button"
+                            onClick={handleLogout}
+                            style={{
+                                width: '100%',
+                                border: 'none',
+                                borderRadius: '8px',
+                                background: '#fff5f5',
+                                color: '#dc2626',
+                                padding: '10px 12px',
+                                fontSize: '14px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                textAlign: 'left'
+                            }}
+                        >
+                            Выйти из кабинета
+                        </button>
+                    </div>
+                )}
             </div>
         </header>
     );
