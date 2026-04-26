@@ -43,6 +43,8 @@ import {
     type AgentComonStrategyPatchPayload,
     type ComonApiTrace,
     type ComonRiskProfile,
+    type ResolutCatalogItem,
+    type ResolutQuotePType,
 } from '../api/agentLkApi';
 
 type NavPage = 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings';
@@ -637,6 +639,77 @@ function getDefaultProductCreateLine(): {
     };
 }
 
+/** Проект AV (Резолют) — как `RESOLUT_PROJECT_ID` на бэке (прод: 23). */
+const RESOLUT_AV_PROJECT_ID = 23;
+
+function readAgentProjectId(): number {
+    try {
+        const userStr = localStorage.getItem('user');
+        if (!userStr) return 0;
+        const user = JSON.parse(userStr) as { projectId?: unknown; project_id?: unknown };
+        const id = user.projectId ?? user.project_id;
+        if (typeof id === 'number' && !Number.isNaN(id)) return id;
+        if (typeof id === 'string' && id.trim() !== '') {
+            const n = Number(id);
+            if (!Number.isNaN(n)) return n;
+        }
+    } catch {
+        /* ignore */
+    }
+    return 0;
+}
+
+function dedupeResolutCatalogByPfpCode(items: ResolutCatalogItem[]): ResolutCatalogItem[] {
+    const seen = new Set<string>();
+    const out: ResolutCatalogItem[] = [];
+    for (const it of items) {
+        const code = typeof it.pfpCode === 'string' ? it.pfpCode : '';
+        if (!code) {
+            out.push(it);
+            continue;
+        }
+        if (seen.has(code)) continue;
+        seen.add(code);
+        out.push(it);
+    }
+    return out;
+}
+
+function resolutCatalogOptionLabel(it: ResolutCatalogItem): string {
+    const code = typeof it.pfpCode === 'string' ? it.pfpCode : '';
+    const prog = it.program;
+    const name =
+        prog && typeof prog === 'object' && typeof (prog as { name?: string }).name === 'string'
+            ? (prog as { name: string }).name
+            : '';
+    if (name && code) return `${name} (${code})`;
+    if (name) return name;
+    return code || '—';
+}
+
+type ResolutQuotePTypeForm = 'unset' | `${ResolutQuotePType}`;
+
+const RESOLUT_QUOTE_P_TYPE_OPTIONS: { value: ResolutQuotePType; label: string }[] = [
+    { value: 0, label: '0 — единовременно (котировка в портфеле)' },
+    { value: 1, label: '1 — ежегодно' },
+    { value: 2, label: '2 — раз в полгода' },
+    { value: 4, label: '4 — ежеквартально' },
+    { value: 12, label: '12 — ежемесячно' },
+];
+
+function buildResolutProductPayloadPart(
+    isResolutAvProject: boolean,
+    codeRaw: string,
+    pType: ResolutQuotePTypeForm,
+): { resolut_pfp_code?: string | null; resolut_quote_p_type?: ResolutQuotePType | null } {
+    if (!isResolutAvProject) return {};
+    const trimmed = codeRaw.trim().slice(0, 64);
+    const resolut_pfp_code = trimmed === '' ? null : trimmed;
+    const resolut_quote_p_type: ResolutQuotePType | null =
+        pType === 'unset' ? null : (Number(pType) as ResolutQuotePType);
+    return { resolut_pfp_code, resolut_quote_p_type };
+}
+
 function rebalanceBucketShares(
     instruments: Array<{ product_id: number; bucket_type: 'INITIAL_CAPITAL' | 'TOP_UP'; share_percent: number }>,
     bucket: 'INITIAL_CAPITAL' | 'TOP_UP'
@@ -997,6 +1070,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     const [productTypes, setProductTypes] = useState<ProductType[] | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const agentProjectIdForResolut = readAgentProjectId();
+    const isResolutAvProject = agentProjectIdForResolut === RESOLUT_AV_PROJECT_ID;
 
     // Планы и инфляция: матрица инфляции, рост расходов на инвестиции, доходность пассивного дохода
     const [inflationRanges, setInflationRanges] = useState<InflationRateRange[]>([]);
@@ -1371,10 +1446,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         name: string;
         product_type: string;
         currency: string;
+        resolut_pfp_code: string;
+        resolut_quote_p_type: ResolutQuotePTypeForm;
     }>({
         name: '',
         product_type: '',
         currency: 'RUB',
+        resolut_pfp_code: '',
+        resolut_quote_p_type: 'unset',
     });
     const [productCreateLines, setProductCreateLines] = useState(() => [getDefaultProductCreateLine()]);
     const [isSavingProduct, setIsSavingProduct] = useState(false);
@@ -1389,6 +1468,60 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         max_amount: number | '';
         yield_percent: number | '';
     }[]>([]);
+
+    const [resolutCatalogItems, setResolutCatalogItems] = useState<ResolutCatalogItem[] | null>(null);
+    const [resolutCatalogLoading, setResolutCatalogLoading] = useState(false);
+    const [resolutCatalogError, setResolutCatalogError] = useState<string | null>(null);
+    const [editResolutPfpCode, setEditResolutPfpCode] = useState('');
+    const [editResolutQuotePType, setEditResolutQuotePType] = useState<ResolutQuotePTypeForm>('unset');
+
+    useEffect(() => {
+        if (!isResolutAvProject || activeTab !== 'products') return;
+        const needCatalog = isProductModalOpen || (isProductDetailsOpen && isEditingProduct);
+        if (!needCatalog) return;
+        let cancelled = false;
+        setResolutCatalogLoading(true);
+        setResolutCatalogError(null);
+        void agentLkApi
+            .fetchResolutProductCatalog()
+            .then((items) => {
+                if (!cancelled) {
+                    setResolutCatalogItems(dedupeResolutCatalogByPfpCode(items));
+                }
+            })
+            .catch((e: unknown) => {
+                if (!cancelled) {
+                    setResolutCatalogItems(null);
+                    const ax = e as { response?: { status?: number; data?: { message?: string; code?: string } } };
+                    const st = ax?.response?.status;
+                    const d = ax?.response?.data;
+                    const hint =
+                        st === 401
+                            ? 'Нет сессии Резолют (401). Можно ввести код вручную — сохранение продукта доступно.'
+                            : st === 403
+                              ? 'Каталог Резолют недоступен для этого проекта (403).'
+                              : '';
+                    const msg =
+                        d?.message ||
+                        d?.code ||
+                        (e instanceof Error ? e.message : null) ||
+                        'Не удалось загрузить каталог Резолют';
+                    setResolutCatalogError(hint ? `${msg} ${hint}` : msg);
+                }
+            })
+            .finally(() => {
+                if (!cancelled) setResolutCatalogLoading(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        isResolutAvProject,
+        activeTab,
+        isProductModalOpen,
+        isProductDetailsOpen,
+        isEditingProduct,
+    ]);
 
     // Портфели: модалка создания/редактирования и удаление
     const [isPortfolioModalOpen, setIsPortfolioModalOpen] = useState(false);
@@ -1758,6 +1891,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             name: '',
             product_type: '',
             currency: 'RUB',
+            resolut_pfp_code: '',
+            resolut_quote_p_type: 'unset',
         });
         setProductCreateLines([getDefaultProductCreateLine()]);
     };
@@ -2088,6 +2223,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                 max_amount: Number(line.max_amount) || 0,
                 yield_percent: Number(line.yield_percent) || 0,
             })),
+            ...buildResolutProductPayloadPart(
+                isResolutAvProject,
+                productForm.resolut_pfp_code,
+                productForm.resolut_quote_p_type,
+            ),
         };
 
         try {
@@ -5685,6 +5825,136 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                     </div>
                                 </div>
 
+                                {isResolutAvProject && (
+                                    <div
+                                        style={{
+                                            marginTop: '4px',
+                                            padding: '12px 14px',
+                                            borderRadius: '12px',
+                                            background: '#f5f3ff',
+                                            border: '1px solid #ddd6fe',
+                                        }}
+                                    >
+                                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#5b21b6', marginBottom: '8px' }}>
+                                            Резолют (AV)
+                                        </div>
+                                        <p style={{ fontSize: '11px', color: '#6b7280', margin: '0 0 10px', lineHeight: 1.45 }}>
+                                            Код <code>pfpCode</code> и периодичность для котировки. Для доходности из quote в портфеле
+                                            задайте «0 — единовременно» или оставьте «Не задано» (дефолт на бэке). Матрица линий ниже —
+                                            запасной вариант, если quote недоступен.
+                                        </p>
+                                        {resolutCatalogLoading && (
+                                            <p style={{ fontSize: '12px', color: '#6b7280', margin: '0 0 8px' }}>
+                                                Загружаем каталог продуктов Резолют…
+                                            </p>
+                                        )}
+                                        {resolutCatalogError && (
+                                            <p
+                                                style={{
+                                                    fontSize: '12px',
+                                                    color: '#b45309',
+                                                    background: '#fffbeb',
+                                                    padding: '8px 10px',
+                                                    borderRadius: '8px',
+                                                    margin: '0 0 8px',
+                                                    lineHeight: 1.4,
+                                                }}
+                                            >
+                                                {resolutCatalogError}
+                                            </p>
+                                        )}
+                                        <div style={{ marginBottom: '10px' }}>
+                                            <label
+                                                style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}
+                                            >
+                                                Код продукта PFP (pfpCode), до 64 символов
+                                            </label>
+                                            {resolutCatalogItems && resolutCatalogItems.length > 0 && (
+                                                <select
+                                                    value=""
+                                                    onChange={(e) => {
+                                                        const v = e.target.value;
+                                                        if (v)
+                                                            setProductForm((prev) => ({
+                                                                ...prev,
+                                                                resolut_pfp_code: v,
+                                                            }));
+                                                    }}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '8px 10px',
+                                                        borderRadius: '10px',
+                                                        border: '1px solid #e5e7eb',
+                                                        fontSize: '13px',
+                                                        background: '#fff',
+                                                        marginBottom: '8px',
+                                                    }}
+                                                >
+                                                    <option value="">Выбрать из каталога…</option>
+                                                    {resolutCatalogItems.map((it, idx) => {
+                                                        const code = typeof it.pfpCode === 'string' ? it.pfpCode : `row-${idx}`;
+                                                        return (
+                                                            <option key={`${code}-${idx}`} value={code}>
+                                                                {resolutCatalogOptionLabel(it)}
+                                                            </option>
+                                                        );
+                                                    })}
+                                                </select>
+                                            )}
+                                            <input
+                                                type="text"
+                                                maxLength={64}
+                                                placeholder="Например assetShort (можно вручную, если каталог недоступен)"
+                                                value={productForm.resolut_pfp_code}
+                                                onChange={(e) =>
+                                                    setProductForm((prev) => ({
+                                                        ...prev,
+                                                        resolut_pfp_code: e.target.value.slice(0, 64),
+                                                    }))
+                                                }
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '8px 10px',
+                                                    borderRadius: '10px',
+                                                    border: '1px solid #e5e7eb',
+                                                    fontSize: '13px',
+                                                }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label
+                                                style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}
+                                            >
+                                                Периодичность взноса (котировка)
+                                            </label>
+                                            <select
+                                                value={productForm.resolut_quote_p_type}
+                                                onChange={(e) =>
+                                                    setProductForm((prev) => ({
+                                                        ...prev,
+                                                        resolut_quote_p_type: e.target.value as ResolutQuotePTypeForm,
+                                                    }))
+                                                }
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '8px 10px',
+                                                    borderRadius: '10px',
+                                                    border: '1px solid #e5e7eb',
+                                                    fontSize: '13px',
+                                                    background: '#fff',
+                                                }}
+                                            >
+                                                <option value="unset">Не задано (дефолт бэка / env)</option>
+                                                {RESOLUT_QUOTE_P_TYPE_OPTIONS.map((o) => (
+                                                    <option key={o.value} value={String(o.value)}>
+                                                        {o.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div
                                     style={{
                                         marginTop: '8px',
@@ -6021,6 +6291,18 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                         },
                                                     ]);
                                                 }
+                                                const sp = selectedProduct as any;
+                                                const rc = sp.resolut_pfp_code;
+                                                setEditResolutPfpCode(
+                                                    rc != null && String(rc).trim() !== '' ? String(rc).slice(0, 64) : '',
+                                                );
+                                                const pq = sp.resolut_quote_p_type;
+                                                const pn = pq === null || pq === undefined || pq === '' ? NaN : Number(pq);
+                                                if (!Number.isNaN(pn) && ([0, 1, 2, 4, 12] as number[]).includes(pn)) {
+                                                    setEditResolutQuotePType(String(pn) as ResolutQuotePTypeForm);
+                                                } else {
+                                                    setEditResolutQuotePType('unset');
+                                                }
                                                 setIsEditingProduct(true);
                                             }}
                                             style={{
@@ -6078,6 +6360,35 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                             <div>{(selectedProduct as any).currency || 'RUB'}</div>
                                         </div>
                                     </div>
+
+                                    {isResolutAvProject && !isEditingProduct && (
+                                        <div
+                                            style={{
+                                                marginTop: '12px',
+                                                padding: '10px 12px',
+                                                borderRadius: '12px',
+                                                background: '#f5f3ff',
+                                                border: '1px solid #ddd6fe',
+                                                fontSize: '12px',
+                                            }}
+                                        >
+                                            <div style={{ fontWeight: 600, color: '#5b21b6', marginBottom: '6px' }}>Резолют</div>
+                                            <div style={{ color: '#6b7280', marginBottom: '2px' }}>pfpCode</div>
+                                            <div style={{ marginBottom: '8px' }}>
+                                                {(selectedProduct as any).resolut_pfp_code != null &&
+                                                String((selectedProduct as any).resolut_pfp_code).trim() !== ''
+                                                    ? String((selectedProduct as any).resolut_pfp_code)
+                                                    : '—'}
+                                            </div>
+                                            <div style={{ color: '#6b7280', marginBottom: '2px' }}>Периодичность (котировка)</div>
+                                            <div>
+                                                {(selectedProduct as any).resolut_quote_p_type != null &&
+                                                (selectedProduct as any).resolut_quote_p_type !== ''
+                                                    ? String((selectedProduct as any).resolut_quote_p_type)
+                                                    : 'Не задано (дефолт бэка)'}
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div
                                         style={{
@@ -6143,6 +6454,141 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
 
                                         {isEditingProduct && (
                                             <div>
+                                                {isResolutAvProject && (
+                                                    <div
+                                                        style={{
+                                                            marginBottom: '12px',
+                                                            padding: '12px 14px',
+                                                            borderRadius: '12px',
+                                                            background: '#f5f3ff',
+                                                            border: '1px solid #ddd6fe',
+                                                        }}
+                                                    >
+                                                        <div
+                                                            style={{
+                                                                fontSize: '13px',
+                                                                fontWeight: 600,
+                                                                color: '#5b21b6',
+                                                                marginBottom: '8px',
+                                                            }}
+                                                        >
+                                                            Резолют (AV)
+                                                        </div>
+                                                        {resolutCatalogLoading && (
+                                                            <p style={{ fontSize: '12px', color: '#6b7280', margin: '0 0 8px' }}>
+                                                                Загружаем каталог…
+                                                            </p>
+                                                        )}
+                                                        {resolutCatalogError && (
+                                                            <p
+                                                                style={{
+                                                                    fontSize: '12px',
+                                                                    color: '#b45309',
+                                                                    background: '#fffbeb',
+                                                                    padding: '8px 10px',
+                                                                    borderRadius: '8px',
+                                                                    margin: '0 0 8px',
+                                                                    lineHeight: 1.4,
+                                                                }}
+                                                            >
+                                                                {resolutCatalogError}
+                                                            </p>
+                                                        )}
+                                                        <div style={{ marginBottom: '10px' }}>
+                                                            <label
+                                                                style={{
+                                                                    display: 'block',
+                                                                    fontSize: '12px',
+                                                                    color: '#6b7280',
+                                                                    marginBottom: '4px',
+                                                                }}
+                                                            >
+                                                                Код продукта PFP (pfpCode)
+                                                            </label>
+                                                            {resolutCatalogItems && resolutCatalogItems.length > 0 && (
+                                                                <select
+                                                                    value=""
+                                                                    onChange={(e) => {
+                                                                        const v = e.target.value;
+                                                                        if (v) setEditResolutPfpCode(v);
+                                                                    }}
+                                                                    style={{
+                                                                        width: '100%',
+                                                                        padding: '8px 10px',
+                                                                        borderRadius: '10px',
+                                                                        border: '1px solid #e5e7eb',
+                                                                        fontSize: '13px',
+                                                                        background: '#fff',
+                                                                        marginBottom: '8px',
+                                                                    }}
+                                                                >
+                                                                    <option value="">Выбрать из каталога…</option>
+                                                                    {resolutCatalogItems.map((it, idx) => {
+                                                                        const code =
+                                                                            typeof it.pfpCode === 'string'
+                                                                                ? it.pfpCode
+                                                                                : `row-${idx}`;
+                                                                        return (
+                                                                            <option key={`${code}-${idx}`} value={code}>
+                                                                                {resolutCatalogOptionLabel(it)}
+                                                                            </option>
+                                                                        );
+                                                                    })}
+                                                                </select>
+                                                            )}
+                                                            <input
+                                                                type="text"
+                                                                maxLength={64}
+                                                                value={editResolutPfpCode}
+                                                                onChange={(e) =>
+                                                                    setEditResolutPfpCode(e.target.value.slice(0, 64))
+                                                                }
+                                                                style={{
+                                                                    width: '100%',
+                                                                    padding: '8px 10px',
+                                                                    borderRadius: '10px',
+                                                                    border: '1px solid #e5e7eb',
+                                                                    fontSize: '13px',
+                                                                }}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label
+                                                                style={{
+                                                                    display: 'block',
+                                                                    fontSize: '12px',
+                                                                    color: '#6b7280',
+                                                                    marginBottom: '4px',
+                                                                }}
+                                                            >
+                                                                Периодичность взноса (котировка)
+                                                            </label>
+                                                            <select
+                                                                value={editResolutQuotePType}
+                                                                onChange={(e) =>
+                                                                    setEditResolutQuotePType(
+                                                                        e.target.value as ResolutQuotePTypeForm,
+                                                                    )
+                                                                }
+                                                                style={{
+                                                                    width: '100%',
+                                                                    padding: '8px 10px',
+                                                                    borderRadius: '10px',
+                                                                    border: '1px solid #e5e7eb',
+                                                                    fontSize: '13px',
+                                                                    background: '#fff',
+                                                                }}
+                                                            >
+                                                                <option value="unset">Не задано (дефолт бэка / env)</option>
+                                                                {RESOLUT_QUOTE_P_TYPE_OPTIONS.map((o) => (
+                                                                    <option key={o.value} value={String(o.value)}>
+                                                                        {o.label}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 <table
                                                     style={{
                                                         width: '100%',
@@ -6356,6 +6802,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                         ? l.yield_percent
                                                                         : 0,
                                                             })),
+                                                        ...buildResolutProductPayloadPart(
+                                                            isResolutAvProject,
+                                                            editResolutPfpCode,
+                                                            editResolutQuotePType,
+                                                        ),
                                                     };
 
                                                     try {

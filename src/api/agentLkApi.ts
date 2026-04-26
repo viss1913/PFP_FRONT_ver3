@@ -114,11 +114,34 @@ export interface ProductLineCreate {
     yield_percent: number;
 }
 
+/** Периодичность взноса для котировки Резолют (см. бэк / НСЖ). */
+export type ResolutQuotePType = 0 | 1 | 2 | 4 | 12;
+
+/** Нормализованный ответ PFP для операций Резолют. */
+export interface ResolutNormalizedResponse<T = unknown> {
+    ok: boolean;
+    status?: number;
+    operation?: string;
+    data?: T;
+    err?: { code?: string; message?: string };
+}
+
+/** Элемент каталога продуктов партнёра (схема не гарантирована; типично pfpCode + program.name). */
+export interface ResolutCatalogItem {
+    pfpCode?: string;
+    product?: unknown;
+    program?: { code?: string; name?: string };
+    [key: string]: unknown;
+}
+
 export interface ProductCreatePayload {
     name: string;
     product_type: string;
     currency: string;
     lines: ProductLineCreate[];
+    /** Интеграция Резолют (проект AV); опционально. */
+    resolut_pfp_code?: string | null;
+    resolut_quote_p_type?: ResolutQuotePType | null;
 }
 
 // --- Настройки планов (инфляция, рост расходов, доходность) ---
@@ -589,6 +612,29 @@ export const agentLkApi = {
             headers: getHeaders(),
         });
         return response.data;
+    },
+
+    /**
+     * Справочник кодов продуктов Резолют (pfpCode) для селекта в ЛК.
+     * POST с пустым телом — канонично для PFP; при необходимости бэк читает req.body.data.
+     */
+    fetchResolutProductCatalog: async (): Promise<ResolutCatalogItem[]> => {
+        const response = await axios.post<ResolutNormalizedResponse<unknown>>(
+            `${API_BASE}/resolut/products`,
+            {},
+            { headers: getHeaders() },
+        );
+        const body = response.data;
+        if (!body?.ok) {
+            const msg =
+                body?.err?.message ||
+                body?.err?.code ||
+                'Не удалось загрузить каталог продуктов Резолют';
+            throw new Error(msg);
+        }
+        const raw = body.data;
+        const list = Array.isArray(raw) ? raw : [];
+        return list as ResolutCatalogItem[];
     },
 
     cloneProduct: async (id: number | string): Promise<AgentProduct> => {
