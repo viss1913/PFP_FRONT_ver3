@@ -21,7 +21,7 @@ export type FamilyObligation =
     | 'elder_support'
     | 'other';
 export type FamilyRealEstateStatus = 'owned' | 'mortgage';
-export type RiskProfileAnswers = Partial<Record<'q2' | 'q3' | 'q4' | 'q5' | 'q6' | 'q7' | 'q8' | 'q9' | 'q10', number>>;
+export type RiskProfileAnswers = Record<string, string>;
 
 export interface FamilyChild {
     first_name: string;

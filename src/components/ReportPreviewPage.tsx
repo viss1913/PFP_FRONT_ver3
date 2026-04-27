@@ -88,6 +88,10 @@ export const ReportPreviewPage: React.FC = () => {
     if (!reportData) return <div style={styles.center}>Нет данных для отображения</div>;
 
     const { client_info, current_situation, overall_plan, goals_detailed, insurance_protection } = reportData;
+    const riskResult = reportData?.risk_profile_result || null;
+    const riskProfile = riskResult?.risk_profile || reportData?.risk_profile || null;
+    const riskProfileExtended = riskResult?.risk_profile_extended || null;
+    const finalScore = typeof riskResult?.final_score === 'number' ? riskResult.final_score : null;
 
     // Chart Data
     const waterfallDataRaw = overall_plan?.chart_waterfall || {};
@@ -167,6 +171,14 @@ export const ReportPreviewPage: React.FC = () => {
                         <KpiCard label="Активы" value={current_situation?.assets_total} color={COLORS_FIGMA.dark} />
                         <KpiCard label="Обязательства" value={current_situation?.liabilities_total} color="#DC2626" />
                         <KpiCard label="Чистый капитал" value={current_situation?.net_worth} color={COLORS_FIGMA.primary} isBig />
+                    </div>
+                    <div style={{ marginTop: 16, border: '1px solid #E2E8F0', borderRadius: 12, padding: 14, background: '#fff' }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: '#334155' }}>Риск-профиль</div>
+                        <div style={{ display: 'grid', gap: 6, fontSize: 13, color: '#475569' }}>
+                            <div>Совместимый профиль: <strong>{riskProfile || '—'}</strong></div>
+                            <div>Расширенный профиль: <strong>{riskProfileExtended || riskProfile || '—'}</strong></div>
+                            <div>Итоговый score: <strong>{finalScore ?? '—'}</strong></div>
+                        </div>
                     </div>
                 </div>
 

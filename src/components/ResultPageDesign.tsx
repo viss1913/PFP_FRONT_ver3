@@ -324,6 +324,10 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     { key: 'goals', label: 'Пополнение целей', value: monthlyGoalsReplenishment, color: '#0EA5E9' },
   ];
   const budgetMax = Math.max(1, ...budgetBars.map((b) => b.value), Math.abs(freeMoney));
+  const riskProfileResult = calcRoot?.risk_profile_result || null;
+  const compatibleRiskProfile = riskProfileResult?.risk_profile || calcRoot?.risk_profile || client?.risk_profile || null;
+  const extendedRiskProfile = riskProfileResult?.risk_profile_extended || null;
+  const finalScore = typeof riskProfileResult?.final_score === 'number' ? riskProfileResult.final_score : null;
 
   // Мапим результаты расчетов на карточки
   const goalCards: GoalResult[] = (calculatedGoals as any[]).map((goalResult: any, _index: number) => {
@@ -709,6 +713,32 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
               <div style={{ marginTop: '4px', paddingTop: '6px', borderTop: '1px dashed rgba(148,163,184,0.38)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#475569' }}>
                 <span>Свободные деньги</span>
                 <b style={{ color: freeMoney < 0 ? '#DC2626' : '#0F766E' }}>{formatCurrency(freeMoney)}</b>
+              </div>
+            </div>
+
+            <div style={{
+              marginTop: '16px',
+              background: '#fff',
+              border: '1px solid #E2E8F0',
+              borderRadius: '16px',
+              padding: '14px'
+            }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '10px' }}>
+                Риск-профиль клиента
+              </div>
+              <div style={{ display: 'grid', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#334155' }}>
+                  <span>Совместимый профиль (3 уровня)</span>
+                  <b>{compatibleRiskProfile || '—'}</b>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#334155' }}>
+                  <span>Расширенный профиль</span>
+                  <b>{extendedRiskProfile || compatibleRiskProfile || '—'}</b>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#334155' }}>
+                  <span>Итоговый score</span>
+                  <b>{finalScore ?? '—'}</b>
+                </div>
               </div>
             </div>
           </section>

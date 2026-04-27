@@ -35,9 +35,26 @@ function App() {
     // Для тестирования: устанавливаем 'test' чтобы сразу видеть страницу результатов
     const [currentPage, setCurrentPage] = useState<Page>('login')
     const [calculationResult, setCalculationResult] = useState<any>(null)
-    const [newClientData, setNewClientData] = useState<{ fio: string, phone: string, uuid: string } | null>(null);
+    const [newClientData, setNewClientData] = useState<{ fio: string; phone: string; email?: string; uuid: string } | null>(null);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
     const [loadingPlan, setLoadingPlan] = useState(false);
+
+    const enrichWithRiskProfileResult = useCallback(async (result: any, clientId?: number | null) => {
+        const resolvedId = clientId || result?.client_id || result?.id || result?.summary?.client_id;
+        if (!resolvedId) return result;
+        try {
+            const riskData = await clientApi.getRiskAnswersResult();
+            return {
+                ...result,
+                risk_profile_answers: riskData.risk_profile_answers,
+                risk_questionnaire_version_id: riskData.risk_questionnaire_version_id,
+                risk_profile_result: riskData.risk_profile_result || null
+            };
+        } catch (e) {
+            console.error('Failed to enrich result with risk profile data:', e);
+            return result;
+        }
+    }, []);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -86,16 +103,19 @@ function App() {
                 setSelectedClient(prev => prev || { id: clientId } as any);
             }
 
-            setCalculationResult(result);
+            const enrichedResult = await enrichWithRiskProfileResult(result, clientId);
+            setCalculationResult(enrichedResult);
         }
         // Fallback or legacy structures
         else if (result?.client) {
             const client = result.client;
             if (!client.id && result.client_id) client.id = result.client_id;
             setSelectedClient(client);
-            setCalculationResult(result);
+            const enrichedResult = await enrichWithRiskProfileResult(result, client.id);
+            setCalculationResult(enrichedResult);
         } else {
-            setCalculationResult(result);
+            const enrichedResult = await enrichWithRiskProfileResult(result);
+            setCalculationResult(enrichedResult);
         }
 
         setCurrentPage('result')
@@ -159,12 +179,14 @@ function App() {
             // NEW: Adding client_id to the payload as requested
             const finalPayload = {
                 ...payload,
-                client_id: clientId
+                client_id: clientId,
+                risk_profile_answers: calculationResult?.risk_profile_answers || undefined
             };
             const result = await clientApi.recalculate(clientId, finalPayload);
             console.log('Recalculate success:', result);
 
-            setCalculationResult(result);
+            const enrichedResult = await enrichWithRiskProfileResult(result, clientId);
+            setCalculationResult(enrichedResult);
             return result;
         } catch (error) {
             console.error('Recalculation failed:', error);
@@ -173,7 +195,7 @@ function App() {
         } finally {
             setLoadingPlan(false);
         }
-    }, [selectedClient, calculationResult]);
+    }, [selectedClient, calculationResult, enrichWithRiskProfileResult]);
 
     const handleAddGoal = async (goal: any) => {
         if (!selectedClient) return;

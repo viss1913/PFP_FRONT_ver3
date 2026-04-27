@@ -313,6 +313,10 @@ export const ReportPDF: React.FC<{ data: any }> = ({ data }) => {
     const todayLabel = new Date().toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' });
 
     const portfolioAlloc = overall_plan?.consolidated_portfolio?.assets_allocation || [];
+    const riskResult = data?.risk_profile_result || null;
+    const riskProfile = riskResult?.risk_profile || data?.risk_profile || null;
+    const riskProfileExtended = riskResult?.risk_profile_extended || null;
+    const finalScore = typeof riskResult?.final_score === 'number' ? riskResult.final_score : null;
     const pieData = portfolioAlloc.map((item: any, index: number) => ({
         name: item.name,
         value: item.share,
@@ -376,6 +380,18 @@ export const ReportPDF: React.FC<{ data: any }> = ({ data }) => {
                                 </View>
                             );
                         })}
+                    </View>
+
+                    <Text style={styles.sectionTitle}>Риск-профиль</Text>
+                    <View style={styles.insuranceCard}>
+                        <Text style={styles.riskLabel}>Совместимый профиль (3 уровня)</Text>
+                        <Text style={styles.riskValue}>{riskProfile || '—'}</Text>
+                        <View style={styles.divider} />
+                        <Text style={styles.riskLabel}>Расширенный профиль</Text>
+                        <Text style={styles.riskValue}>{riskProfileExtended || riskProfile || '—'}</Text>
+                        <View style={styles.divider} />
+                        <Text style={styles.riskLabel}>Итоговый score</Text>
+                        <Text style={styles.riskValue}>{finalScore ?? '—'}</Text>
                     </View>
 
                     {insurance_protection && insurance_protection.length > 0 && (

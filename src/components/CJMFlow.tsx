@@ -10,6 +10,7 @@ import StepLifeInsurance from './steps/StepLifeInsurance';
 import StepRiskProfile from './steps/StepRiskProfile';
 import { clientApi } from '../api/clientApi';
 import type { Asset, ClientGoal } from '../types/client';
+import type { RiskQuestionnaire } from '../api/clientApi';
 
 interface CJMFlowProps {
     onComplete: (result: any) => void;
@@ -62,7 +63,8 @@ export interface CJMData {
         credits: ClientCreditDraft[];
         confidentiality: { allow_spouse_access: boolean; allow_family_contact: boolean; notes?: string };
     };
-    riskProfileAnswers: Partial<Record<'q2' | 'q3' | 'q4' | 'q5' | 'q6' | 'q7' | 'q8' | 'q9' | 'q10', number>>;
+    riskProfileAnswers: Record<string, string>;
+    riskQuestionnaireVersionId?: number;
 }
 
 export type FamilyObligation =
@@ -97,6 +99,8 @@ const CAPITAL_FLOOR_LIFE_INSURANCE = 500_000;
 const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, onBack }) => {
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
+    const [riskQuestionnaire, setRiskQuestionnaire] = useState<RiskQuestionnaire | null>(null);
+    const [riskQuestionnaireLoading, setRiskQuestionnaireLoading] = useState(false);
     const [data, setData] = useState<CJMData>({
         gender: 'male',
         age: 39,
@@ -298,10 +302,12 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                 });
             }
 
-            const requiredAnswers = ['q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8', 'q9', 'q10'] as const;
-            const hasAllRiskAnswers = requiredAnswers.every((key) => typeof data.riskProfileAnswers[key] === 'number');
+            const questionnaireQuestions = riskQuestionnaire?.questions || [];
+            const hasAllRiskAnswers =
+                questionnaireQuestions.length > 0 &&
+                questionnaireQuestions.every((question) => typeof data.riskProfileAnswers[question.code] === 'string');
             if (!hasAllRiskAnswers) {
-                alert('Заполни риск-профиль полностью (вопросы q2-q10).');
+                alert('Заполни риск-профиль полностью.');
                 return;
             }
 
@@ -368,7 +374,6 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
 
             if (!clientId) {
                 clientPayload.family_profile = familyProfilePayload;
-                clientPayload.risk_profile_answers = data.riskProfileAnswers;
             }
 
             const payload = {
@@ -407,6 +412,27 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                 response = await clientApi.firstRun(payload);
             }
 
+            const questionnaireVersionId =
+                data.riskQuestionnaireVersionId ??
+                riskQuestionnaire?.id;
+            if (questionnaireVersionId) {
+                try {
+                    const riskSaveResponse = await clientApi.saveRiskAnswers({
+                        risk_profile_answers: data.riskProfileAnswers,
+                        risk_questionnaire_version_id: questionnaireVersionId
+                    });
+                    const nextRiskProfile = riskSaveResponse.risk_profile_result?.risk_profile;
+                    if (nextRiskProfile && typeof nextRiskProfile === 'string') {
+                        setData((prev) => ({
+                            ...prev,
+                            riskProfile: nextRiskProfile as CJMData['riskProfile']
+                        }));
+                    }
+                } catch (riskSaveError) {
+                    console.error('Failed to save risk profile answers:', riskSaveError);
+                }
+            }
+
             onComplete(response);
         } catch (error) {
             console.error('Calculation error:', error);
@@ -430,6 +456,25 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
     const stepsForHeader = skipLifeInsurance ? steps.filter((_, i) => i !== 5) : steps;
 
     useEffect(() => {
+        const loadRiskQuestionnaire = async () => {
+            setRiskQuestionnaireLoading(true);
+            try {
+                const questionnaire = await clientApi.getRiskQuestionnaire();
+                setRiskQuestionnaire(questionnaire);
+                setData((prev) => ({
+                    ...prev,
+                    riskQuestionnaireVersionId: questionnaire.id
+                }));
+            } catch (e) {
+                console.error('Failed to load risk questionnaire', e);
+            } finally {
+                setRiskQuestionnaireLoading(false);
+            }
+        };
+        loadRiskQuestionnaire();
+    }, []);
+
+    useEffect(() => {
         // If editing, fetch client data
         if (clientId) {
             // Need to fetch client details and pre-fill `data`
@@ -449,6 +494,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                         email: client.email,
                         uuid: client.external_uuid,
                         avgMonthlyIncome: client.avg_monthly_income || 150000,
+                        riskProfileAnswers: client.risk_profile_answers || prev.riskProfileAnswers,
                         familyProfile: {
                             ...prev.familyProfile,
                             ...(client.family_profile || {}),
@@ -467,6 +513,21 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                 }
             };
             loadClient();
+
+            const loadRiskAnswers = async () => {
+                try {
+                    const riskAnswers = await clientApi.getRiskAnswersResult();
+                    setData((prev) => ({
+                        ...prev,
+                        riskProfileAnswers: riskAnswers.risk_profile_answers || prev.riskProfileAnswers,
+                        riskQuestionnaireVersionId: riskAnswers.risk_questionnaire_version_id || prev.riskQuestionnaireVersionId,
+                        riskProfile: (riskAnswers.risk_profile_result?.risk_profile as CJMData['riskProfile']) || prev.riskProfile
+                    }));
+                } catch (e) {
+                    console.error('Failed to load risk answers', e);
+                }
+            };
+            loadRiskAnswers();
         }
     }, [clientId]);
 
@@ -550,7 +611,17 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     {step === 4 && <StepAssets data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
                     {step === 5 && <StepFinReserve data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
                     {step === 6 && <StepLifeInsurance data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
-                    {step === 7 && <StepRiskProfile data={data} setData={setData} onComplete={handleCalculate} onPrev={prevStep} loading={loading} />}
+                    {step === 7 && (
+                        <StepRiskProfile
+                            data={data}
+                            setData={setData}
+                            onComplete={handleCalculate}
+                            onPrev={prevStep}
+                            loading={loading}
+                            questionnaire={riskQuestionnaire}
+                            isQuestionnaireLoading={riskQuestionnaireLoading}
+                        />
+                    )}
                 </motion.div>
             </AnimatePresence>
         </div>

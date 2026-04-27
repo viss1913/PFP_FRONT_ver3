@@ -49,6 +49,51 @@ export interface AgentReportPdfUrlQuery {
     includeSummary?: boolean;
 }
 
+export interface RiskQuestionnaireOption {
+    code: string;
+    label: string;
+    score?: number | null;
+}
+
+export interface RiskQuestionnaireQuestion {
+    code: string;
+    title: string;
+    description?: string | null;
+    help_text?: string | null;
+    options: RiskQuestionnaireOption[];
+}
+
+export interface RiskQuestionnaire {
+    id: number;
+    code?: string;
+    name?: string;
+    questions: RiskQuestionnaireQuestion[];
+}
+
+export interface RiskQuestionnaireResponse {
+    questionnaire: RiskQuestionnaire;
+}
+
+export interface RiskAnswersPayload {
+    risk_profile_answers: Record<string, string>;
+    risk_questionnaire_version_id: number;
+}
+
+export interface RiskProfileResult {
+    risk_profile?: 'CONSERVATIVE' | 'BALANCED' | 'AGGRESSIVE' | string | null;
+    risk_profile_extended?: string | null;
+    final_score?: number | null;
+    base_score?: number | null;
+    behavior_score?: number | null;
+    [key: string]: unknown;
+}
+
+export interface RiskAnswersResponse {
+    risk_profile_answers: Record<string, string>;
+    risk_questionnaire_version_id: number;
+    risk_profile_result?: RiskProfileResult | null;
+}
+
 // Helper to get project_id from localStorage
 const getProjectId = (): number => {
     try {
@@ -323,6 +368,25 @@ export const clientApi = {
             project_id: payload.project_id || getProjectId()
         };
         const response = await api.post(`/client/${id}/recalculate`, enrichedPayload);
+        return response.data;
+    },
+
+    getRiskQuestionnaire: async (): Promise<RiskQuestionnaire> => {
+        const response = await api.get<RiskQuestionnaireResponse | RiskQuestionnaire>('/my/risk-profile/questionnaire');
+        const raw = response.data;
+        if (raw && typeof raw === 'object' && 'questionnaire' in raw) {
+            return (raw as RiskQuestionnaireResponse).questionnaire;
+        }
+        return raw as RiskQuestionnaire;
+    },
+
+    saveRiskAnswers: async (payload: RiskAnswersPayload): Promise<RiskAnswersResponse> => {
+        const response = await api.post<RiskAnswersResponse>('/my/risk-profile/answers', payload);
+        return response.data;
+    },
+
+    getRiskAnswersResult: async (): Promise<RiskAnswersResponse> => {
+        const response = await api.get<RiskAnswersResponse>('/my/risk-profile/answers');
         return response.data;
     },
 
