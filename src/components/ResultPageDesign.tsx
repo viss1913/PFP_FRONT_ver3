@@ -715,47 +715,51 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
               </div>
             </div>
 
-            <div style={{
-              marginTop: '16px',
-              background: '#fff',
-              border: '1px solid #E2E8F0',
-              borderRadius: '16px',
-              padding: '14px'
-            }}>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '10px' }}>
-                {riskProfileExplanation?.title || 'Риск-профиль клиента'}
-              </div>
-              <div style={{ display: 'grid', gap: '10px' }}>
-                <div style={{ fontSize: '13px', color: '#334155' }}>
-                  {riskProfileExplanation?.summary || '—'}
+            {riskProfileExplanation && (
+              <div style={{
+                marginTop: '16px',
+                background: '#fff',
+                border: '1px solid #E2E8F0',
+                borderRadius: '16px',
+                padding: '14px'
+              }}>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '10px' }}>
+                  {riskProfileExplanation.title || 'Риск-профиль клиента'}
                 </div>
-                {keyFactors.length > 0 && (
-                  <div style={{ fontSize: '13px', color: '#334155' }}>
-                    <div style={{ fontWeight: 600, marginBottom: 4 }}>Ключевые факторы</div>
-                    <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 4 }}>
-                      {keyFactors.map((factor: string, idx: number) => (
-                        <li key={`factor_${idx}`}>{factor}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {recommendations.length > 0 && (
-                  <div style={{ fontSize: '13px', color: '#334155' }}>
-                    <div style={{ fontWeight: 600, marginBottom: 4 }}>Рекомендации</div>
-                    <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 4 }}>
-                      {recommendations.map((rec: string, idx: number) => (
-                        <li key={`rec_${idx}`}>{rec}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {riskProfileExplanation?.caution && (
-                  <div style={{ fontSize: '13px', color: '#92400E', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '8px 10px' }}>
-                    {riskProfileExplanation.caution}
-                  </div>
-                )}
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {riskProfileExplanation.summary && (
+                    <div style={{ fontSize: '13px', color: '#334155' }}>
+                      {riskProfileExplanation.summary}
+                    </div>
+                  )}
+                  {keyFactors.length > 0 && (
+                    <div style={{ fontSize: '13px', color: '#334155' }}>
+                      <div style={{ fontWeight: 600, marginBottom: 4 }}>Ключевые факторы</div>
+                      <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 4 }}>
+                        {keyFactors.map((factor: string, idx: number) => (
+                          <li key={`factor_${idx}`}>{factor}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {recommendations.length > 0 && (
+                    <div style={{ fontSize: '13px', color: '#334155' }}>
+                      <div style={{ fontWeight: 600, marginBottom: 4 }}>Рекомендации</div>
+                      <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 4 }}>
+                        {recommendations.map((rec: string, idx: number) => (
+                          <li key={`rec_${idx}`}>{rec}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {riskProfileExplanation.caution && (
+                    <div style={{ fontSize: '13px', color: '#92400E', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '8px 10px' }}>
+                      {riskProfileExplanation.caution}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </section>
 
           <div style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>

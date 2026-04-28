@@ -514,20 +514,6 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
             };
             loadClient();
 
-            const loadRiskAnswers = async () => {
-                try {
-                    const riskAnswers = await clientApi.getRiskAnswersResult();
-                    setData((prev) => ({
-                        ...prev,
-                        riskProfileAnswers: riskAnswers.risk_profile_answers || prev.riskProfileAnswers,
-                        riskQuestionnaireVersionId: riskAnswers.risk_questionnaire_version_id || prev.riskQuestionnaireVersionId,
-                        riskProfile: (riskAnswers.risk_profile_result?.risk_profile as CJMData['riskProfile']) || prev.riskProfile
-                    }));
-                } catch (e) {
-                    console.error('Failed to load risk answers', e);
-                }
-            };
-            loadRiskAnswers();
         }
     }, [clientId]);
 

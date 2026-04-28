@@ -396,8 +396,10 @@ export const clientApi = {
         return response.data;
     },
 
-    getRiskAnswersResult: async (): Promise<RiskAnswersResponse> => {
-        const response = await api.get<RiskAnswersResponse>('/my/risk-profile/answers');
+    getRiskAnswersResult: async (clientId?: number): Promise<RiskAnswersResponse> => {
+        const response = await api.get<RiskAnswersResponse>('/my/risk-profile/answers', {
+            params: clientId ? { client_id: clientId } : undefined,
+        });
         return response.data;
     },
 

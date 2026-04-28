@@ -43,7 +43,7 @@ function App() {
         const resolvedId = clientId || result?.client_id || result?.id || result?.summary?.client_id;
         if (!resolvedId) return result;
         try {
-            const riskData = await clientApi.getRiskAnswersResult();
+            const riskData = await clientApi.getRiskAnswersResult(Number(resolvedId));
             return {
                 ...result,
                 risk_profile_answers: riskData.risk_profile_answers,
