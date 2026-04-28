@@ -85,6 +85,72 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
         }
     }, [family.family_obligations, setData]);
 
+    useEffect(() => {
+        setData((prev) => {
+            const obligationsMap = (prev.familyProfile.family_obligations || []).reduce<Record<string, number>>((acc, item) => {
+                acc[item.type] = item.amount_monthly || 0;
+                return acc;
+            }, {});
+
+            const nextCredits = [...(prev.familyProfile.credits || [])];
+            let hasChanges = false;
+
+            const upsertCreditByType = (type: ClientCreditType, monthlyPayment: number) => {
+                const idx = nextCredits.findIndex((credit) => credit.type === type);
+                if (idx >= 0) {
+                    if ((nextCredits[idx].monthlyPayment || 0) !== monthlyPayment) {
+                        nextCredits[idx] = { ...nextCredits[idx], monthlyPayment };
+                        hasChanges = true;
+                    }
+                    return;
+                }
+
+                if (monthlyPayment > 0) {
+                    nextCredits.push({ type, balance: 0, monthlyPayment, rate: 0 });
+                    hasChanges = true;
+                }
+            };
+
+            upsertCreditByType('MORTGAGE', obligationsMap.mortgage || 0);
+            upsertCreditByType('CONSUMER_LOAN', obligationsMap.loans || 0);
+
+            if (!hasChanges) return prev;
+
+            return {
+                ...prev,
+                familyProfile: {
+                    ...prev.familyProfile,
+                    credits: nextCredits
+                }
+            };
+        });
+    }, [family.family_obligations, setData]);
+
+    useEffect(() => {
+        setData((prev) => {
+            const mortgageObligation = (prev.familyProfile.family_obligations || []).find((item) => item.type === 'mortgage');
+            if (!mortgageObligation || (mortgageObligation.amount_monthly || 0) <= 0) {
+                return prev;
+            }
+
+            const hasMortgagedEstate = (prev.familyProfile.real_estate || []).some((item) => item.status === 'mortgage');
+            if (hasMortgagedEstate) {
+                return prev;
+            }
+
+            return {
+                ...prev,
+                familyProfile: {
+                    ...prev.familyProfile,
+                    real_estate: [
+                        ...(prev.familyProfile.real_estate || []),
+                        { name: 'Квартира', estimated_value: 0, status: 'mortgage' }
+                    ]
+                }
+            };
+        });
+    }, [family.family_obligations, setData]);
+
     const updateObligationByType = (type: FamilyObligation, amount_monthly: number) => {
         setData((prev) => {
             const next = [...prev.familyProfile.family_obligations];
@@ -322,7 +388,14 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                                     <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center' }}>
                                         {obligationIcon[item.value]}
                                     </span>
-                                    <span>{item.label}</span>
+                                    <span>
+                                        {item.label}
+                                        {item.value === 'other' && (
+                                            <span style={{ marginLeft: 6, fontSize: 12, color: '#64748b' }}>
+                                                (еда, транспорт, связь)
+                                            </span>
+                                        )}
+                                    </span>
                                 </div>
                                 <div style={{ position: 'relative' }}>
                                     <input
