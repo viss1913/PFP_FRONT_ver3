@@ -48,7 +48,8 @@ function App() {
                 ...result,
                 risk_profile_answers: riskData.risk_profile_answers,
                 risk_questionnaire_version_id: riskData.risk_questionnaire_version_id,
-                risk_profile_result: riskData.risk_profile_result || null
+                risk_profile_result: riskData.risk_profile_result || null,
+                risk_profile_explanation: riskData.risk_profile_explanation || null
             };
         } catch (e) {
             console.error('Failed to enrich result with risk profile data:', e);

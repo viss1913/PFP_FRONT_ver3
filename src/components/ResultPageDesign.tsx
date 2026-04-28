@@ -324,10 +324,9 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     { key: 'goals', label: 'Пополнение целей', value: monthlyGoalsReplenishment, color: '#0EA5E9' },
   ];
   const budgetMax = Math.max(1, ...budgetBars.map((b) => b.value), Math.abs(freeMoney));
-  const riskProfileResult = calcRoot?.risk_profile_result || null;
-  const compatibleRiskProfile = riskProfileResult?.risk_profile || calcRoot?.risk_profile || client?.risk_profile || null;
-  const extendedRiskProfile = riskProfileResult?.risk_profile_extended || null;
-  const finalScore = typeof riskProfileResult?.final_score === 'number' ? riskProfileResult.final_score : null;
+  const riskProfileExplanation = calcRoot?.risk_profile_explanation || null;
+  const keyFactors = Array.isArray(riskProfileExplanation?.key_factors) ? riskProfileExplanation.key_factors : [];
+  const recommendations = Array.isArray(riskProfileExplanation?.recommendations) ? riskProfileExplanation.recommendations : [];
 
   // Мапим результаты расчетов на карточки
   const goalCards: GoalResult[] = (calculatedGoals as any[]).map((goalResult: any, _index: number) => {
@@ -724,21 +723,37 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
               padding: '14px'
             }}>
               <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '10px' }}>
-                Риск-профиль клиента
+                {riskProfileExplanation?.title || 'Риск-профиль клиента'}
               </div>
-              <div style={{ display: 'grid', gap: '8px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#334155' }}>
-                  <span>Совместимый профиль (3 уровня)</span>
-                  <b>{compatibleRiskProfile || '—'}</b>
+              <div style={{ display: 'grid', gap: '10px' }}>
+                <div style={{ fontSize: '13px', color: '#334155' }}>
+                  {riskProfileExplanation?.summary || '—'}
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#334155' }}>
-                  <span>Расширенный профиль</span>
-                  <b>{extendedRiskProfile || compatibleRiskProfile || '—'}</b>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#334155' }}>
-                  <span>Итоговый score</span>
-                  <b>{finalScore ?? '—'}</b>
-                </div>
+                {keyFactors.length > 0 && (
+                  <div style={{ fontSize: '13px', color: '#334155' }}>
+                    <div style={{ fontWeight: 600, marginBottom: 4 }}>Ключевые факторы</div>
+                    <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 4 }}>
+                      {keyFactors.map((factor: string, idx: number) => (
+                        <li key={`factor_${idx}`}>{factor}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {recommendations.length > 0 && (
+                  <div style={{ fontSize: '13px', color: '#334155' }}>
+                    <div style={{ fontWeight: 600, marginBottom: 4 }}>Рекомендации</div>
+                    <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 4 }}>
+                      {recommendations.map((rec: string, idx: number) => (
+                        <li key={`rec_${idx}`}>{rec}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {riskProfileExplanation?.caution && (
+                  <div style={{ fontSize: '13px', color: '#92400E', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '8px 10px' }}>
+                    {riskProfileExplanation.caution}
+                  </div>
+                )}
               </div>
             </div>
           </section>

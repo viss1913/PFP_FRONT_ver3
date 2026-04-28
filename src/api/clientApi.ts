@@ -90,10 +90,19 @@ export interface RiskProfileResult {
     [key: string]: unknown;
 }
 
+export interface RiskProfileExplanation {
+    title?: string | null;
+    summary?: string | null;
+    key_factors?: string[] | null;
+    recommendations?: string[] | null;
+    caution?: string | null;
+}
+
 export interface RiskAnswersResponse {
     risk_profile_answers: Record<string, string>;
     risk_questionnaire_version_id: number;
     risk_profile_result?: RiskProfileResult | null;
+    risk_profile_explanation?: RiskProfileExplanation | null;
 }
 
 // Helper to get project_id from localStorage
