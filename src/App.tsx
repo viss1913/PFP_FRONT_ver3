@@ -42,8 +42,13 @@ function App() {
     const enrichWithRiskProfileResult = useCallback(async (result: any, clientId?: number | null) => {
         const resolvedId = clientId || result?.client_id || result?.id || result?.summary?.client_id;
         if (!resolvedId) return result;
+        const normalizedClientId = Number(resolvedId);
+        if (!Number.isFinite(normalizedClientId) || normalizedClientId <= 0) {
+            console.warn('Skip risk answers enrichment: invalid client_id', { resolvedId, result });
+            return result;
+        }
         try {
-            const riskData = await clientApi.getRiskAnswersResult(Number(resolvedId));
+            const riskData = await clientApi.getRiskAnswersResult(normalizedClientId);
             return {
                 ...result,
                 risk_profile_answers: riskData.risk_profile_answers,

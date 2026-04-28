@@ -396,9 +396,12 @@ export const clientApi = {
         return response.data;
     },
 
-    getRiskAnswersResult: async (clientId?: number): Promise<RiskAnswersResponse> => {
+    getRiskAnswersResult: async (clientId: number): Promise<RiskAnswersResponse> => {
+        if (!Number.isFinite(clientId) || clientId <= 0) {
+            throw new Error(`Invalid client_id for risk profile answers: ${clientId}`);
+        }
         const response = await api.get<RiskAnswersResponse>('/my/risk-profile/answers', {
-            params: clientId ? { client_id: clientId } : undefined,
+            params: { client_id: clientId },
         });
         return response.data;
     },
