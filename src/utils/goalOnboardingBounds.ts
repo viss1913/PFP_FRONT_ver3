@@ -50,20 +50,48 @@ export const getGoalModalConfig = (params: {
     totalAssetsSum: number;
     termMonths?: number;
     isEducationGoal?: boolean;
+    goalId?: string;
 }): GoalModalConfig => {
-    const { data, goalTypeId, totalAssetsSum, termMonths, isEducationGoal = false } = params;
+    const { data, goalTypeId, totalAssetsSum, termMonths, isEducationGoal = false, goalId } = params;
     const net = getNetMonthlyCapacity(data);
 
     const reserveInitialMax = Math.max(totalAssetsSum || 0, 10_000_000);
     const reserveInitialStep = Math.max(1_000, Math.floor(reserveInitialMax / 100));
 
+    const baseTargetRange: SliderRange = { min: 100_000, max: 50_000_000, step: 100_000 };
+    const targetRangeByGoal: Record<string, SliderRange> = {
+        travel: { min: 100_000, max: 5_000_000, step: 50_000 },
+        auto: { min: 300_000, max: 8_000_000, step: 100_000 },
+        apartment: { min: 2_000_000, max: 40_000_000, step: 200_000 },
+        house: { min: 4_000_000, max: 60_000_000, step: 200_000 },
+        mortgage: { min: 500_000, max: 20_000_000, step: 100_000 },
+        move: { min: 300_000, max: 8_000_000, step: 100_000 },
+        business: { min: 1_000_000, max: 30_000_000, step: 100_000 },
+        other: { min: 100_000, max: 20_000_000, step: 100_000 },
+    };
+
+    const targetAmountRange = isEducationGoal
+        ? { min: 500_000, max: 10_000_000, step: 100_000 }
+        : (goalId ? targetRangeByGoal[goalId] : undefined) || baseTargetRange;
+
+    const termRangeByGoal: Record<string, SliderRange> = {
+        travel: { min: 1, max: 10, step: 1 },
+        auto: { min: 1, max: 10, step: 1 },
+        apartment: { min: 2, max: 20, step: 1 },
+        house: { min: 3, max: 25, step: 1 },
+        mortgage: { min: 1, max: 15, step: 1 },
+        move: { min: 1, max: 10, step: 1 },
+        business: { min: 1, max: 20, step: 1 },
+        other: { min: 1, max: 20, step: 1 },
+    };
+
+    const termYearsRange = (goalTypeId === 2
+        ? { min: 1, max: 30, step: 1 }
+        : (goalId ? termRangeByGoal[goalId] : undefined)) || { min: 1, max: 50, step: 1 };
+
     const bounds: GoalModalBounds = {
-        targetAmount: { min: 100_000, max: isEducationGoal ? 10_000_000 : 50_000_000, step: 100_000 },
-        termYears: {
-            min: 1,
-            max: goalTypeId === 2 ? 30 : 50,
-            step: 1,
-        },
+        targetAmount: targetAmountRange,
+        termYears: termYearsRange,
         desiredIncome: {
             min: goalTypeId === 1 || goalTypeId === 2 ? 10_000 : 0,
             max: goalTypeId === 7 ? 200_000 : goalTypeId === 3 ? 500_000 : 1_000_000,
@@ -76,8 +104,23 @@ export const getGoalModalConfig = (params: {
         },
     };
 
+    const standardTargetByGoalId: Record<string, number> = {
+        travel: Math.max(net * 10, 800_000),
+        auto: Math.max(net * 16, 1_500_000),
+        apartment: Math.max(net * 36, 6_000_000),
+        house: Math.max(net * 48, 9_000_000),
+        mortgage: Math.max(net * 18, 2_000_000),
+        move: Math.max(net * 12, 1_000_000),
+        business: Math.max(net * 24, 3_000_000),
+        other: Math.max(net * 18, 2_000_000),
+    };
+
+    const computedStandardTarget = isEducationGoal
+        ? Math.max(net * 24, 2_500_000)
+        : (goalId ? standardTargetByGoalId[goalId] : undefined) ?? Math.max(net * 60, 3_000_000);
+
     const defaults: GoalModalDefaults = {
-        targetAmount: clamp(roundToStep(Math.max(net * 60, 3_000_000), bounds.targetAmount.step), bounds.targetAmount.min, bounds.targetAmount.max),
+        targetAmount: clamp(roundToStep(computedStandardTarget, bounds.targetAmount.step), bounds.targetAmount.min, bounds.targetAmount.max),
         termMonths: (termMonths && termMonths > 0 ? termMonths : 5 * 12),
         desiredIncome: clamp(
             roundToStep(

@@ -91,6 +91,7 @@ const StepRiskProfile: React.FC<StepProps> = ({
     };
 
     const currentQuestion = questions[currentQuestionIndex];
+    const visualProgress = questions.length > 0 ? currentQuestionIndex + 1 : 0;
 
     return (
         <div>
@@ -142,7 +143,7 @@ const StepRiskProfile: React.FC<StepProps> = ({
                 background: 'rgba(255,255,255,0.03)',
                 color: 'var(--text-main)'
             }}>
-                Прогресс: {answeredCount}/{questions.length || 0}
+                Прогресс: {visualProgress}/{questions.length || 0}
             </div>
 
             {isQuestionnaireLoading && (

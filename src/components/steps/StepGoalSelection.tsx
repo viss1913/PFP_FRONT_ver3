@@ -87,6 +87,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
             totalAssetsSum,
             termMonths: nextTermMonths,
             isEducationGoal: Boolean(item.childFirstName),
+            goalId: item.id,
         });
 
         setTargetAmount(config.defaults.targetAmount);
@@ -105,6 +106,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
             totalAssetsSum,
             termMonths,
             isEducationGoal: Boolean(selectedGalleryItem.childFirstName),
+            goalId: selectedGalleryItem.id,
         });
         const safeTermMonths = clampGoalValue(Math.floor(termMonths / 12), config.bounds.termYears) * 12;
         const safeTargetAmount = clampGoalValue(targetAmount, config.bounds.targetAmount);
@@ -224,6 +226,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
             totalAssetsSum,
             termMonths,
             isEducationGoal,
+            goalId: selectedGalleryItem.id,
         })
         : null;
     const targetRange = modalConfig?.bounds.targetAmount ?? { min: 100000, max: 50000000, step: 100000 };
@@ -515,8 +518,8 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                         }}
                                     >
                                         <p style={{ margin: '0 0 10px', color: '#334155', fontSize: '14px', lineHeight: 1.5 }}>
-                                            Подсказка от AI: ориентируйся на бюджет за 4-5 лет обучения. Для цели
-                                            образования максимум в калькуляторе ограничен 10 000 000 руб.
+                                            Подсказка от AI: ориентируйся на бюджет за 4-5 лет обучения и сегмент вуза,
+                                            который семья хочет рассматривать.
                                         </p>
                                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', color: '#334155' }}>
                                             <thead>
