@@ -138,7 +138,8 @@ function App() {
 
             if (fullClient.goals_summary) {
                 // If client has a saved plan, show it
-                setCalculationResult(fullClient.goals_summary);
+                const enrichedResult = await enrichWithRiskProfileResult(fullClient.goals_summary, fullClient.id);
+                setCalculationResult(enrichedResult);
                 setCurrentPage('result');
             } else {
                 // Otherwise open CJM flow for editing/creation
