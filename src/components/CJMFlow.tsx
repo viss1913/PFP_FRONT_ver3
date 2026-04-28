@@ -357,6 +357,9 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
             }));
 
             const emailTrimmed = (data.email || '').trim();
+            const questionnaireVersionId =
+                data.riskQuestionnaireVersionId ??
+                riskQuestionnaire?.id;
             const clientPayload: Record<string, any> = {
                 birth_date: data.birthDate || new Date(new Date().getFullYear() - data.age, 0, 1).toISOString().split('T')[0],
                 gender: data.gender,
@@ -370,6 +373,10 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
             };
             if (emailTrimmed) {
                 clientPayload.email = emailTrimmed;
+            }
+            if (questionnaireVersionId) {
+                clientPayload.risk_profile_answers = data.riskProfileAnswers;
+                clientPayload.risk_questionnaire_version_id = questionnaireVersionId;
             }
 
             if (!clientId) {
@@ -412,9 +419,6 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                 response = await clientApi.firstRun(payload);
             }
 
-            const questionnaireVersionId =
-                data.riskQuestionnaireVersionId ??
-                riskQuestionnaire?.id;
             if (questionnaireVersionId) {
                 try {
                     const riskSaveResponse = await clientApi.saveRiskAnswers({

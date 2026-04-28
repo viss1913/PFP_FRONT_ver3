@@ -237,6 +237,7 @@ export interface CalculationClientData {
     project_id?: number;
     family_profile?: FamilyProfile;
     risk_profile_answers?: RiskProfileAnswers;
+    risk_questionnaire_version_id?: number;
     // Add other fields from ClientData schema if needed
 }
 
