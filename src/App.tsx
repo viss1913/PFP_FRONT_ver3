@@ -39,7 +39,7 @@ function App() {
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
     const [loadingPlan, setLoadingPlan] = useState(false);
 
-    const enrichWithRiskProfileResult = useCallback(async (result: any, clientId?: number | null) => {
+    const enrichWithRiskProfileResult = useCallback(async (result: any, _clientId?: number | null) => {
         const hasInlineRiskPayload =
             !!result &&
             (result.risk_profile_result !== undefined ||
@@ -48,26 +48,7 @@ function App() {
         if (hasInlineRiskPayload) {
             return result;
         }
-        const resolvedId = clientId || result?.client_id || result?.id || result?.summary?.client_id;
-        if (!resolvedId) return result;
-        const normalizedClientId = Number(resolvedId);
-        if (!Number.isFinite(normalizedClientId) || normalizedClientId <= 0) {
-            console.warn('Skip risk answers enrichment: invalid client_id', { resolvedId, result });
-            return result;
-        }
-        try {
-            const riskData = await clientApi.getRiskAnswersResult(normalizedClientId);
-            return {
-                ...result,
-                risk_profile_answers: riskData.risk_profile_answers,
-                risk_questionnaire_version_id: riskData.risk_questionnaire_version_id,
-                risk_profile_result: riskData.risk_profile_result || null,
-                risk_profile_explanation: riskData.risk_profile_explanation || null
-            };
-        } catch (e) {
-            console.error('Failed to enrich result with risk profile data:', e);
-            return result;
-        }
+        return result;
     }, []);
 
     useEffect(() => {
