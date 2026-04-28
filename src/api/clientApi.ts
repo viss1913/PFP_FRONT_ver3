@@ -391,8 +391,14 @@ export const clientApi = {
         return raw as RiskQuestionnaire;
     },
 
-    saveRiskAnswers: async (payload: RiskAnswersPayload): Promise<RiskAnswersResponse> => {
-        const response = await api.post<RiskAnswersResponse>('/my/risk-profile/answers', payload);
+    saveRiskAnswers: async (payload: RiskAnswersPayload, clientId?: number): Promise<RiskAnswersResponse> => {
+        const response = await api.post<RiskAnswersResponse>(
+            '/my/risk-profile/answers',
+            payload,
+            clientId && Number.isFinite(clientId) && clientId > 0
+                ? { params: { client_id: clientId } }
+                : undefined
+        );
         return response.data;
     },
 

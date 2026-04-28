@@ -303,9 +303,20 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
             }
 
             const questionnaireQuestions = riskQuestionnaire?.questions || [];
+            const normalizedRiskAnswers = questionnaireQuestions.reduce<Record<string, string>>((acc, question) => {
+                const selectedOptionCode = data.riskProfileAnswers[question.code];
+                if (typeof selectedOptionCode !== 'string') {
+                    return acc;
+                }
+                const optionExists = (question.options || []).some((option) => option.code === selectedOptionCode);
+                if (optionExists) {
+                    acc[question.code] = selectedOptionCode;
+                }
+                return acc;
+            }, {});
             const hasAllRiskAnswers =
                 questionnaireQuestions.length > 0 &&
-                questionnaireQuestions.every((question) => typeof data.riskProfileAnswers[question.code] === 'string');
+                questionnaireQuestions.every((question) => typeof normalizedRiskAnswers[question.code] === 'string');
             if (!hasAllRiskAnswers) {
                 alert('Заполни риск-профиль полностью.');
                 return;
@@ -375,7 +386,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                 clientPayload.email = emailTrimmed;
             }
             if (questionnaireVersionId) {
-                clientPayload.risk_profile_answers = data.riskProfileAnswers;
+                clientPayload.risk_profile_answers = normalizedRiskAnswers;
                 clientPayload.risk_questionnaire_version_id = questionnaireVersionId;
             }
 
@@ -403,6 +414,12 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
             };
 
             let response;
+            let latestRiskResponse: {
+                risk_profile_answers: Record<string, string>;
+                risk_questionnaire_version_id: number;
+                risk_profile_result?: unknown;
+                risk_profile_explanation?: unknown;
+            } | null = null;
             if (clientId) {
                 // UPDATE existing client + Calculate
                 // 1. Update Profile (using clientApi which has auth)
@@ -422,9 +439,10 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
             if (questionnaireVersionId) {
                 try {
                     const riskSaveResponse = await clientApi.saveRiskAnswers({
-                        risk_profile_answers: data.riskProfileAnswers,
+                        risk_profile_answers: normalizedRiskAnswers,
                         risk_questionnaire_version_id: questionnaireVersionId
-                    });
+                    }, clientId || Number(response?.client_id) || Number(response?.id) || Number(response?.summary?.client_id));
+                    latestRiskResponse = riskSaveResponse;
                     const nextRiskProfile = riskSaveResponse.risk_profile_result?.risk_profile;
                     if (nextRiskProfile && typeof nextRiskProfile === 'string') {
                         setData((prev) => ({
@@ -437,7 +455,16 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                 }
             }
 
-            onComplete(response);
+            const responseWithRiskData = latestRiskResponse
+                ? {
+                    ...response,
+                    risk_profile_answers: latestRiskResponse.risk_profile_answers,
+                    risk_questionnaire_version_id: latestRiskResponse.risk_questionnaire_version_id,
+                    risk_profile_result: latestRiskResponse.risk_profile_result || null,
+                    risk_profile_explanation: latestRiskResponse.risk_profile_explanation || null
+                }
+                : response;
+            onComplete(responseWithRiskData);
         } catch (error) {
             console.error('Calculation error:', error);
             alert('Ошибка при расчете. Пожалуйста, попробуйте снова.');

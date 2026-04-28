@@ -40,6 +40,14 @@ function App() {
     const [loadingPlan, setLoadingPlan] = useState(false);
 
     const enrichWithRiskProfileResult = useCallback(async (result: any, clientId?: number | null) => {
+        const hasInlineRiskPayload =
+            !!result &&
+            (result.risk_profile_result !== undefined ||
+                result.risk_profile_explanation !== undefined ||
+                result.risk_profile_answers !== undefined);
+        if (hasInlineRiskPayload) {
+            return result;
+        }
         const resolvedId = clientId || result?.client_id || result?.id || result?.summary?.client_id;
         if (!resolvedId) return result;
         const normalizedClientId = Number(resolvedId);
