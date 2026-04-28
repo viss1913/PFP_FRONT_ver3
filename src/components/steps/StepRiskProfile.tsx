@@ -22,7 +22,17 @@ const StepRiskProfile: React.FC<StepProps> = ({
     questionnaire,
     isQuestionnaireLoading,
 }) => {
-    const questions = questionnaire?.questions || [];
+    const questions = React.useMemo(() => {
+        const source = questionnaire?.questions || [];
+        return [...source]
+            .sort((a, b) => (a.sort_order ?? Number.MAX_SAFE_INTEGER) - (b.sort_order ?? Number.MAX_SAFE_INTEGER))
+            .map((question) => ({
+                ...question,
+                options: [...(question.options || [])].sort(
+                    (a, b) => (a.sort_order ?? Number.MAX_SAFE_INTEGER) - (b.sort_order ?? Number.MAX_SAFE_INTEGER)
+                )
+            }));
+    }, [questionnaire]);
     const answers = data.riskProfileAnswers || {};
     const answeredCount = questions.filter((q) => typeof answers[q.code] === 'string').length;
     const allAnswered = questions.length > 0 && answeredCount === questions.length;
@@ -116,6 +126,11 @@ const StepRiskProfile: React.FC<StepProps> = ({
                         fontWeight: '500'
                     }}>
                         Чтобы правильно создать финансовый план, надо обязательно сделать Риск-профилирование.
+                        {questionnaire?.description ? (
+                            <div style={{ marginTop: 8, fontSize: 14, color: '#4B5563' }}>
+                                {questionnaire.description}
+                            </div>
+                        ) : null}
                     </div>
                 </div>
             </div>

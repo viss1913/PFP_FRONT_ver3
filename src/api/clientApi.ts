@@ -52,7 +52,7 @@ export interface AgentReportPdfUrlQuery {
 export interface RiskQuestionnaireOption {
     code: string;
     label: string;
-    score?: number | null;
+    sort_order?: number | null;
 }
 
 export interface RiskQuestionnaireQuestion {
@@ -60,6 +60,7 @@ export interface RiskQuestionnaireQuestion {
     title: string;
     description?: string | null;
     help_text?: string | null;
+    sort_order?: number | null;
     options: RiskQuestionnaireOption[];
 }
 
@@ -67,6 +68,7 @@ export interface RiskQuestionnaire {
     id: number;
     code?: string;
     name?: string;
+    description?: string | null;
     questions: RiskQuestionnaireQuestion[];
 }
 
@@ -371,8 +373,8 @@ export const clientApi = {
         return response.data;
     },
 
-    getRiskQuestionnaire: async (): Promise<RiskQuestionnaire> => {
-        const response = await api.get<RiskQuestionnaireResponse | RiskQuestionnaire>('/my/risk-profile/questionnaire');
+    getRiskQuestionnaireV2: async (): Promise<RiskQuestionnaire> => {
+        const response = await api.get<RiskQuestionnaireResponse | RiskQuestionnaire>('/my/risk-profile/questionnaire-v2');
         const raw = response.data;
         if (raw && typeof raw === 'object' && 'questionnaire' in raw) {
             return (raw as RiskQuestionnaireResponse).questionnaire;

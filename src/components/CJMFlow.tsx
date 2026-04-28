@@ -459,7 +459,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
         const loadRiskQuestionnaire = async () => {
             setRiskQuestionnaireLoading(true);
             try {
-                const questionnaire = await clientApi.getRiskQuestionnaire();
+                const questionnaire = await clientApi.getRiskQuestionnaireV2();
                 setRiskQuestionnaire(questionnaire);
                 setData((prev) => ({
                     ...prev,
