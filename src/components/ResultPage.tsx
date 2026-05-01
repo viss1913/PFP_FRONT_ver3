@@ -378,7 +378,6 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
                 window.alert('Публикация успешна, но ссылка Resolut не получена (TTL короткий). Повтори клик.');
                 return;
             }
-            window.alert('Портфель отправлен, открываем Resolut…');
             window.open(url, '_blank', 'noopener,noreferrer');
         } catch (error) {
             const e = error as any;
