@@ -134,6 +134,80 @@ export interface ResolutCatalogItem {
     [key: string]: unknown;
 }
 
+export interface ResolutPublishQuoteLine {
+    line_id?: string;
+    product_id?: number;
+    code?: string;
+    parameters: Record<string, unknown>;
+}
+
+export interface ResolutPublishPreviewRequest {
+    client_id: number;
+    quotes: ResolutPublishQuoteLine[];
+}
+
+export interface ResolutPublishRequest extends ResolutPublishPreviewRequest {
+    resolut_client?: {
+        code?: string | number;
+        lastName?: string;
+        firstName?: string;
+        middleName?: string | null;
+        dob?: string;
+        sex?: 'male' | 'female';
+        phone?: string;
+        email?: string;
+    } | null;
+}
+
+export interface ResolutSkippedLine {
+    line_id?: string | null;
+    product_id?: number | null;
+    code?: string | null;
+    reason?: string;
+    product_name?: string | null;
+    expected_code?: string | null;
+}
+
+export interface ResolutEligibleLine {
+    line_id?: string | null;
+    product_id?: number | null;
+    code?: string;
+    parameters?: Record<string, unknown>;
+}
+
+export interface ResolutPublishPreviewResponse {
+    success?: boolean;
+    data?: {
+        client_id?: number;
+        resolut_client_code?: string | null;
+        eligible?: ResolutEligibleLine[];
+        skipped?: ResolutSkippedLine[];
+    };
+}
+
+export interface ResolutPublishResponse {
+    success?: boolean;
+    data?: {
+        client_id?: number;
+        resolut_client_code?: string | null;
+        publication_id?: number;
+        skipped?: ResolutSkippedLine[];
+        portfolio?: {
+            portfolio_code?: string | null;
+            portfolio_number?: string | null;
+            contracts?: Array<Record<string, unknown>>;
+            upstream_client_code?: string | null;
+        };
+        resolut?: ResolutNormalizedResponse<unknown>;
+    };
+}
+
+export interface ResolutPublishError {
+    success?: boolean;
+    error?: { code?: string; message?: string };
+    details?: Record<string, unknown> | null;
+}
+
 export interface ProductCreatePayload {
     name: string;
     product_type: string;
@@ -635,6 +709,46 @@ export const agentLkApi = {
         const raw = body.data;
         const list = Array.isArray(raw) ? raw : [];
         return list as ResolutCatalogItem[];
+    },
+
+    fetchResolutQuote: async (payload: {
+        code: string;
+        parameters: Record<string, unknown>;
+    }): Promise<ResolutNormalizedResponse<unknown>> => {
+        const response = await axios.post<ResolutNormalizedResponse<unknown>>(
+            `${API_BASE}/resolut/quote`,
+            payload,
+            { headers: getHeaders() },
+        );
+        return response.data;
+    },
+
+    previewResolutPublish: async (
+        payload: ResolutPublishPreviewRequest,
+    ): Promise<ResolutPublishPreviewResponse> => {
+        const response = await axios.post<ResolutPublishPreviewResponse>(
+            `${API_BASE}/resolut/publish-preview`,
+            payload,
+            { headers: getHeaders() },
+        );
+        return response.data;
+    },
+
+    publishToResolut: async (payload: ResolutPublishRequest): Promise<ResolutPublishResponse> => {
+        const response = await axios.post<ResolutPublishResponse>(
+            `${API_BASE}/resolut/publish`,
+            payload,
+            { headers: getHeaders() },
+        );
+        return response.data;
+    },
+
+    getResolutLink: async (): Promise<ResolutNormalizedResponse<{ url?: string; link?: string }>> => {
+        const response = await axios.get<ResolutNormalizedResponse<{ url?: string; link?: string }>>(
+            `${API_BASE}/resolut/link`,
+            { headers: getHeaders() },
+        );
+        return response.data;
     },
 
     cloneProduct: async (id: number | string): Promise<AgentProduct> => {

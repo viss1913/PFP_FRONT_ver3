@@ -61,6 +61,9 @@ interface ResultPageDesignProps {
   aiPreviewText?: string;
   aiStatusText?: string;
   onOpenAiChat?: () => void;
+  isResolutAvProject?: boolean;
+  isResolutPublishing?: boolean;
+  onPublishToResolut?: () => void;
 }
 
 interface EditFormState {
@@ -89,6 +92,9 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   aiPreviewText,
   aiStatusText,
   onOpenAiChat,
+  isResolutAvProject,
+  isResolutPublishing,
+  onPublishToResolut,
 }: ResultPageDesignProps) => {
   const [editingGoal, setEditingGoal] = React.useState<GoalResult | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = React.useState(false);
@@ -763,6 +769,29 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
           </section>
 
           <div style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
+            {isResolutAvProject && (
+              <button
+                type="button"
+                onClick={() => onPublishToResolut?.()}
+                disabled={!!isResolutPublishing || !!isCalculating}
+                style={{
+                  background: '#0b7285',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '100px',
+                  padding: '16px 32px',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: isResolutPublishing || isCalculating ? 'wait' : 'pointer',
+                  opacity: isResolutPublishing || isCalculating ? 0.75 : 1,
+                  boxShadow: '0px 4px 6px -1px rgba(11, 114, 133, 0.35)',
+                  transition: 'transform 0.1s',
+                  minWidth: '240px',
+                }}
+              >
+                {isResolutPublishing ? 'Оформляем…' : 'Оформить в Resolut'}
+              </button>
+            )}
             <button
               onClick={onGoToReport}
               style={{
