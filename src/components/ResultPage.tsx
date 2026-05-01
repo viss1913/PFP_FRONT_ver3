@@ -4,7 +4,7 @@ import { ChatWindow } from './ai/ChatWindow';
 import { aiService } from '../services/aiService';
 import type { AiMessage } from '../types/ai';
 import ReportPreviewModal from './ReportPreviewModal';
-import { agentLkApi, type AgentProduct, type ResolutPublishQuoteLine } from '../api/agentLkApi';
+import { agentLkApi, type PlanQuotesRequest, type PublishFromPlanRequest } from '../api/agentLkApi';
 
 interface ResultPageProps {
     data: any;
@@ -38,6 +38,21 @@ function readAgentProjectId(): number | null {
     }
 }
 
+function formatResolutSkippedLines(items: unknown): string {
+    if (!Array.isArray(items) || items.length === 0) return '';
+    return items
+        .map((item: any) => {
+            if (item && typeof item === 'object' && typeof item.reason === 'string') return item.reason;
+            try {
+                return JSON.stringify(item);
+            } catch {
+                return String(item);
+            }
+        })
+        .filter(Boolean)
+        .join('\n- ');
+}
+
 const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onRecalculate, onAddGoal, onDeleteGoal, isCalculating }) => {
     const [messages, setMessages] = useState<AiMessage[]>([]);
     const [isTyping, setIsTyping] = useState(false);
@@ -45,6 +60,9 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
     const [isReportPreviewOpen, setIsReportPreviewOpen] = useState(false);
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [isResolutPublishing, setIsResolutPublishing] = useState(false);
+    /** Опции plan-publish-preview / publish-from-plan (см. PlanQuotesRequest). */
+    const [resolutIncludeMonthlyFlow, setResolutIncludeMonthlyFlow] = useState(false);
+    const [resolutTermMonths, setResolutTermMonths] = useState('');
     const lastBootstrappedClientIdRef = useRef<number | null>(null);
     const AUTO_PROMPT = 'Клиент сделал первый план. Дай краткий разбор: что получилось хорошо, где риски и какие 3 шага сделать дальше.';
 
@@ -187,91 +205,38 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
         return (fromClient ?? fromAgent) === RESOLUT_AV_PROJECT_ID;
     }, [client, data]);
 
-    const requestResolutClientFromUser = () => {
+    /** Дозаполнение клиента Resolut при RESOLUT_CLIENT_INCOMPLETE (контракт ResolutClientPayload). */
+    const requestResolutClientFromUser = (): NonNullable<PublishFromPlanRequest['resolut_client']> | null => {
         const source = (client || {}) as Record<string, unknown>;
-        const firstName = window.prompt('Resolut: укажи имя клиента', String(source.first_name || source.firstName || ''));
-        if (firstName == null) return null;
-        const lastName = window.prompt('Resolut: укажи фамилию клиента', String(source.last_name || source.lastName || ''));
+        const lastName = window.prompt('Фамилия (Resolut)', String(source.last_name || source.lastName || ''));
         if (lastName == null) return null;
-        const phone = window.prompt('Resolut: укажи телефон клиента', String(source.phone || ''));
+        const firstName = window.prompt('Имя (Resolut)', String(source.first_name || source.firstName || ''));
+        if (firstName == null) return null;
+        const middleNameRaw = window.prompt(
+            'Отчество (необязательно, Enter — пропустить)',
+            String(source.middle_name || source.middleName || ''),
+        );
+        if (middleNameRaw == null) return null;
+        const dob = window.prompt('Дата рождения ДД.ММ.ГГГГ', String(source.dob || ''));
+        if (dob == null) return null;
+        const sexRaw = window.prompt('Пол: male или female', String(source.sex || 'male'));
+        if (sexRaw == null) return null;
+        const sex = sexRaw.trim().toLowerCase() === 'female' ? 'female' : 'male';
+        const phone = window.prompt('Телефон', String(source.phone || ''));
         if (phone == null) return null;
-        const email = window.prompt('Resolut: укажи email клиента', String(source.email || ''));
+        const email = window.prompt('Email', String(source.email || ''));
         if (email == null) return null;
+
+        const middleTrim = middleNameRaw.trim();
         return {
-            firstName: firstName.trim(),
             lastName: lastName.trim(),
+            firstName: firstName.trim(),
+            ...(middleTrim ? { middleName: middleTrim } : { middleName: null }),
+            dob: dob.trim(),
+            sex,
             phone: phone.trim(),
             email: email.trim(),
         };
-    };
-
-    const buildResolutQuotes = async (clientId: number): Promise<ResolutPublishQuoteLine[]> => {
-        const products = await agentLkApi.getProducts(true);
-        const productById = new Map<number, AgentProduct>();
-        for (const p of products) {
-            const pid = resolveNumericId(p.id);
-            if (pid != null) productById.set(pid, p);
-        }
-
-        const goals = Array.isArray(data?.goals) ? data.goals : [];
-        const quotes: ResolutPublishQuoteLine[] = [];
-        const dedupe = new Set<string>();
-
-        goals.forEach((goal: any, goalIndex: number) => {
-            const details = goal?.details || {};
-            const initialInstruments = [
-                ...(Array.isArray(details.initial_instruments) ? details.initial_instruments : []),
-                ...(Array.isArray(details?.portfolio_structure?.initial_instruments)
-                    ? details.portfolio_structure.initial_instruments
-                    : []),
-            ];
-            const monthlyInstruments = [
-                ...(Array.isArray(details.monthly_instruments) ? details.monthly_instruments : []),
-                ...(Array.isArray(details?.portfolio_structure?.monthly_instruments)
-                    ? details.portfolio_structure.monthly_instruments
-                    : []),
-            ];
-            const genericInstruments = Array.isArray(details.instruments) ? details.instruments : [];
-
-            const pushQuote = (instrument: any, bucketType: 'INITIAL_CAPITAL' | 'TOP_UP', idx: number) => {
-                const productId = resolveNumericId(instrument?.product_id);
-                const product = productId != null ? productById.get(productId) : undefined;
-                const codeFromProduct =
-                    typeof product?.resolut_pfp_code === 'string' ? product.resolut_pfp_code.trim() : '';
-                const codeFromInstrument = String(
-                    instrument?.resolut_pfp_code ?? instrument?.pfpCode ?? instrument?.code ?? '',
-                ).trim();
-                const code = codeFromProduct || codeFromInstrument;
-                if (!code) return;
-                const sharePercentRaw = Number(instrument?.share ?? instrument?.share_percent ?? 0);
-                const sharePercent = Number.isFinite(sharePercentRaw) ? sharePercentRaw : 0;
-                if (sharePercent <= 0) return;
-                const instrumentKeyPart = productId ?? code;
-                const lineKey = `${goal?.goal_id ?? goalIndex}:${instrumentKeyPart}:${bucketType}:${idx}`;
-                if (dedupe.has(lineKey)) return;
-                dedupe.add(lineKey);
-
-                quotes.push({
-                    line_id: lineKey,
-                    product_id: productId ?? undefined,
-                    code,
-                    parameters: {
-                        client_id: clientId,
-                        goal_id: goal?.goal_id ?? null,
-                        goal_type_id: goal?.goal_type_id ?? null,
-                        bucket_type: bucketType,
-                        share_percent: sharePercent,
-                        amount: Number(instrument?.amount ?? 0) || 0,
-                    },
-                });
-            };
-
-            initialInstruments.forEach((it: any, idx: number) => pushQuote(it, 'INITIAL_CAPITAL', idx));
-            monthlyInstruments.forEach((it: any, idx: number) => pushQuote(it, 'TOP_UP', idx));
-            genericInstruments.forEach((it: any, idx: number) => pushQuote(it, 'INITIAL_CAPITAL', idx));
-        });
-
-        return quotes;
     };
 
     const normalizeErrorCode = (error: unknown): string | null => {
@@ -306,61 +271,75 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
 
         setIsResolutPublishing(true);
         try {
-            const quotes = await buildResolutQuotes(resolvedClientId);
-            if (!quotes.length) {
-                window.alert('Нет валидных строк для публикации: проверь продукты и resolut_pfp_code.');
-                return;
-            }
-
-            await Promise.all(
-                quotes.map((q) =>
-                    agentLkApi.fetchResolutQuote({
-                        code: String(q.code || ''),
-                        parameters: q.parameters,
-                    }),
-                ),
-            );
-
-            const preview = await agentLkApi.previewResolutPublish({
+            const planBody: PlanQuotesRequest = {
                 client_id: resolvedClientId,
-                quotes,
-            });
+                ...(resolutIncludeMonthlyFlow ? { include_monthly_flow: true } : {}),
+            };
+            const termTrim = resolutTermMonths.trim();
+            if (termTrim !== '') {
+                const termParsed = parseInt(termTrim, 10);
+                if (Number.isFinite(termParsed) && termParsed >= 1) {
+                    planBody.term_months = termParsed;
+                }
+            }
 
-            const eligible = Array.isArray(preview?.data?.eligible) ? preview.data.eligible : [];
-            const skipped = Array.isArray(preview?.data?.skipped) ? preview.data.skipped : [];
-            if (!eligible.length) {
-                const reasons = skipped.map((s) => s.reason).filter(Boolean).join('\n- ');
-                window.alert(`В preview нет eligible-строк.${reasons ? `\nПричины skipped:\n- ${reasons}` : ''}`);
+            const preview = await agentLkApi.planResolutPublishPreview(planBody);
+            if (!preview?.success) {
+                const errBody = preview as { error?: { message?: string; code?: string } };
+                window.alert(
+                    errBody?.error?.message ||
+                        'Превью публикации из плана не удалось. Убедись, что у клиента сохранён пересчёт (goals_summary).',
+                );
                 return;
             }
 
-            if (skipped.length > 0) {
+            const d = preview.data ?? {};
+            const eligible = Array.isArray(d.eligible) ? d.eligible : [];
+            const skipped = Array.isArray(d.skipped) ? d.skipped : [];
+            const planSkipped = d.plan_skipped;
+
+            if (!eligible.length) {
+                const detailLines = [
+                    formatResolutSkippedLines(skipped),
+                    formatResolutSkippedLines(planSkipped),
+                ]
+                    .filter(Boolean)
+                    .join('\n- ');
+                window.alert(
+                    `Нет строк для публикации из сохранённого расчёта (goals_summary). Пересчитай план и сохрани клиента.${
+                        detailLines ? `\n\nПодробности:\n- ${detailLines}` : ''
+                    }`,
+                );
+                return;
+            }
+
+            const planSkipCount = Array.isArray(planSkipped) ? planSkipped.length : 0;
+            if (skipped.length > 0 || planSkipCount > 0) {
+                const detailMsg = [
+                    formatResolutSkippedLines(skipped),
+                    formatResolutSkippedLines(planSkipped),
+                ]
+                    .filter(Boolean)
+                    .join('\n');
+                const head = `Часть данных пропущена (skipped: ${skipped.length}, plan_skipped: ${planSkipCount}). Продолжить публикацию?`;
                 const continueSubmit = window.confirm(
-                    `Часть строк будет пропущена (${skipped.length}). Продолжить публикацию по eligible?`,
+                    detailMsg ? `${head}\n\n${detailMsg}`.slice(0, 3500) : head,
                 );
                 if (!continueSubmit) return;
             }
 
-            const publishQuotes: ResolutPublishQuoteLine[] = eligible.map((line, idx) => ({
-                line_id: line.line_id || `eligible-${idx}`,
-                product_id: line.product_id ?? undefined,
-                code: line.code,
-                parameters: line.parameters || {},
-            }));
+            const publishErrorCode = (body: unknown) =>
+                (body as { error?: { code?: string } })?.error?.code || null;
 
             let publishResponse;
             try {
-                publishResponse = await agentLkApi.publishToResolut({
-                    client_id: resolvedClientId,
-                    quotes: publishQuotes,
-                });
+                publishResponse = await agentLkApi.publishResolutFromPlan(planBody);
             } catch (error) {
                 if (normalizeErrorCode(error) === 'RESOLUT_CLIENT_INCOMPLETE') {
                     const resolutClient = requestResolutClientFromUser();
                     if (!resolutClient) return;
-                    publishResponse = await agentLkApi.publishToResolut({
-                        client_id: resolvedClientId,
-                        quotes: publishQuotes,
+                    publishResponse = await agentLkApi.publishResolutFromPlan({
+                        ...planBody,
                         resolut_client: resolutClient,
                     });
                 } else {
@@ -368,8 +347,24 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
                 }
             }
 
+            if (
+                publishResponse &&
+                !publishResponse.success &&
+                publishErrorCode(publishResponse) === 'RESOLUT_CLIENT_INCOMPLETE'
+            ) {
+                const resolutClient = requestResolutClientFromUser();
+                if (!resolutClient) return;
+                publishResponse = await agentLkApi.publishResolutFromPlan({
+                    ...planBody,
+                    resolut_client: resolutClient,
+                });
+            }
+
             if (!publishResponse?.success) {
-                throw new Error('Publish завершился без success=true');
+                const msg =
+                    (publishResponse as { error?: { message?: string } })?.error?.message ||
+                    'Публикация из плана завершилась без success=true';
+                throw new Error(msg);
             }
 
             const linkResponse = await agentLkApi.getResolutLink();
@@ -430,6 +425,10 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
                 onPublishToResolut={() => {
                     void handlePublishToResolut();
                 }}
+                resolutIncludeMonthlyFlow={resolutIncludeMonthlyFlow}
+                onResolutIncludeMonthlyFlowChange={setResolutIncludeMonthlyFlow}
+                resolutTermMonths={resolutTermMonths}
+                onResolutTermMonthsChange={setResolutTermMonths}
             />
             <ReportPreviewModal
                 isOpen={isReportPreviewOpen}

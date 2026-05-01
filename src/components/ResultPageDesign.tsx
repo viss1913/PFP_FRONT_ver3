@@ -64,6 +64,10 @@ interface ResultPageDesignProps {
   isResolutAvProject?: boolean;
   isResolutPublishing?: boolean;
   onPublishToResolut?: () => void;
+  resolutIncludeMonthlyFlow?: boolean;
+  onResolutIncludeMonthlyFlowChange?: (value: boolean) => void;
+  resolutTermMonths?: string;
+  onResolutTermMonthsChange?: (value: string) => void;
 }
 
 interface EditFormState {
@@ -95,6 +99,10 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   isResolutAvProject,
   isResolutPublishing,
   onPublishToResolut,
+  resolutIncludeMonthlyFlow,
+  onResolutIncludeMonthlyFlowChange,
+  resolutTermMonths,
+  onResolutTermMonthsChange,
 }: ResultPageDesignProps) => {
   const [editingGoal, setEditingGoal] = React.useState<GoalResult | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = React.useState(false);
@@ -767,6 +775,68 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
               </div>
             )}
           </section>
+
+          {isResolutAvProject && (
+            <div
+              style={{
+                width: '100%',
+                maxWidth: '640px',
+                margin: '0 auto 16px',
+                padding: '14px 18px',
+                background: 'linear-gradient(135deg, #ecfeff 0%, #f0fdfa 100%)',
+                border: '1px solid #99f6e4',
+                borderRadius: '16px',
+                fontSize: '13px',
+                color: '#134e4a',
+                boxSizing: 'border-box',
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: '10px', color: '#0f766e' }}>Resolut — перед оформлением</div>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                  marginBottom: '12px',
+                  cursor: isResolutPublishing || isCalculating ? 'not-allowed' : 'pointer',
+                  lineHeight: 1.45,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={!!resolutIncludeMonthlyFlow}
+                  disabled={!!isResolutPublishing || !!isCalculating}
+                  onChange={(e) => onResolutIncludeMonthlyFlowChange?.(e.target.checked)}
+                  style={{ marginTop: '2px', flexShrink: 0 }}
+                />
+                <span>
+                  Включать ежемесячные потоки (<code style={{ fontSize: '12px' }}>cash_flow_allocation</code>) в
+                  котировки. По умолчанию бэк держит их в skipped с подсказкой.
+                </span>
+              </label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
+                <span style={{ color: '#475569', fontWeight: 600 }}>Срок (мес.)</span>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  placeholder="Авто: макс. из целей или 120"
+                  value={resolutTermMonths ?? ''}
+                  disabled={!!isResolutPublishing || !!isCalculating}
+                  onChange={(e) => onResolutTermMonthsChange?.(e.target.value)}
+                  style={{
+                    flex: '1 1 180px',
+                    minWidth: '160px',
+                    padding: '8px 12px',
+                    borderRadius: '10px',
+                    border: '1px solid #94a3b8',
+                    fontSize: '14px',
+                    background: '#fff',
+                  }}
+                />
+              </div>
+            </div>
+          )}
 
           <div style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
             {isResolutAvProject && (

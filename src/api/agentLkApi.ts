@@ -208,6 +208,40 @@ export interface ResolutPublishError {
     details?: Record<string, unknown> | null;
 }
 
+/** Тело plan-quotes / plan-publish-preview (сборка из goals_summary на бэке). */
+export interface PlanQuotesRequest {
+    client_id: number;
+    term_months?: number;
+    include_monthly_flow?: boolean;
+    quote_patches?: Array<{
+        product_id: number;
+        code?: string;
+        parameters?: Record<string, unknown>;
+    }>;
+}
+
+export type PublishFromPlanRequest = PlanQuotesRequest & {
+    resolut_client?: ResolutPublishRequest['resolut_client'];
+};
+
+/** Ответ plan-publish-preview: как publish-preview + quotes_built, plan_skipped, plan_meta. */
+export interface PlanPublishPreviewResponse {
+    success?: boolean;
+    data?: {
+        client_id?: number;
+        resolut_client_code?: string | null;
+        eligible?: ResolutEligibleLine[];
+        skipped?: ResolutSkippedLine[];
+        quotes_built?: unknown;
+        plan_skipped?: unknown;
+        plan_meta?: unknown;
+        [key: string]: unknown;
+    };
+}
+
+/** Ответ publish-from-plan: как PublishResponse, плюс plan_skipped / plan_meta в data. */
+export type PublishFromPlanResponse = ResolutPublishResponse;
+
 export interface ProductCreatePayload {
     name: string;
     product_type: string;
@@ -746,6 +780,36 @@ export const agentLkApi = {
     getResolutLink: async (): Promise<ResolutNormalizedResponse<{ url?: string; link?: string }>> => {
         const response = await axios.get<ResolutNormalizedResponse<{ url?: string; link?: string }>>(
             `${API_BASE}/resolut/link`,
+            { headers: getHeaders() },
+        );
+        return response.data;
+    },
+
+    /** Собрать quotes из goals_summary без публикации (отладка). */
+    planResolutQuotes: async (payload: PlanQuotesRequest): Promise<PlanPublishPreviewResponse> => {
+        const response = await axios.post<PlanPublishPreviewResponse>(
+            `${API_BASE}/resolut/plan-quotes`,
+            payload,
+            { headers: getHeaders() },
+        );
+        return response.data;
+    },
+
+    /** Превью публикации из плана: eligible / skipped + quotes_built, plan_skipped, plan_meta. */
+    planResolutPublishPreview: async (payload: PlanQuotesRequest): Promise<PlanPublishPreviewResponse> => {
+        const response = await axios.post<PlanPublishPreviewResponse>(
+            `${API_BASE}/resolut/plan-publish-preview`,
+            payload,
+            { headers: getHeaders() },
+        );
+        return response.data;
+    },
+
+    /** Публикация в Resolut из сохранённого расчёта клиента (goals_summary). */
+    publishResolutFromPlan: async (payload: PublishFromPlanRequest): Promise<PublishFromPlanResponse> => {
+        const response = await axios.post<PublishFromPlanResponse>(
+            `${API_BASE}/resolut/publish-from-plan`,
+            payload,
             { headers: getHeaders() },
         );
         return response.data;
