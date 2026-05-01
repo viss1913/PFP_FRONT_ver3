@@ -4,7 +4,12 @@ import { ChatWindow } from './ai/ChatWindow';
 import { aiService } from '../services/aiService';
 import type { AiMessage } from '../types/ai';
 import ReportPreviewModal from './ReportPreviewModal';
-import { agentLkApi, type PlanQuotesRequest, type PublishFromPlanRequest } from '../api/agentLkApi';
+import {
+    agentLkApi,
+    extractResolutLinkUrl,
+    type PlanQuotesRequest,
+    type PublishFromPlanRequest,
+} from '../api/agentLkApi';
 
 interface ResultPageProps {
     data: any;
@@ -368,7 +373,7 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
             }
 
             const linkResponse = await agentLkApi.getResolutLink();
-            const url = linkResponse?.data?.url || linkResponse?.data?.link;
+            const url = extractResolutLinkUrl(linkResponse);
             if (!url) {
                 window.alert('Публикация успешна, но ссылка Resolut не получена (TTL короткий). Повтори клик.');
                 return;

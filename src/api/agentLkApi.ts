@@ -126,6 +126,26 @@ export interface ResolutNormalizedResponse<T = unknown> {
     err?: { code?: string; message?: string };
 }
 
+/**
+ * URL из GET /resolut/link: бэк может вернуть data строкой или объектом { url?, link? }.
+ */
+export function extractResolutLinkUrl(
+    body: ResolutNormalizedResponse<unknown> | null | undefined,
+): string | null {
+    if (!body?.ok || body.err) return null;
+    const d = body.data;
+    if (typeof d === 'string') {
+        const t = d.trim();
+        return t || null;
+    }
+    if (d && typeof d === 'object') {
+        const o = d as { url?: unknown; link?: unknown };
+        if (typeof o.url === 'string' && o.url.trim()) return o.url.trim();
+        if (typeof o.link === 'string' && o.link.trim()) return o.link.trim();
+    }
+    return null;
+}
+
 /** Элемент каталога продуктов партнёра (схема не гарантирована; типично pfpCode + program.name). */
 export interface ResolutCatalogItem {
     pfpCode?: string;
@@ -777,11 +797,10 @@ export const agentLkApi = {
         return response.data;
     },
 
-    getResolutLink: async (): Promise<ResolutNormalizedResponse<{ url?: string; link?: string }>> => {
-        const response = await axios.get<ResolutNormalizedResponse<{ url?: string; link?: string }>>(
-            `${API_BASE}/resolut/link`,
-            { headers: getHeaders() },
-        );
+    getResolutLink: async (): Promise<ResolutNormalizedResponse<unknown>> => {
+        const response = await axios.get<ResolutNormalizedResponse<unknown>>(`${API_BASE}/resolut/link`, {
+            headers: getHeaders(),
+        });
         return response.data;
     },
 
