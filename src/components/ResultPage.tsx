@@ -219,25 +219,41 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
 
         goals.forEach((goal: any, goalIndex: number) => {
             const details = goal?.details || {};
-            const initialInstruments = Array.isArray(details.initial_instruments) ? details.initial_instruments : [];
-            const monthlyInstruments = Array.isArray(details.monthly_instruments) ? details.monthly_instruments : [];
+            const initialInstruments = [
+                ...(Array.isArray(details.initial_instruments) ? details.initial_instruments : []),
+                ...(Array.isArray(details?.portfolio_structure?.initial_instruments)
+                    ? details.portfolio_structure.initial_instruments
+                    : []),
+            ];
+            const monthlyInstruments = [
+                ...(Array.isArray(details.monthly_instruments) ? details.monthly_instruments : []),
+                ...(Array.isArray(details?.portfolio_structure?.monthly_instruments)
+                    ? details.portfolio_structure.monthly_instruments
+                    : []),
+            ];
+            const genericInstruments = Array.isArray(details.instruments) ? details.instruments : [];
 
             const pushQuote = (instrument: any, bucketType: 'INITIAL_CAPITAL' | 'TOP_UP', idx: number) => {
                 const productId = resolveNumericId(instrument?.product_id);
-                if (productId == null) return;
-                const product = productById.get(productId);
-                const code = typeof product?.resolut_pfp_code === 'string' ? product.resolut_pfp_code.trim() : '';
+                const product = productId != null ? productById.get(productId) : undefined;
+                const codeFromProduct =
+                    typeof product?.resolut_pfp_code === 'string' ? product.resolut_pfp_code.trim() : '';
+                const codeFromInstrument = String(
+                    instrument?.resolut_pfp_code ?? instrument?.pfpCode ?? instrument?.code ?? '',
+                ).trim();
+                const code = codeFromProduct || codeFromInstrument;
                 if (!code) return;
                 const sharePercentRaw = Number(instrument?.share ?? instrument?.share_percent ?? 0);
                 const sharePercent = Number.isFinite(sharePercentRaw) ? sharePercentRaw : 0;
                 if (sharePercent <= 0) return;
-                const lineKey = `${goal?.goal_id ?? goalIndex}:${productId}:${bucketType}:${idx}`;
+                const instrumentKeyPart = productId ?? code;
+                const lineKey = `${goal?.goal_id ?? goalIndex}:${instrumentKeyPart}:${bucketType}:${idx}`;
                 if (dedupe.has(lineKey)) return;
                 dedupe.add(lineKey);
 
                 quotes.push({
                     line_id: lineKey,
-                    product_id: productId,
+                    product_id: productId ?? undefined,
                     code,
                     parameters: {
                         client_id: clientId,
@@ -252,6 +268,7 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
 
             initialInstruments.forEach((it: any, idx: number) => pushQuote(it, 'INITIAL_CAPITAL', idx));
             monthlyInstruments.forEach((it: any, idx: number) => pushQuote(it, 'TOP_UP', idx));
+            genericInstruments.forEach((it: any, idx: number) => pushQuote(it, 'INITIAL_CAPITAL', idx));
         });
 
         return quotes;
