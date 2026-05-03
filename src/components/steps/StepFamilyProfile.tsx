@@ -11,18 +11,52 @@ function isValidNdaEmail(value: string): boolean {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t);
 }
 
-function downloadPdfBase64(base64: string, filename: string): void {
-    const byteCharacters = atob(base64);
-    const byteNumbers = new Uint8Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i += 1) byteNumbers[i] = byteCharacters.charCodeAt(i);
-    const blob = new Blob([byteNumbers], { type: 'application/pdf' });
+/** Бэкенд может прислать либо Base64, либо байты PDF через запятую (например «37,80,68,70…» = %PDF). */
+function decodePdfPayload(raw: string): Uint8Array {
+    const normalized = raw.trim().replace(/\s/g, '');
+    if (!normalized) throw new Error('Пустой PDF в ответе');
+
+    if (/^\d+(?:,\d+)+$/.test(normalized)) {
+        const parts = normalized.split(',');
+        const out = new Uint8Array(parts.length);
+        for (let i = 0; i < parts.length; i += 1) {
+            const n = Number(parts[i]);
+            if (!Number.isFinite(n) || n < 0 || n > 255) throw new Error('Некорректные байты PDF');
+            out[i] = n;
+        }
+        return out;
+    }
+
+    let b64 = normalized;
+    const base64Prefix = 'base64,';
+    const idx = b64.indexOf(base64Prefix);
+    if (idx !== -1) b64 = b64.slice(idx + base64Prefix.length);
+
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i += 1) out[i] = bin.charCodeAt(i);
+    return out;
+}
+
+/** true — открыта новая вкладка; false — скачивание (часто блокировка popup). */
+function openNdaPdfInNewTab(raw: string, filename: string): boolean {
+    const bytes = decodePdfPayload(raw);
+    const ab = new ArrayBuffer(bytes.byteLength);
+    new Uint8Array(ab).set(bytes);
+    const blob = new Blob([ab], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename || 'nda.pdf';
-    a.rel = 'noopener';
-    a.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    const opened = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!opened) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename || 'nda.pdf';
+        a.rel = 'noopener';
+        a.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 120_000);
+        return false;
+    }
+    window.setTimeout(() => URL.revokeObjectURL(url), 120_000);
+    return true;
 }
 
 interface StepFamilyProfileProps {
@@ -363,10 +397,20 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                 client_birth_date: birth,
                 client_gender: data.gender
             });
-            if (res.pdf_base64 && res.filename) {
-                downloadPdfBase64(res.pdf_base64, res.filename);
+            if (res.pdf_base64) {
+                try {
+                    const openedTab = openNdaPdfInNewTab(res.pdf_base64, res.filename || 'nda.pdf');
+                    setNdaOkMessage(
+                        openedTab
+                            ? `Отправили на ${res.client_email || email}. PDF открыт в новой вкладке.`
+                            : `Отправили на ${res.client_email || email}. PDF скачан (если нужна вкладка — разреши всплывающие окна для сайта).`
+                    );
+                } catch {
+                    setNdaOkMessage(`Отправили на ${res.client_email || email}. Не удалось собрать PDF из ответа — проверь письмо или попробуй ещё раз.`);
+                }
+            } else {
+                setNdaOkMessage(`Отправили на ${res.client_email || email}.`);
             }
-            setNdaOkMessage(`Отправили на ${res.client_email || email}. PDF сохранён на устройство.`);
         } catch (e: unknown) {
             const ax = e as { response?: { status?: number; data?: { message?: string; error?: string } } };
             const status = ax.response?.status;
