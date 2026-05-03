@@ -9,6 +9,8 @@ info:
 
     **Настройки PDF-отчёта** (обложка, сводная, `goal_card_assets` для превью карточек целей): отдельная спека **`openapi/PDFsettings.yaml`**, Swagger UI: `/api-docs-pdf-settings`, префикс путей `/api/pfp/pdf-settings`.
 
+    **Resolut (AV Inform) для ЛК:** отдельная спека **`docs/api/pfp_resolut.yaml`** (прокси `products/quote/client/portfolio/link`, `plan-quotes` / `plan-publish-preview` / `publish-from-plan`, `suggest-quote-line`, `publish-preview` / `publish` / `publications`).
+
     **AI B2C в ЛК агента — два независимых набора контекстов:**
     - **Site** — `/pfp/ai-b2c/brain-contexts`, `/pfp/ai-b2c/stages` (клиентский сайт: обычный чат и dynamic-flow).
     - **chat_AI** — `/pfp/ai-b2c-chat/brain-contexts`, `/pfp/ai-b2c-chat/stages` (отдельный endpoint клиента `POST /my/ai-b2c/chat_AI/stream`, своя история в БД).
@@ -16,6 +18,16 @@ info:
     Схемы тел запросов: **`docs/api/aiB2c.yaml`** (`AiB2cBrainContextCreate`, `AiB2cStageCreate`, …).
 
     **Конструктор ИИ (бот для клиентов, CJM-команды, brain-contexts):** префикс **`/pfp/constructor`**. Регистрация бота (Telegram / MAX и др.), шаблоны команд сценария (`GET/POST/PUT/DELETE …/commands`), дополнительные контексты (`…/brain-contexts`), клиенты и переписка. Алиасы путей для совместимости: `templates`, `constructor_commands`, `constructor_brain_contexts` — те же обработчики, что и у `commands` / `brain-contexts`. Вебхук MAX: `POST /api/pfp/constructor/webhook/max/{botId}` (без JWT, секрет в заголовке при настройке бота).
+
+    **Расчёт ПФП и налоги (для сценариев агента):**
+    - **`POST /client/calculate`** — stateless-расчёт по массиву целей; в ответе в т.ч. агрегаты налоговых льгот (`summary.tax_benefits_summary`). Контекст проекта: заголовок **`x-project-key`** и/или опционально **`Authorization: Bearer`** (из JWT берётся `projectId`).
+    - **`POST /client/tax-planning/calculate`** — только расширенное налоговое планирование (имущественный вычет, %% ипотеки, соцвычет до 150k, дети); **без** массива `goals`. Требуется JWT агента (как у `first-run`).
+    Полные схемы тел: **`openapi/pfp-api.yaml`** (`CalculationRequest`, `TaxPlanningRequest`). В этой спеке — тег **«Расчёт ПФП и налоги»**.
+    Для карточки клиента кредиты передаются как `liabilities` (основной контракт) либо как алиас `credits` (`type`, `balance`, `monthlyPayment`, `rate`) с серверным маппингом в `liabilities`.
+
+    **NDA (соглашение о неразглашении):** тело `NdaSendRequestBody` — обязательны `client_email`, `client_full_name`, `client_phone`, `client_birth_date`, `client_gender` (`male`/`female`, только для текста письма).
+    - **`POST /pfp/clients/nda/send`** — клиента в БД ещё нет (до first-run), только JWT агента.
+    - **`POST /pfp/clients/{clientId}/nda/send`** — клиент уже есть; проверяется привязка к агенту.
   version: 1.0.0
 servers:
   - url: /api
@@ -47,6 +59,8 @@ paths:
     post:
       tags: [ "Продукты Агента" ]
       summary: Создать новый продукт в своем проекте
+      description: |
+        Тело — схема `ProductCreate` в `openapi/OPENAPI_SPEC.yaml`. Для проекта AV/Резолют опционально передайте `resolut_pfp_code` и `resolut_quote_p_type` (см. описание полей в схеме); затем этот продукт можно добавить в портфель как обычный инструмент (`product_id` + доля).
       requestBody:
         required: true
         content:
@@ -69,7 +83,9 @@ paths:
     put:
       tags: [ "Продукты Агента" ]
       summary: Редактировать свой продукт
-      description: Ошибка 403, если попытка изменить системный дефолтный продукт
+      description: |
+        Ошибка 403, если попытка изменить системный дефолтный продукт.
+        Поля `resolut_pfp_code` / `resolut_quote_p_type` — см. `ProductCreate` в `openapi/OPENAPI_SPEC.yaml`.
       parameters:
         - name: id
           in: path
@@ -106,6 +122,259 @@ paths:
     get:
       tags: [ "Продукты Агента (Справочники)" ]
       summary: Получить список типов продуктов
+
+  # ==================== RESOLUT (AV Inform, project 23) ====================
+  /pfp/resolut/products:
+    post:
+      tags: [ "Resolut (оформление)" ]
+      summary: Получить список доступных Resolut-продуктов для агента
+      description: |
+        Проксирует upstream `operation=products`.
+        Требует JWT и контекст проекта `RESOLUT_PROJECT_ID` (обычно 23).
+        Bearer в Resolut берется из in-memory сессии после `/api/pfp/auth/login`,
+        fallback: `resolut_static_key` / `RESOLUT_STATIC_KEY`.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '200':
+          description: Нормализованный ответ Resolut
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  status: { type: integer }
+                  operation: { type: string, example: products }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  err:
+                    type: object
+                    nullable: true
+                    properties:
+                      code: { type: string, nullable: true }
+                      message: { type: string, nullable: true }
+                      upstream_status: { type: integer, nullable: true }
+
+  /pfp/resolut/quote:
+    post:
+      tags: [ "Resolut (оформление)" ]
+      summary: Котировка продукта Resolut
+      description: |
+        Проксирует upstream `operation=quote`.
+        Для портфельного сценария AV используйте продукт `assetShort`,
+        обычно `pType=0` (единовременный взнос).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ code, parameters ]
+              properties:
+                code:
+                  type: string
+                  example: assetShort
+                parameters:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '200':
+          description: Нормализованный ответ Resolut
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  status: { type: integer }
+                  operation: { type: string, example: quote }
+                  data:
+                    type: object
+                    nullable: true
+                    additionalProperties: true
+                  err:
+                    type: object
+                    nullable: true
+                    properties:
+                      code: { type: string, nullable: true }
+                      message: { type: string, nullable: true }
+                      upstream_status: { type: integer, nullable: true }
+
+  /pfp/resolut/client:
+    post:
+      tags: [ "Resolut (оформление)" ]
+      summary: Создать/обновить клиента в Resolut
+      description: |
+        Проксирует upstream `operation=client` (POST).
+        Режимы:
+        - create: без `code` (обязательны `lastName`, `firstName`, `dob`, `sex`, `phone`, `email`);
+        - update: с `code` и минимум одним дополнительным полем.
+
+        Практика для фронта: брать данные из карточки клиента PFP и доспрашивать только
+        недостающие поля для Resolut. Маппинг:
+        - `clients.last_name` -> `lastName`
+        - `clients.first_name` -> `firstName`
+        - `clients.middle_name` -> `middleName`
+        - `clients.birth_date` -> `dob` (формат `DD.MM.YYYY`)
+        - `clients.gender`/`sex` -> `sex` (`male`/`female`)
+        - `clients.phone` -> `phone`
+        - `clients.email` -> `email`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  oneOf:
+                    - type: string
+                    - type: integer
+                lastName: { type: string }
+                firstName: { type: string }
+                middleName: { type: string, nullable: true }
+                dob:
+                  type: string
+                  description: Дата рождения в формате DD.MM.YYYY
+                  example: "01.01.1985"
+                sex:
+                  type: string
+                  enum: [ male, female ]
+                phone: { type: string }
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Нормализованный ответ Resolut
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  status: { type: integer }
+                  operation: { type: string, example: client }
+                  data:
+                    type: object
+                    nullable: true
+                    additionalProperties: true
+                  err:
+                    type: object
+                    nullable: true
+                    properties:
+                      code: { type: string, nullable: true }
+                      message: { type: string, nullable: true }
+                      upstream_status: { type: integer, nullable: true }
+    get:
+      tags: [ "Resolut (оформление)" ]
+      summary: Получить клиента в Resolut по code
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            oneOf:
+              - type: string
+              - type: integer
+          description: ID клиента в Resolut
+      responses:
+        '200':
+          description: Нормализованный ответ Resolut
+
+  /pfp/resolut/portfolio:
+    post:
+      tags: [ "Resolut (оформление)" ]
+      summary: Опубликовать портфель в Resolut (создать заявки/договоры)
+      description: |
+        Проксирует upstream `operation=portfolio`.
+        Resolut пересчитывает котировки на своей стороне при публикации.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ quotes, client ]
+              properties:
+                quotes:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [ code, parameters ]
+                    properties:
+                      code: { type: string }
+                      parameters:
+                        type: object
+                        additionalProperties: true
+                client:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '200':
+          description: Нормализованный ответ Resolut
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  status: { type: integer }
+                  operation: { type: string, example: portfolio }
+                  data:
+                    type: object
+                    nullable: true
+                    additionalProperties: true
+                  err:
+                    type: object
+                    nullable: true
+                    properties:
+                      code: { type: string, nullable: true }
+                      message: { type: string, nullable: true }
+                      upstream_status: { type: integer, nullable: true }
+
+  /pfp/resolut/link:
+    get:
+      tags: [ "Resolut (оформление)" ]
+      summary: Получить одноразовую ссылку перехода в Resolut
+      description: |
+        Проксирует upstream `operation=link` (GET).
+        Ссылка короткоживущая (~20 секунд), запрашивайте по клику в UI.
+      responses:
+        '200':
+          description: Нормализованный ответ Resolut
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  status: { type: integer }
+                  operation: { type: string, example: link }
+                  data:
+                    type: string
+                    nullable: true
+                    example: https://demo.avinfors.ru/pfp/?pfp=abc123
+                  err:
+                    type: object
+                    nullable: true
+                    properties:
+                      code: { type: string, nullable: true }
+                      message: { type: string, nullable: true }
+                      upstream_status: { type: integer, nullable: true }
 
   # ==================== ПОРТФЕЛИ ====================
   /pfp/portfolios:
@@ -302,6 +571,80 @@ paths:
         '404':
           description: Настройка не найдена
 
+  # ==================== РАСЧЁТ ПФП И НАЛОГОВОЕ ПЛАНИРОВАНИЕ ====================
+  /client/calculate:
+    post:
+      tags: [ "Расчёт ПФП и налоги" ]
+      summary: Stateless-расчёт финансового плана по целям (без сохранения клиента)
+      description: |
+        Симуляция одной или нескольких целей (пенсия, крупная покупка, НСЖ, инвестиции и т.д.).
+        В ответе — в том числе **`summary.tax_benefits_summary`** (ПДС, ИИС, дети, НСЖ, итоги).
+
+        **Контекст проекта (`project_id`):**
+        - заголовок **`x-project-key`** — публичный ключ проекта (`projects.public_key`);
+        - и/или опционально **`Authorization: Bearer`** — JWT агента; из токена берётся `projectId` (удобно из ЛК без копирования ключа).
+
+        Если проект не определён — ответ **`400`** с текстом вроде **`Project context is missing`**.
+
+        Сохранение клиента и целей в БД — отдельно **`POST /client/first-run`** (JWT обязателен).
+      security: []
+      parameters:
+        - name: x-project-key
+          in: header
+          required: false
+          schema: { type: string }
+          description: Публичный ключ проекта, если контекст не задаётся через JWT
+        - name: Authorization
+          in: header
+          required: false
+          schema: { type: string }
+          description: Опционально `Bearer <token>` агента для подстановки `projectId`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../openapi/pfp-api.yaml#/components/schemas/CalculationRequest'
+      responses:
+        '200':
+          description: План и цели (упрощённый ответ калькулятора)
+          content:
+            application/json:
+              schema:
+                $ref: '../../openapi/pfp-api.yaml#/components/schemas/CalculationResponse'
+        '400':
+          description: Ошибка валидации Joi или отсутствует контекст проекта
+
+  /client/tax-planning/calculate:
+    post:
+      tags: [ "Расчёт ПФП и налоги" ]
+      summary: Расширенное налоговое планирование (имущество, ипотека, соцвычет, дети)
+      description: |
+        Калькулятор **без массива `goals`**: оценка эффекта вычетов по заявленным базам
+        (имущественный до 2M ₽, проценты по ипотеке до 3M ₽, социальный до 150k ₽)
+        и стандартного вычета на детей (`tax_children`, режим семьи **`tax_family_mode`**: `single` | `both_parents` | `single_parent_double`).
+
+        Пенсия, ИИС, ПДС в симуляции целей и внешний расчёт НСЖ **сюда не входят** — для этого используйте **`POST /client/calculate`** или **`POST /client/first-run`**.
+
+        Схемы полей — **`TaxPlanningRequest`** / **`TaxPlanningResponse`** в `openapi/pfp-api.yaml`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../openapi/pfp-api.yaml#/components/schemas/TaxPlanningRequest'
+      responses:
+        '200':
+          description: Принятые базы вычетов, НДФЛ до/после, потенциальный возврат по основному лицу и супругу
+          content:
+            application/json:
+              schema:
+                $ref: '../../openapi/pfp-api.yaml#/components/schemas/TaxPlanningResponse'
+        '400':
+          description: Ошибка валидации
+
   # ==================== КЛИЕНТЫ B2C И ИХ ПЛАНЫ ====================
   /pfp/clients:
     get:
@@ -373,6 +716,9 @@ paths:
       description: |
         **Фактическое поведение бэка:** возвращается **полная карточка клиента** (профиль, цели, активы, `goals_summary` в упрощённом виде),
         а не отдельный массив «планов». Используйте `goals` и агрегаты для выбора сценария работы.
+        Для риск-профиля также возвращаются поля:
+        `risk_profile_answers`, `risk_questionnaire_version_id`, `risk_profile_result`
+        (результат новой методики BaseScore + BehaviorScore).
 
         Истории чатов по умолчанию **не** подмешиваются (чтобы не дублировать тяжёлый запрос при открытии этого URL).
         Чтобы получить **`chat_ai_messages`** и **`b2c_site_chat_messages`** — передайте `include_chat_ai=true` (или откройте `GET /client/{clientId}` с теми же query).
@@ -429,6 +775,405 @@ paths:
                 $ref: '../../openapi/OPENAPI_SPEC.yaml#/components/schemas/ClientPlan'
         '404':
           description: Клиент или план не найдены
+
+  /pfp/clients/nda/send:
+    post:
+      tags: [ "Клиенты B2C в ЛК Агента" ]
+      summary: Отправить NDA без клиента в БД (до first-run)
+      description: |
+        То же тело, что у `POST …/clients/{clientId}/nda/send` (`NdaSendRequestBody`), но **без** `clientId` в пути — карточка клиента не нужна (например, до расчёта / first-run).
+        Привязка к клиенту в БД не проверяется. PDF и письмо — как у второго маршрута.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NdaSendRequestBody'
+      responses:
+        '200':
+          description: Успех — PDF сгенерирован, письмо отправлено (Resend)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NdaSendResponse'
+        '400':
+          description: Неполное/невалидное тело, нет подписи у агента
+        '403':
+          description: Нет agent_id в токене
+        '404':
+          description: Агент не найден
+        '502':
+          description: Не удалось загрузить подпись или отправить почту
+
+  /pfp/clients/{clientId}/nda/send:
+    post:
+      tags: [ "Клиенты B2C в ЛК Агента" ]
+      summary: Отправить клиенту NDA (PDF на email)
+      description: |
+        Собирает PDF и отправляет на **`client_email`**. В теле — обязательные данные клиента (см. `NdaSendRequestBody`): ФИО, телефон, дата рождения и **`client_gender`** для обращения в письме («Уважаемый/Уважаемая …»); пол в PDF не подставляется.
+
+        У агента в профиле должно быть изображение подписи. Текст соглашения и ссылки на оферту/политику ПДн задаются на бэкенде (`NDA_PUBLIC_OFFER_URL`, `NDA_PRIVACY_POLICY_URL`, `NDA_AGREEMENT_CITY` и т.д.).
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NdaSendRequestBody'
+      responses:
+        '200':
+          description: Успех — PDF сгенерирован, письмо отправлено (Resend)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NdaSendResponse'
+        '400':
+          description: Неполное/невалидное тело (все поля клиента обязательны), нет подписи у агента
+        '403':
+          description: Нет agent_id в токене или доступ к клиенту запрещён
+        '404':
+          description: Клиент или агент не найден
+        '502':
+          description: Не удалось загрузить подпись или отправить почту
+
+  /my/risk-profile/questionnaire:
+    get:
+      tags: [ "Клиенты B2C в ЛК Агента" ]
+      summary: Анкета риск-профиля для фронта (backend-driven)
+      description: |
+        Возвращает активную версию анкеты с вопросами, пояснениями и вариантами ответов.
+        Фронт не должен хардкодить тексты/баллы.
+      responses:
+        '200':
+          description: Активная анкета
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  questionnaire:
+                    $ref: '../../openapi/pfpB2C.yaml#/components/schemas/RiskQuestionnaire'
+
+  /my/risk-profile/questionnaire-v2:
+    get:
+      tags: [ "Клиенты B2C в ЛК Агента" ]
+      summary: Человекочитаемая анкета риск-профиля (v2)
+      description: |
+        Возвращает активную версию анкеты в формате для прямого UI-рендера:
+        вопросы/подсказки/варианты без score и без технических id.
+      responses:
+        '200':
+          description: Активная анкета v2
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  questionnaire:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      code:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                        nullable: true
+                      questions:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            code:
+                              type: string
+                            title:
+                              type: string
+                            description:
+                              type: string
+                              nullable: true
+                            help_text:
+                              type: string
+                              nullable: true
+                            sort_order:
+                              type: integer
+                            options:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  code:
+                                    type: string
+                                  label:
+                                    type: string
+                                  sort_order:
+                                    type: integer
+
+  /my/risk-profile/answers:
+    get:
+      tags: [ "Клиенты B2C в ЛК Агента" ]
+      summary: Текущие ответы и рассчитанный risk result клиента
+      responses:
+        '200':
+          description: Ответы и результат скоринга
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskProfileAnswersResponse'
+    post:
+      tags: [ "Клиенты B2C в ЛК Агента" ]
+      summary: Сохранить ответы риск-анкеты клиента
+      description: |
+        Сохраняет ответы анкеты (question_code -> option_code/score).
+        Рекомендуется вызывать до `/my/plan/first-run` или `/my/plan/{goalId}/recalculate`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RiskProfileAnswersRequest'
+      responses:
+        '200':
+          description: Ответы сохранены
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  risk_profile_answers:
+                    type: object
+                    additionalProperties:
+                      oneOf:
+                        - type: string
+                        - type: integer
+                  risk_questionnaire_version_id:
+                    type: integer
+
+  # ==================== AI CRM В ЛК АГЕНТА ====================
+  /pfp/ai/assistants:
+    get:
+      tags: [ "AI CRM (ЛК Агента)" ]
+      summary: Список доступных AI-ассистентов
+      description: |
+        Возвращает список активных ассистентов для ЛК агента.
+        Поле `description` предназначено для UI (краткое описание), а не для полного system prompt.
+      responses:
+        '200':
+          description: Список ассистентов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: integer }
+                    name: { type: string }
+                    slug: { type: string }
+                    description: { type: string }
+
+  /pfp/ai/history/{assistant_id}:
+    get:
+      tags: [ "AI CRM (ЛК Агента)" ]
+      summary: История чата с ассистентом
+      description: |
+        Возвращает последние сообщения по выбранному ассистенту.
+        Для `ai-crm` действует авто-briefing:
+        если история пустая или последнее сообщение старше 8 часов,
+        бэкенд автоматически добавляет свежую CRM-сводку.
+      parameters:
+        - name: assistant_id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: История сообщений
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AiAssistantChatMessage'
+
+  /pfp/ai/chat:
+    post:
+      tags: [ "AI CRM (ЛК Агента)" ]
+      summary: Отправить сообщение ассистенту
+      description: |
+        Принимает `assistant_id` и `message`.
+        Ответ отдается стримом (SSE). Для совместимости доступен и `/pfp/ai/chat/stream`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assistant_id, message]
+              properties:
+                assistant_id: { type: integer }
+                message: { type: string }
+      responses:
+        '200':
+          description: Потоковый ответ SSE
+
+  /pfp/ai/chat/stream:
+    post:
+      tags: [ "AI CRM (ЛК Агента)" ]
+      summary: Алиас stream-чата с ассистентом
+      description: Полностью эквивалентен `POST /pfp/ai/chat`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assistant_id, message]
+              properties:
+                assistant_id: { type: integer }
+                message: { type: string }
+      responses:
+        '200':
+          description: Потоковый ответ SSE
+
+  /pfp/ai/plan-assistant/chat:
+    post:
+      tags: [ "AI CRM (ЛК Агента)" ]
+      summary: Чат план-ассистента по конкретному клиенту
+      description: |
+        Специализированный чат для повторного входа в финансовый план после firstRun.
+        Бэкенд на лету подмешивает контекст:
+        - карточка клиента и `goals_summary`;
+        - доступные продукты проекта;
+        - доступные портфели проекта.
+        
+        История изолируется отдельным ассистентом (`ai-plan-assistant`) и не смешивается
+        с обычным CRM-чатом.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiPlanAssistantChatRequest'
+      responses:
+        '200':
+          description: Потоковый ответ SSE
+        '400':
+          description: Нет client_id/message или отсутствует project context
+        '403':
+          description: Нет доступа к клиенту
+        '404':
+          description: Клиент не найден
+
+  /pfp/ai/agent-client/chat/stream:
+    post:
+      tags: [ "AI CRM (ЛК Агента)" ]
+      summary: Потоковый чат ассистента по конкретному клиенту (изолированная история)
+      description: |
+        Специализированный поток для ЛК агента.
+        На каждом запросе бэкенд:
+        - загружает полный профиль клиента (`getFullClient`);
+        - собирает runtime-контекст (профиль, family profile, цели, goals_summary, активы, обязательства, расходы);
+        - отправляет запрос в OpenRouter;
+        - возвращает ответ стримом (SSE);
+        - сохраняет историю по ключу `agent_id + assistant_id + client_id`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiAgentClientChatRequest'
+      responses:
+        '200':
+          description: Потоковый ответ SSE
+        '400':
+          description: Нет client_id/message или отсутствует project context
+        '403':
+          description: Нет доступа к клиенту
+        '404':
+          description: Клиент не найден
+
+  /pfp/ai/agent-client/history/{client_id}:
+    get:
+      tags: [ "AI CRM (ЛК Агента)" ]
+      summary: История агентского AI-чата по клиенту
+      description: |
+        Возвращает историю только в рамках конкретного клиента и ассистента.
+        Если `assistant_id` не передан, backend автоматически использует ассистента `ai-agent-client-lk`.
+      parameters:
+        - name: client_id
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: assistant_id
+          in: query
+          required: false
+          schema: { type: integer }
+      responses:
+        '200':
+          description: История сообщений
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AiAssistantChatMessage'
+        '400':
+          description: Не передан client_id
+
+    delete:
+      tags: [ "AI CRM (ЛК Агента)" ]
+      summary: Очистить историю агентского AI-чата по клиенту
+      parameters:
+        - name: client_id
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: assistant_id
+          in: query
+          required: false
+          schema: { type: integer }
+      responses:
+        '200':
+          description: История очищена
+        '400':
+          description: Не передан client_id
+
+  /pfp/crm/briefing:
+    get:
+      tags: [ "AI CRM (ЛК Агента)" ]
+      summary: Получить ежедневную CRM-сводку
+      description: |
+        Генерирует текстовый брифинг по клиентам агента
+        (в первую очередь статусы THINKING и RENEWAL).
+      responses:
+        '200':
+          description: Текст CRM-сводки
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrmBriefingResponse'
+
+  /pfp/crm/status:
+    post:
+      tags: [ "AI CRM (ЛК Агента)" ]
+      summary: Обновить CRM-статус клиента
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientCrmUpdate'
+      responses:
+        '200':
+          description: Статус обновлён
 
   # ==================== AI B2C В ЛК АГЕНТА (УПРАВЛЕНИЕ НАСТРОЙКАМИ) ====================
   /pfp/ai-b2c/brain-contexts:
@@ -557,15 +1302,47 @@ paths:
     post:
       tags: [ "AI B2C (настройки Агента)" ]
       summary: Создать новый brain-context для chat_AI B2C AI
+      description: |
+        Поддерживает два формата:
+        1) `application/json` — обычное создание с полем `content`.
+        2) `multipart/form-data` — можно передать файл в поле `document` (`pdf/doc/docx/txt/md/rtf`), текст будет извлечён и склеен в `content`.
+
+        Правила:
+        - обязателен `title`;
+        - обязателен хотя бы один из: `content` или `document`;
+        - лимит файла: 8MB.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: './aiB2c.yaml#/components/schemas/AiB2cBrainContextCreate'
+          multipart/form-data:
+            schema:
+              type: object
+              required: [ title ]
+              properties:
+                title:
+                  type: string
+                  description: Название brain-context
+                content:
+                  type: string
+                  description: Базовый текст контекста (опционально, если передаётся document)
+                is_active:
+                  type: boolean
+                  default: true
+                priority:
+                  type: integer
+                  default: 0
+                document:
+                  type: string
+                  format: binary
+                  description: Файл для извлечения текста (pdf/doc/docx/txt/md/rtf)
       responses:
         '201':
           description: Создано
+        '400':
+          description: Невалидный payload, неподдерживаемый формат файла, превышен размер или не удалось извлечь текст
 
   /pfp/ai-b2c-chat/brain-contexts/{id}:
     put:
@@ -598,6 +1375,100 @@ paths:
       responses:
         '204':
           description: Удалено
+
+  /pfp/ai-b2c-chat/brain-contexts/{id}/documents:
+    get:
+      tags: [ "AI B2C (настройки Агента)" ]
+      summary: Список документов brain-context (chat_AI)
+      description: |
+        Возвращает документы, загруженные в конкретный brain-context.
+        По умолчанию только активные документы.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: include_inactive
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Список документов
+    post:
+      tags: [ "AI B2C (настройки Агента)" ]
+      summary: Загрузить документ в brain-context (chat_AI)
+      description: |
+        Загружает файл, извлекает текст и сохраняет отдельным кусочком контекста.
+        Поддержка: `pdf/doc/docx/txt/md/rtf`, лимит 8MB.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [ document ]
+              properties:
+                document:
+                  type: string
+                  format: binary
+                  description: Файл для извлечения текста
+      responses:
+        '201':
+          description: Документ загружен
+        '400':
+          description: Невалидный файл или не удалось извлечь текст
+        '404':
+          description: Brain-context не найден
+
+  /pfp/ai-b2c-chat/brain-contexts/{id}/documents/{docId}:
+    get:
+      tags: [ "AI B2C (настройки Агента)" ]
+      summary: Получить документ brain-context (chat_AI)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Документ с extracted_text
+        '404':
+          description: Документ или brain-context не найден
+    delete:
+      tags: [ "AI B2C (настройки Агента)" ]
+      summary: Удалить документ brain-context (chat_AI)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Удалено
+        '404':
+          description: Документ или brain-context не найден
 
   /pfp/ai-b2c-chat/stages:
     get:
@@ -1248,6 +2119,66 @@ paths:
 
 components:
   schemas:
+    AiAssistantChatMessage:
+      type: object
+      properties:
+        id: { type: integer }
+        role: { type: string, enum: [user, assistant, system] }
+        content: { type: string }
+        created_at: { type: string, format: date-time }
+
+    CrmBriefingResponse:
+      type: object
+      properties:
+        briefing:
+          type: string
+          description: AI-generated daily briefing text
+
+    ClientCrmUpdate:
+      type: object
+      required: [client_id, crm_status]
+      properties:
+        client_id:
+          type: integer
+        crm_status:
+          type: string
+          enum: [THINKING, BOUGHT, REFUSED, RENEWAL]
+        notes:
+          type: string
+          nullable: true
+
+    AiPlanAssistantChatRequest:
+      type: object
+      required: [client_id, message]
+      properties:
+        client_id:
+          type: integer
+          description: ID клиента в текущем project_id
+        message:
+          type: string
+          description: Вопрос агента по плану клиента
+        assistant_id:
+          type: integer
+          nullable: true
+          description: Опционально. Если не передан, используется `ai-plan-assistant`
+
+    AiAgentClientChatRequest:
+      type: object
+      required: [client_id, message]
+      properties:
+        client_id:
+          type: integer
+          description: ID клиента в текущем project_id
+        message:
+          type: string
+          description: Вопрос агента по финансовому плану клиента
+        assistant_id:
+          type: integer
+          nullable: true
+          description: |
+            Опционально. Если не передан, backend создаёт/использует ассистента
+            со slug `ai-agent-client-lk`.
+
     ChatAiMessage:
       type: object
       description: Одно сообщение B2C-чата (общий формат для site и chat_AI)
@@ -1300,6 +2231,23 @@ components:
           type: object
           nullable: true
           description: Сводка по целям и портфелю (упрощённая)
+        risk_profile_answers:
+          type: object
+          nullable: true
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: integer
+          description: Ответы клиента на риск-анкету (question_code -> option_code/score)
+        risk_questionnaire_version_id:
+          type: integer
+          nullable: true
+          description: Версия анкеты, по которой собраны ответы
+        risk_profile_result:
+          allOf:
+            - $ref: '#/components/schemas/RiskProfileResult'
+          nullable: true
+          description: Последний рассчитанный explainable результат риск-профиля
         chat_ai_messages:
           type: array
           items:
@@ -1344,6 +2292,166 @@ components:
       allOf:
         - $ref: '#/components/schemas/AgentClientB2CRow'
       description: Полная карточка клиента (те же поля, что в списке, плюс goals, assets, liabilities, expenses и т.д.)
+
+    NdaSendRequestBody:
+      type: object
+      required: [client_email, client_full_name, client_phone, client_birth_date, client_gender]
+      description: |
+        На `client_email` уходит PDF; `client_email`, `client_full_name`, `client_phone`, `client_birth_date` — в таблице сторон NDA.
+        `client_gender` — только для текста письма (обращение), в PDF не попадает.
+        Раньше поддерживались `client_passport_line` и `client_address_line` — **удалены**, не отправлять.
+      properties:
+        client_email:
+          type: string
+          format: email
+          description: Куда отправить письмо с PDF и какой email показать в документе
+        client_full_name:
+          type: string
+          minLength: 2
+          maxLength: 500
+          description: ФИО клиента для таблицы сторон в NDA
+        client_phone:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Телефон для таблицы сторон
+        client_birth_date:
+          type: string
+          format: date
+          description: Дата рождения ISO 8601 (`YYYY-MM-DD`), например `1985-06-12`
+        client_gender:
+          type: string
+          enum: [male, female]
+          description: Пол клиента — приветствие в письме (Уважаемый/Уважаемая); в PDF не подставляется
+      additionalProperties: false
+
+    NdaSendResponse:
+      type: object
+      required: [ok, filename, pdf_base64, client_email]
+      properties:
+        ok:
+          type: boolean
+          example: true
+        message_id:
+          type: string
+          nullable: true
+          description: Идентификатор письма в Resend (если доставка через Resend)
+        filename:
+          type: string
+          description: Имя файла вложения
+        pdf_base64:
+          type: string
+          description: Тот же PDF в Base64 (превью или скачивание в ЛК)
+        client_email:
+          type: string
+          format: email
+          description: Адрес, на который отправлено письмо (тот же, что `client_email` в запросе)
+
+    RiskProfileAnswersRequest:
+      type: object
+      properties:
+        risk_profile_answers:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: integer
+        risk_questionnaire_version_id:
+          type: integer
+      required: [risk_profile_answers]
+
+    RiskProfileAnswersResponse:
+      type: object
+      properties:
+        risk_profile_answers:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: integer
+        risk_questionnaire_version_id:
+          type: integer
+          nullable: true
+        risk_profile_result:
+          $ref: '#/components/schemas/RiskProfileResult'
+        risk_profile_explanation:
+          $ref: '#/components/schemas/RiskProfileExplanation'
+
+    RiskProfileExplanation:
+      type: object
+      description: |
+        Текстовое объяснение риск-профиля для UI (LLM + fallback, без изменения расчетной математики backend).
+      properties:
+        version:
+          type: string
+          example: v1
+        generated_at:
+          type: string
+          format: date-time
+        source_hash:
+          type: string
+          example: sha256:9b7e...
+        title:
+          type: string
+        summary:
+          type: string
+        key_factors:
+          type: array
+          items:
+            type: string
+        recommendations:
+          type: array
+          items:
+            type: string
+        caution:
+          type: string
+        agent_note:
+          type: string
+
+    RiskProfileResult:
+      type: object
+      description: |
+        Explainable результат скоринга.
+        `risk_profile` — 3 уровня для обратной совместимости с текущими портфелями.
+        `risk_profile_extended` — 5 уровней для расширенного UI.
+      properties:
+        risk_profile:
+          type: string
+          enum: [CONSERVATIVE, BALANCED, AGGRESSIVE]
+        risk_profile_extended:
+          type: string
+          enum: [CONSERVATIVE, MODERATELY_CONSERVATIVE, BALANCED, MODERATELY_AGGRESSIVE, AGGRESSIVE]
+          nullable: true
+        questionnaire_version_id:
+          type: integer
+          nullable: true
+        questionnaire_version_code:
+          type: string
+          nullable: true
+        base_score:
+          type: number
+          nullable: true
+        behavior_score:
+          type: number
+          nullable: true
+        behavior_coefficient:
+          type: number
+          nullable: true
+        final_score:
+          type: number
+          nullable: true
+        max_final_score_by_capacity:
+          type: number
+          nullable: true
+        answers:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: integer
+        explanation:
+          type: object
+          additionalProperties: true
 
     ComonResolveBody:
       type: object

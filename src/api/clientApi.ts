@@ -105,6 +105,23 @@ export interface RiskAnswersResponse {
     risk_profile_explanation?: RiskProfileExplanation | null;
 }
 
+/** Тело POST /api/pfp/clients/nda/send (клиента в БД ещё нет). См. agent_lk.yaml — NdaSendRequestBody. */
+export interface NdaSendRequestBody {
+    client_email: string;
+    client_full_name: string;
+    client_phone: string;
+    client_birth_date: string;
+    client_gender: 'male' | 'female';
+}
+
+export interface NdaSendResponse {
+    ok: boolean;
+    message_id?: string | null;
+    filename: string;
+    pdf_base64: string;
+    client_email: string;
+}
+
 // Helper to get project_id from localStorage
 const getProjectId = (): number => {
     try {
@@ -511,6 +528,15 @@ export const clientApi = {
      * Скачивает PDF по абсолютному URL из pdf-url.
      * Если URL на нашем API — идём через `api` (Bearer + X-Project-Key), иначе обычный GET (например signed S3).
      */
+    /**
+     * NDA до создания клиента (first-run): без clientId в пути.
+     * POST /api/pfp/clients/nda/send
+     */
+    sendNdaNewClient: async (body: NdaSendRequestBody): Promise<NdaSendResponse> => {
+        const response = await api.post<NdaSendResponse>('/pfp/clients/nda/send', body);
+        return response.data;
+    },
+
     fetchReportPdfBlobFromUrl: async (
         absoluteUrl: string,
         onProgress?: (loaded: number, total?: number) => void

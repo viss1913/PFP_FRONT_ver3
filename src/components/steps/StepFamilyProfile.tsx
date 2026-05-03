@@ -2,6 +2,28 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Banknote, GraduationCap, HandCoins, HeartHandshake, Home, Landmark, Trash2 } from 'lucide-react';
 import type { CJMData, ClientCreditType, FamilyObligation, FamilyRealEstateStatus } from '../CJMFlow';
+import { clientApi } from '../../api/clientApi';
+import { getRussianPhoneDigits, hasCompleteRussianPhone } from '../../utils/phone';
+
+function isValidNdaEmail(value: string): boolean {
+    const t = value.trim();
+    if (!t) return false;
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t);
+}
+
+function downloadPdfBase64(base64: string, filename: string): void {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Uint8Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i += 1) byteNumbers[i] = byteCharacters.charCodeAt(i);
+    const blob = new Blob([byteNumbers], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || 'nda.pdf';
+    a.rel = 'noopener';
+    a.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
 
 interface StepFamilyProfileProps {
     data: CJMData;
@@ -59,6 +81,9 @@ const creditTypeOptions: Array<{ value: ClientCreditType; label: string }> = [
 const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, onNext, onPrev }) => {
     const family = data.familyProfile;
     const [childBirthDateDrafts, setChildBirthDateDrafts] = useState<Record<number, string>>({});
+    const [ndaLoading, setNdaLoading] = useState(false);
+    const [ndaError, setNdaError] = useState<string | null>(null);
+    const [ndaOkMessage, setNdaOkMessage] = useState<string | null>(null);
     const panelStyle: React.CSSProperties = {
         borderRadius: 18,
         border: '1px solid rgba(148, 163, 184, 0.26)',
@@ -298,6 +323,69 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
     const isMarried = family.marital_status === 'married' || family.marital_status === 'civil_union';
     const spouseIncomeLabel = data.gender === 'male' ? 'Доход супруги' : 'Доход супруга';
 
+    const handleSendNda = async () => {
+        setNdaError(null);
+        setNdaOkMessage(null);
+
+        const fullName = (data.fio || '').trim();
+        const email = (data.email || '').trim();
+        const phoneDigits = getRussianPhoneDigits(data.phone || '');
+        const phoneE164 = phoneDigits.length === 10 ? `+7${phoneDigits}` : '';
+        const birth = data.birthDate?.trim();
+
+        if (fullName.length < 2 || fullName.length > 500) {
+            setNdaError('Заполни ФИО на шаге «О себе» (от 2 символов).');
+            return;
+        }
+        if (!isValidNdaEmail(email)) {
+            setNdaError('Нужен корректный email на шаге «О себе».');
+            return;
+        }
+        if (!hasCompleteRussianPhone(data.phone || '')) {
+            setNdaError('Нужен полный телефон на шаге «О себе».');
+            return;
+        }
+        if (!birth) {
+            setNdaError('Нужна дата рождения на шаге «О себе».');
+            return;
+        }
+        if (data.gender !== 'male' && data.gender !== 'female') {
+            setNdaError('Укажи пол на шаге «О себе».');
+            return;
+        }
+
+        setNdaLoading(true);
+        try {
+            const res = await clientApi.sendNdaNewClient({
+                client_email: email,
+                client_full_name: fullName,
+                client_phone: phoneE164,
+                client_birth_date: birth,
+                client_gender: data.gender
+            });
+            if (res.pdf_base64 && res.filename) {
+                downloadPdfBase64(res.pdf_base64, res.filename);
+            }
+            setNdaOkMessage(`Отправили на ${res.client_email || email}. PDF сохранён на устройство.`);
+        } catch (e: unknown) {
+            const ax = e as { response?: { status?: number; data?: { message?: string; error?: string } } };
+            const status = ax.response?.status;
+            const msg =
+                ax.response?.data?.message ||
+                ax.response?.data?.error ||
+                (status === 400
+                    ? 'Проверь данные или подпись агента в профиле.'
+                    : status === 403
+                      ? 'Нет доступа.'
+                      : status === 502
+                        ? 'Почта или подпись недоступны, попробуй позже.'
+                        : 'Не удалось отправить NDA.');
+            setNdaError(msg);
+        } finally {
+            setNdaLoading(false);
+        }
+    };
+
     return (
         <div style={{
             maxWidth: 1100,
@@ -336,6 +424,8 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                     <button
                         type="button"
                         className="btn-primary"
+                        disabled={ndaLoading}
+                        onClick={() => void handleSendNda()}
                         style={{
                             width: 'auto',
                             minWidth: 260,
@@ -343,12 +433,19 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                             marginLeft: 'auto',
                             borderRadius: 14,
                             background: 'linear-gradient(135deg, #3D5D86 0%, #2E4A6D 100%)',
-                            color: '#F8FAFC'
+                            color: '#F8FAFC',
+                            opacity: ndaLoading ? 0.75 : 1,
+                            cursor: ndaLoading ? 'wait' : 'pointer'
                         }}
                     >
-                        Подписать и отправить NDA
+                        {ndaLoading ? 'Отправка…' : 'Подписать и отправить NDA'}
                     </button>
                 </div>
+                {(ndaError || ndaOkMessage) && (
+                    <div style={{ marginTop: 10, fontSize: 14, color: ndaError ? '#b91c1c' : '#15803d' }}>
+                        {ndaError || ndaOkMessage}
+                    </div>
+                )}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16, alignItems: 'start' }}>

@@ -96,7 +96,7 @@ const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNa
         let accumulatedContent = '';
         await aiService.sendMessageStream(
             {
-                assistant_id: 1, // Forced ID as requested
+                assistant_id: activeAssistant.id,
                 message: text,
                 // context: { type: 'crm_summary', payload: '...' } // Optional context
             },
