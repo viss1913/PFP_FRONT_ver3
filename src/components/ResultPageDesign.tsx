@@ -1,5 +1,30 @@
 import React from 'react';
-import { legacyToExtended } from '../constants/portfolioRiskProfiles';
+import { extendedToLegacy, legacyToExtended } from '../constants/portfolioRiskProfiles';
+
+/** Если где-то есть непустой `risk_profile_extended` — он главный; иначе тройка `risk_profile` как раньше. */
+function resolveGoalRiskFields(
+    root: Record<string, unknown>,
+    input: Record<string, unknown>,
+    summary: Record<string, unknown>,
+    details: Record<string, unknown>,
+): { risk_profile: string; risk_profile_extended: string } {
+    const extCandidates = [
+        root.risk_profile_extended,
+        summary.risk_profile_extended,
+        details.risk_profile_extended,
+        input.risk_profile_extended,
+    ];
+    for (const c of extCandidates) {
+        if (typeof c === 'string' && c.trim() !== '') {
+            const ext = c.trim();
+            return { risk_profile: extendedToLegacy(ext), risk_profile_extended: ext };
+        }
+    }
+    const rp = String(
+        input.risk_profile ?? details.risk_profile ?? summary.risk_profile ?? root.risk_profile ?? 'BALANCED',
+    );
+    return { risk_profile: rp, risk_profile_extended: legacyToExtended(rp) };
+}
 import { X, Plus, ArrowLeft, Trash2, Send } from 'lucide-react';
 import avatarImage from '../assets/avatar_full.png';
 import { clientApi } from '../api/clientApi';
@@ -123,12 +148,16 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     setEditingGoal(goal);
 
     // CRITICAL: Pull fields from goal_input (user inputs) FIRST, fallback to results
-    const root = goal.originalData || {};
-    const input = root.goal_input || {};
-    const summary = root.summary || {};
-    const details = root.details || {};
-    const riskProfileResolved =
-        input.risk_profile ?? details.risk_profile ?? summary.risk_profile ?? root.risk_profile ?? 'BALANCED';
+    const root = (goal.originalData || {}) as Record<string, unknown>;
+    const input = (root.goal_input || {}) as Record<string, unknown>;
+    const summary = (root.summary || {}) as Record<string, unknown>;
+    const details = (root.details || {}) as Record<string, unknown>;
+    const { risk_profile: riskProfileResolved, risk_profile_extended: riskExtResolved } = resolveGoalRiskFields(
+        root,
+        input,
+        summary,
+        details,
+    );
 
     const initialForm: EditFormState = {
       name: goal.name,
@@ -142,12 +171,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
       ops_capital: input.ops_capital ?? details.ops_capital ?? root.ops_capital ?? 0,
       ipk_current: input.ipk_current ?? details.state_pension?.ipk_current ?? details.ipk_current ?? root.ipk_current ?? 0,
       risk_profile: riskProfileResolved,
-      risk_profile_extended:
-          input.risk_profile_extended ??
-          details.risk_profile_extended ??
-          summary.risk_profile_extended ??
-          root.risk_profile_extended ??
-          legacyToExtended(riskProfileResolved),
+      risk_profile_extended: riskExtResolved,
       inflation_rate: input.inflation_rate ?? details.inflation_rate ?? root.inflation_rate ?? 0,
     };
 
@@ -482,12 +506,16 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
         setEditingGoal(updatedGoal);
 
         // Update snapshot to the newest stable state from backend
-        const root = updatedGoal.originalData || {};
-        const input = root.goal_input || {};
-        const summary = root.summary || {};
-        const details = root.details || {};
-        const riskProfileResolved =
-            input.risk_profile ?? details.risk_profile ?? summary.risk_profile ?? root.risk_profile ?? 'BALANCED';
+        const root = (updatedGoal.originalData || {}) as Record<string, unknown>;
+        const input = (root.goal_input || {}) as Record<string, unknown>;
+        const summary = (root.summary || {}) as Record<string, unknown>;
+        const details = (root.details || {}) as Record<string, unknown>;
+        const { risk_profile: riskProfileResolved, risk_profile_extended: riskExtResolved } = resolveGoalRiskFields(
+            root,
+            input,
+            summary,
+            details,
+        );
 
         const newSnapshot: EditFormState = {
           name: updatedGoal.name,
@@ -499,12 +527,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
           ops_capital: input.ops_capital ?? details.ops_capital ?? root.ops_capital ?? 0,
           ipk_current: input.ipk_current ?? details.state_pension?.ipk_current ?? details.ipk_current ?? root.ipk_current ?? 0,
           risk_profile: riskProfileResolved,
-          risk_profile_extended:
-              input.risk_profile_extended ??
-              details.risk_profile_extended ??
-              summary.risk_profile_extended ??
-              root.risk_profile_extended ??
-              legacyToExtended(riskProfileResolved),
+          risk_profile_extended: riskExtResolved,
           inflation_rate: input.inflation_rate ?? details.inflation_rate ?? root.inflation_rate ?? 0,
         };
 
