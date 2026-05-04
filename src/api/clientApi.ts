@@ -122,6 +122,21 @@ export interface NdaSendResponse {
     client_email: string;
 }
 
+/** Тело POST /pfp/reports/:id/pdf/send-email — только опции PDF как у GET; адрес не передаём (берётся из карточки клиента). См. api_docs/agent_lk.yaml. */
+export interface ClientReportPdfSendEmailBody {
+    includeCover?: boolean;
+    includeSummary?: boolean;
+    /** Через запятую, как у GET …/pdf */
+    goalTypes?: string;
+}
+
+export interface ClientReportPdfSendEmailResponse {
+    ok: boolean;
+    message_id?: string | null;
+    client_email: string;
+    filename: string;
+}
+
 // Helper to get project_id from localStorage
 const getProjectId = (): number => {
     try {
@@ -521,6 +536,19 @@ export const clientApi = {
             },
             timeout: 120000,
         });
+        return response.data;
+    },
+
+    /** POST /pfp/reports/:id/pdf/send-email — PDF на email из карточки клиента (тот же axios: Bearer + X-Project-Key). Тело — только опции PDF, без получателя. */
+    sendClientReportPdfEmail: async (
+        clientId: number,
+        body: ClientReportPdfSendEmailBody = { includeCover: true, includeSummary: true }
+    ): Promise<ClientReportPdfSendEmailResponse> => {
+        const response = await api.post<ClientReportPdfSendEmailResponse>(
+            `/pfp/reports/${clientId}/pdf/send-email`,
+            body,
+            { timeout: 300_000 }
+        );
         return response.data;
     },
 

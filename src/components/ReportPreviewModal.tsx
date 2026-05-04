@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Download, FileText, Loader2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, FileText, Loader2, Mail, X } from 'lucide-react';
 import axios from 'axios';
 import { clientApi, type ReportTocItem } from '../api/clientApi';
 import { API_BASE_WITH_API } from '../api/config';
@@ -29,6 +29,27 @@ const getErrorMessage = (error: unknown) => {
         if (error.message) return error.message;
     }
     return 'Не удалось выполнить запрос.';
+};
+
+const getSendEmailErrorMessage = (error: unknown): string => {
+    if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        const data = error.response?.data;
+        if (status === 400) {
+            if (data && typeof data === 'object' && 'message' in data && typeof (data as { message: unknown }).message === 'string') {
+                const m = (data as { message: string }).message.trim();
+                if (m) return m;
+            }
+            return 'У клиента не указан email';
+        }
+        if (status === 401) return 'Сессия истекла. Войди заново.';
+        if (status === 403) return 'Доступно только агенту или администратору.';
+        if (status === 404) return 'Отчет не найден.';
+        if (status === 502) return 'Не удалось отправить письмо. Попробуй позже.';
+        if (status === 500) return 'Ошибка сервера. Попробуй позже.';
+        if (error.message) return error.message;
+    }
+    return 'Не удалось отправить письмо.';
 };
 
 const toPdfObjectBlob = (blob: Blob) =>
@@ -102,6 +123,9 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
     const [reportState, setReportState] = useState<ReportState>(createInitialReportState);
     const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
     const pdfBlobUrlRef = useRef<string | null>(null);
+    const [sendEmailLoading, setSendEmailLoading] = useState(false);
+    const [sendEmailBanner, setSendEmailBanner] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+    const sendEmailBannerTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
 
     const revokePdfBlobUrl = () => {
         const u = pdfBlobUrlRef.current;
@@ -143,6 +167,12 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
         setActiveIndex(0);
         setReportState(createInitialReportState());
         revokePdfBlobUrl();
+        setSendEmailLoading(false);
+        setSendEmailBanner(null);
+        if (sendEmailBannerTimerRef.current) {
+            window.clearTimeout(sendEmailBannerTimerRef.current);
+            sendEmailBannerTimerRef.current = null;
+        }
     }, [isOpen, clientId]);
 
     useEffect(() => {
@@ -337,6 +367,9 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
     useEffect(() => {
         return () => {
             revokePdfBlobUrl();
+            if (sendEmailBannerTimerRef.current) {
+                window.clearTimeout(sendEmailBannerTimerRef.current);
+            }
         };
     }, []);
 
@@ -370,6 +403,35 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
         window.open(pdfBlobUrl, '_blank', 'noopener,noreferrer');
     };
 
+    /** Отправка на бэке генерит PDF заново — не ждём скачивания превью в браузер. */
+    const sendEmailReady = clientId != null && !reportState.metaLoading && !sendEmailLoading;
+
+    const handleSendPdfEmail = async () => {
+        if (!sendEmailReady || clientId == null) return;
+        if (sendEmailBannerTimerRef.current) {
+            window.clearTimeout(sendEmailBannerTimerRef.current);
+            sendEmailBannerTimerRef.current = null;
+        }
+        setSendEmailBanner(null);
+        setSendEmailLoading(true);
+        try {
+            const res = await clientApi.sendClientReportPdfEmail(clientId, {
+                includeCover: true,
+                includeSummary: true,
+            });
+            const addr = res.client_email?.trim() || 'клиенту';
+            setSendEmailBanner({ kind: 'success', text: `Отправлено на ${addr}` });
+            sendEmailBannerTimerRef.current = window.setTimeout(() => {
+                setSendEmailBanner(null);
+                sendEmailBannerTimerRef.current = null;
+            }, 5000);
+        } catch (e) {
+            setSendEmailBanner({ kind: 'error', text: getSendEmailErrorMessage(e) });
+        } finally {
+            setSendEmailLoading(false);
+        }
+    };
+
     if (!isOpen) return null;
 
     return (
@@ -401,15 +463,50 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                 }}
             >
                 <div style={{ borderBottom: '1px solid #eee', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
+                    <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: '18px', fontWeight: 700 }}>{modalTitle}</div>
                         {generatedAtLabel && (
                             <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
                                 Сформирован: {generatedAtLabel}
                             </div>
                         )}
+                        {sendEmailBanner && (
+                            <div
+                                role="status"
+                                style={{
+                                    fontSize: '13px',
+                                    marginTop: '6px',
+                                    fontWeight: 600,
+                                    color: sendEmailBanner.kind === 'success' ? '#047857' : '#b91c1c',
+                                }}
+                            >
+                                {sendEmailBanner.text}
+                            </div>
+                        )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        <button
+                            type="button"
+                            onClick={handleSendPdfEmail}
+                            disabled={!sendEmailReady}
+                            style={{
+                                border: '1px solid #d1d5db',
+                                background: '#fff',
+                                color: '#374151',
+                                borderRadius: '999px',
+                                padding: '10px 16px',
+                                fontSize: '14px',
+                                fontWeight: 600,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                cursor: sendEmailReady ? 'pointer' : 'not-allowed',
+                                opacity: sendEmailReady ? 1 : 0.75,
+                            }}
+                        >
+                            {sendEmailLoading ? <Loader2 className="animate-spin" size={16} /> : <Mail size={16} />}
+                            Отправить на email
+                        </button>
                         <button
                             type="button"
                             onClick={handleOpenPdfNewTab}
