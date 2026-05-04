@@ -123,9 +123,12 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     setEditingGoal(goal);
 
     // CRITICAL: Pull fields from goal_input (user inputs) FIRST, fallback to results
-    const input = goal.originalData?.goal_input || {};
-    const summary = goal.originalData?.summary || {};
-    const details = goal.originalData?.details || {};
+    const root = goal.originalData || {};
+    const input = root.goal_input || {};
+    const summary = root.summary || {};
+    const details = root.details || {};
+    const riskProfileResolved =
+        input.risk_profile ?? details.risk_profile ?? summary.risk_profile ?? root.risk_profile ?? 'BALANCED';
 
     const initialForm: EditFormState = {
       name: goal.name,
@@ -136,15 +139,16 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
       initial_capital: input.initial_capital ?? summary.initial_capital ?? goal.initialCapital ?? 0,
       monthly_replenishment: input.monthly_replenishment ?? summary.monthly_replenishment ?? 0,
 
-      ops_capital: input.ops_capital ?? details.ops_capital ?? goal.originalData?.ops_capital ?? 0,
-      ipk_current: input.ipk_current ?? details.state_pension?.ipk_current ?? details.ipk_current ?? goal.originalData?.ipk_current ?? 0,
-      risk_profile: input.risk_profile ?? details.risk_profile ?? summary.risk_profile ?? 'BALANCED',
+      ops_capital: input.ops_capital ?? details.ops_capital ?? root.ops_capital ?? 0,
+      ipk_current: input.ipk_current ?? details.state_pension?.ipk_current ?? details.ipk_current ?? root.ipk_current ?? 0,
+      risk_profile: riskProfileResolved,
       risk_profile_extended:
           input.risk_profile_extended ??
           details.risk_profile_extended ??
           summary.risk_profile_extended ??
-          legacyToExtended(input.risk_profile ?? details.risk_profile ?? summary.risk_profile ?? 'BALANCED'),
-      inflation_rate: input.inflation_rate ?? details.inflation_rate ?? goal.originalData?.inflation_rate ?? 0,
+          root.risk_profile_extended ??
+          legacyToExtended(riskProfileResolved),
+      inflation_rate: input.inflation_rate ?? details.inflation_rate ?? root.inflation_rate ?? 0,
     };
 
     setEditForm(initialForm);
@@ -478,9 +482,12 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
         setEditingGoal(updatedGoal);
 
         // Update snapshot to the newest stable state from backend
-        const input = updatedGoal.originalData?.goal_input || {};
-        const summary = updatedGoal.originalData?.summary || {};
-        const details = updatedGoal.originalData?.details || {};
+        const root = updatedGoal.originalData || {};
+        const input = root.goal_input || {};
+        const summary = root.summary || {};
+        const details = root.details || {};
+        const riskProfileResolved =
+            input.risk_profile ?? details.risk_profile ?? summary.risk_profile ?? root.risk_profile ?? 'BALANCED';
 
         const newSnapshot: EditFormState = {
           name: updatedGoal.name,
@@ -489,24 +496,27 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
           term_months: input.term_months ?? details.term_months ?? summary.target_months ?? updatedGoal.termMonths ?? 0,
           initial_capital: input.initial_capital ?? summary.initial_capital ?? updatedGoal.initialCapital ?? 0,
           monthly_replenishment: input.monthly_replenishment ?? summary.monthly_replenishment ?? 0,
-          ops_capital: input.ops_capital ?? details.ops_capital ?? updatedGoal.originalData?.ops_capital ?? 0,
-          ipk_current: input.ipk_current ?? details.state_pension?.ipk_current ?? details.ipk_current ?? updatedGoal.originalData?.ipk_current ?? 0,
-          risk_profile: input.risk_profile ?? details.risk_profile ?? summary.risk_profile ?? 'BALANCED',
+          ops_capital: input.ops_capital ?? details.ops_capital ?? root.ops_capital ?? 0,
+          ipk_current: input.ipk_current ?? details.state_pension?.ipk_current ?? details.ipk_current ?? root.ipk_current ?? 0,
+          risk_profile: riskProfileResolved,
           risk_profile_extended:
               input.risk_profile_extended ??
               details.risk_profile_extended ??
               summary.risk_profile_extended ??
-              legacyToExtended(input.risk_profile ?? details.risk_profile ?? summary.risk_profile ?? 'BALANCED'),
-          inflation_rate: input.inflation_rate ?? details.inflation_rate ?? updatedGoal.originalData?.inflation_rate ?? 0,
+              root.risk_profile_extended ??
+              legacyToExtended(riskProfileResolved),
+          inflation_rate: input.inflation_rate ?? details.inflation_rate ?? root.inflation_rate ?? 0,
         };
 
         setSnapshotForm(newSnapshot);
 
         // Sync calculated fields (like monthly_replenishment) INTO the form
         // so if the user hasn't touched them, they stay updated with server results
-        setEditForm(prev => ({
+        setEditForm((prev) => ({
           ...prev,
-          monthly_replenishment: newSnapshot.monthly_replenishment
+          monthly_replenishment: newSnapshot.monthly_replenishment,
+          risk_profile: newSnapshot.risk_profile,
+          risk_profile_extended: newSnapshot.risk_profile_extended,
         }));
       }
     }
