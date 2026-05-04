@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { PortfolioRiskProfileType } from '../constants/portfolioRiskProfiles';
 import { API_BASE_URL } from './config';
 
 const API_BASE = `${API_BASE_URL}/api/pfp`;
@@ -58,7 +59,7 @@ export interface PortfolioInstrument {
 
 export interface PortfolioRiskProfile {
     id?: number;
-    profile_type: 'CONSERVATIVE' | 'BALANCED' | 'AGGRESSIVE';
+    profile_type: PortfolioRiskProfileType;
     potential_yield_percent?: number;
     explanation?: string | null;
     instruments: PortfolioInstrument[];

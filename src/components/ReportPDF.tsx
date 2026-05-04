@@ -1,6 +1,7 @@
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/renderer';
 import PdfPieChart from './charts/PdfPieChart';
+import { riskProfileCodeLabel } from '../constants/portfolioRiskProfiles';
 import { getGoalImage } from '../utils/GoalImages';
 
 // Register fonts
@@ -385,10 +386,10 @@ export const ReportPDF: React.FC<{ data: any }> = ({ data }) => {
                     <Text style={styles.sectionTitle}>Риск-профиль</Text>
                     <View style={styles.insuranceCard}>
                         <Text style={styles.riskLabel}>Совместимый профиль (3 уровня)</Text>
-                        <Text style={styles.riskValue}>{riskProfile || '—'}</Text>
+                        <Text style={styles.riskValue}>{riskProfileCodeLabel(riskProfile)}</Text>
                         <View style={styles.divider} />
                         <Text style={styles.riskLabel}>Расширенный профиль</Text>
-                        <Text style={styles.riskValue}>{riskProfileExtended || riskProfile || '—'}</Text>
+                        <Text style={styles.riskValue}>{riskProfileCodeLabel(riskProfileExtended || riskProfile)}</Text>
                         <View style={styles.divider} />
                         <Text style={styles.riskLabel}>Итоговый score</Text>
                         <Text style={styles.riskValue}>{finalScore ?? '—'}</Text>

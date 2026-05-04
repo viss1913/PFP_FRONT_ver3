@@ -1,4 +1,5 @@
 import React from 'react';
+import { legacyToExtended } from '../constants/portfolioRiskProfiles';
 import { X, Plus, ArrowLeft, Trash2, Send } from 'lucide-react';
 import avatarImage from '../assets/avatar_full.png';
 import { clientApi } from '../api/clientApi';
@@ -79,6 +80,7 @@ interface EditFormState {
   ipk_current?: number;
   desired_monthly_income?: number;
   risk_profile?: string;
+  risk_profile_extended?: string;
   inflation_rate?: number;
   monthly_replenishment?: number;
   [key: string]: any;
@@ -137,6 +139,11 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
       ops_capital: input.ops_capital ?? details.ops_capital ?? goal.originalData?.ops_capital ?? 0,
       ipk_current: input.ipk_current ?? details.state_pension?.ipk_current ?? details.ipk_current ?? goal.originalData?.ipk_current ?? 0,
       risk_profile: input.risk_profile ?? details.risk_profile ?? summary.risk_profile ?? 'BALANCED',
+      risk_profile_extended:
+          input.risk_profile_extended ??
+          details.risk_profile_extended ??
+          summary.risk_profile_extended ??
+          legacyToExtended(input.risk_profile ?? details.risk_profile ?? summary.risk_profile ?? 'BALANCED'),
       inflation_rate: input.inflation_rate ?? details.inflation_rate ?? goal.originalData?.inflation_rate ?? 0,
     };
 
@@ -485,6 +492,11 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
           ops_capital: input.ops_capital ?? details.ops_capital ?? updatedGoal.originalData?.ops_capital ?? 0,
           ipk_current: input.ipk_current ?? details.state_pension?.ipk_current ?? details.ipk_current ?? updatedGoal.originalData?.ipk_current ?? 0,
           risk_profile: input.risk_profile ?? details.risk_profile ?? summary.risk_profile ?? 'BALANCED',
+          risk_profile_extended:
+              input.risk_profile_extended ??
+              details.risk_profile_extended ??
+              summary.risk_profile_extended ??
+              legacyToExtended(input.risk_profile ?? details.risk_profile ?? summary.risk_profile ?? 'BALANCED'),
           inflation_rate: input.inflation_rate ?? details.inflation_rate ?? updatedGoal.originalData?.inflation_rate ?? 0,
         };
 

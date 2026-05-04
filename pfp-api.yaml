@@ -90,9 +90,17 @@ components:
       properties:
         profile_type:
           type: string
-          enum: [CONSERVATIVE, BALANCED, AGGRESSIVE]
+          enum:
+            - CONSERVATIVE
+            - MODERATELY_CONSERVATIVE
+            - BALANCED
+            - MODERATELY_AGGRESSIVE
+            - AGGRESSIVE
         potential_yield_percent:
           type: number
+        explanation:
+          type: string
+          nullable: true
         instruments:
           type: array
           items:
@@ -180,6 +188,16 @@ components:
           enum: [CONSERVATIVE, BALANCED, AGGRESSIVE]
           description: Risk profile
           example: "BALANCED"
+        risk_profile_extended:
+          type: string
+          nullable: true
+          enum:
+            - CONSERVATIVE
+            - MODERATELY_CONSERVATIVE
+            - BALANCED
+            - MODERATELY_AGGRESSIVE
+            - AGGRESSIVE
+          description: Five-level risk profile (optional; backend may set with questionnaire)
         initial_capital:
           type: number
           minimum: 0

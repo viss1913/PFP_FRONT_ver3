@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { riskProfileCodeLabel } from '../constants/portfolioRiskProfiles';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { ReportPDF } from './ReportPDF';
 import { Download, Shield, CheckCircle2 } from 'lucide-react';
@@ -175,8 +176,11 @@ export const ReportPreviewPage: React.FC = () => {
                     <div style={{ marginTop: 16, border: '1px solid #E2E8F0', borderRadius: 12, padding: 14, background: '#fff' }}>
                         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: '#334155' }}>Риск-профиль</div>
                         <div style={{ display: 'grid', gap: 6, fontSize: 13, color: '#475569' }}>
-                            <div>Совместимый профиль: <strong>{riskProfile || '—'}</strong></div>
-                            <div>Расширенный профиль: <strong>{riskProfileExtended || riskProfile || '—'}</strong></div>
+                            <div>Совместимый профиль: <strong>{riskProfileCodeLabel(riskProfile)}</strong></div>
+                            <div>
+                                Расширенный профиль:{' '}
+                                <strong>{riskProfileCodeLabel(riskProfileExtended || riskProfile)}</strong>
+                            </div>
                             <div>Итоговый score: <strong>{finalScore ?? '—'}</strong></div>
                         </div>
                     </div>

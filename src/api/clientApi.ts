@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { PortfolioRiskProfileType } from '../constants/portfolioRiskProfiles';
 import type { Client, ClientFilters, ClientListResponse, CalculatePayload, GetClientOptions } from '../types/client';
 import { API_BASE_WITH_API } from './config';
 
@@ -83,7 +84,7 @@ export interface RiskAnswersPayload {
 
 export interface RiskProfileResult {
     risk_profile?: 'CONSERVATIVE' | 'BALANCED' | 'AGGRESSIVE' | string | null;
-    risk_profile_extended?: string | null;
+    risk_profile_extended?: PortfolioRiskProfileType | string | null;
     final_score?: number | null;
     base_score?: number | null;
     behavior_score?: number | null;

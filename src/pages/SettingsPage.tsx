@@ -46,6 +46,11 @@ import {
     type ResolutCatalogItem,
     type ResolutQuotePType,
 } from '../api/agentLkApi';
+import {
+    PORTFOLIO_RISK_PROFILE_ORDER,
+    RISK_PROFILE_LABELS_RU,
+    type PortfolioRiskProfileType,
+} from '../constants/portfolioRiskProfiles';
 
 type NavPage = 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings';
 
@@ -513,13 +518,6 @@ function validatePdfFieldValue(field: PdfCoverEditorField, value: string): strin
     return null;
 }
 
-const RISK_PROFILE_TYPES: Array<'CONSERVATIVE' | 'BALANCED' | 'AGGRESSIVE'> = ['CONSERVATIVE', 'BALANCED', 'AGGRESSIVE'];
-const RISK_PROFILE_LABELS: Record<string, string> = {
-    CONSERVATIVE: 'Консервативный',
-    BALANCED: 'Сбалансированный',
-    AGGRESSIVE: 'Агрессивный',
-};
-
 const COMON_RISK_LABELS: Record<string, string> = {
     conservative: 'Консервативный',
     balanced: 'Сбалансированный',
@@ -736,7 +734,7 @@ function getEmptyPortfolioForm(): {
     amount_to: string;
     class_ids: number[];
     risk_profiles: Array<{
-        profile_type: 'CONSERVATIVE' | 'BALANCED' | 'AGGRESSIVE';
+        profile_type: PortfolioRiskProfileType;
         explanation: string;
         potential_yield_percent: string;
         instruments: Array<{ product_id: number; bucket_type: 'INITIAL_CAPITAL' | 'TOP_UP'; share_percent: number }>;
@@ -750,7 +748,7 @@ function getEmptyPortfolioForm(): {
         amount_from: '',
         amount_to: '',
         class_ids: [],
-        risk_profiles: RISK_PROFILE_TYPES.map((profile_type) => ({
+        risk_profiles: PORTFOLIO_RISK_PROFILE_ORDER.map((profile_type) => ({
             profile_type,
             explanation: '',
             potential_yield_percent: '',
@@ -1535,7 +1533,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         amount_to: string;
         class_ids: number[];
         risk_profiles: Array<{
-            profile_type: 'CONSERVATIVE' | 'BALANCED' | 'AGGRESSIVE';
+            profile_type: PortfolioRiskProfileType;
             explanation: string;
             potential_yield_percent: string;
             instruments: Array<{ product_id: number; bucket_type: 'INITIAL_CAPITAL' | 'TOP_UP'; share_percent: number }>;
@@ -1545,7 +1543,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     const [portfolioToDelete, setPortfolioToDelete] = useState<AgentPortfolio | null>(null);
     const [isDeletingPortfolio, setIsDeletingPortfolio] = useState(false);
     /** Для каждого риск-профиля: какой таб активен — Первоначальный капитал или Пополнение */
-    const [activeBucketTabByProfile, setActiveBucketTabByProfile] = useState<Array<'INITIAL_CAPITAL' | 'TOP_UP'>>(['INITIAL_CAPITAL', 'INITIAL_CAPITAL', 'INITIAL_CAPITAL']);
+    const [activeBucketTabByProfile, setActiveBucketTabByProfile] = useState<Array<'INITIAL_CAPITAL' | 'TOP_UP'>>(() =>
+        PORTFOLIO_RISK_PROFILE_ORDER.map(() => 'INITIAL_CAPITAL'),
+    );
 
     // AI B2C: внешний вид + мозг и сценарии
     const [aiB2cDisplayName, setAiB2cDisplayName] = useState<string>('');
@@ -1900,7 +1900,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     const openCreatePortfolio = () => {
         setEditingPortfolioId(null);
         setPortfolioForm(getEmptyPortfolioForm());
-        setActiveBucketTabByProfile(['INITIAL_CAPITAL', 'INITIAL_CAPITAL', 'INITIAL_CAPITAL']);
+        setActiveBucketTabByProfile(PORTFOLIO_RISK_PROFILE_ORDER.map(() => 'INITIAL_CAPITAL'));
         setIsPortfolioModalOpen(true);
     };
 
@@ -1909,7 +1909,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             setError(null);
             const full = await agentLkApi.getPortfolio(p.id);
             const riskProfiles = (full.risk_profiles ?? full.riskProfiles ?? []) as PortfolioRiskProfile[];
-            const profiles = RISK_PROFILE_TYPES.map((profile_type) => {
+            const profiles = PORTFOLIO_RISK_PROFILE_ORDER.map((profile_type) => {
                 const existing = riskProfiles.find((r: PortfolioRiskProfile) => (r.profile_type || (r as any).profile_type) === profile_type);
                 const instruments = (existing?.instruments ?? []).map((inv: PortfolioInstrument) => ({
                     product_id: inv.product_id,
@@ -1934,7 +1934,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                 risk_profiles: profiles,
             });
             setEditingPortfolioId(p.id);
-            setActiveBucketTabByProfile(['INITIAL_CAPITAL', 'INITIAL_CAPITAL', 'INITIAL_CAPITAL']);
+            setActiveBucketTabByProfile(PORTFOLIO_RISK_PROFILE_ORDER.map(() => 'INITIAL_CAPITAL'));
             setIsPortfolioModalOpen(true);
         } catch (e) {
             console.error('Failed to load portfolio:', e);
@@ -1969,7 +1969,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
 
     const buildPortfolioPayload = (): PortfolioCreateUpdatePayload => {
         const classIds = portfolioForm.class_ids;
-        const risk_profiles: PortfolioRiskProfile[] = portfolioForm.risk_profiles.map((rp) => {
+        const risk_profiles: PortfolioRiskProfile[] = portfolioForm.risk_profiles
+            .filter((rp) => rp.instruments && rp.instruments.length > 0)
+            .map((rp) => {
             let instruments = rp.instruments.map((inv) => ({
                 product_id: inv.product_id,
                 bucket_type: inv.bucket_type,
@@ -2008,7 +2010,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
 
     const validatePortfolioShares = (): string | null => {
         for (const rp of portfolioForm.risk_profiles) {
-            const label = RISK_PROFILE_LABELS[rp.profile_type] ?? rp.profile_type;
+            if (!rp.instruments || rp.instruments.length === 0) continue;
+            const label = RISK_PROFILE_LABELS_RU[rp.profile_type] ?? rp.profile_type;
             let initial = rp.instruments.filter((i) => i.bucket_type === 'INITIAL_CAPITAL');
             let topUp = rp.instruments.filter((i) => i.bucket_type === 'TOP_UP');
             if (initial.length > 0 && topUp.length === 0) {
@@ -2044,11 +2047,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             setError('Выберите хотя бы один класс портфеля.');
             return;
         }
-        const emptyInstrumentsProfiles = portfolioForm.risk_profiles.filter((rp) => !rp.instruments || rp.instruments.length === 0);
-        if (emptyInstrumentsProfiles.length > 0) {
-            const rp = emptyInstrumentsProfiles[0];
-            const label = RISK_PROFILE_LABELS[rp.profile_type] ?? rp.profile_type;
-            setError(`Для профиля "${label}" добавьте инструменты (product_id) в риск-профиль.`);
+        const filledRiskProfiles = portfolioForm.risk_profiles.filter((rp) => rp.instruments && rp.instruments.length > 0);
+        if (filledRiskProfiles.length === 0) {
+            setError('Добавьте инструменты хотя бы в один риск-профиль.');
             return;
         }
         try {
@@ -7024,7 +7025,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
 
                                         return (
                                             <div key={rp.profile_type} style={{ marginBottom: '20px', padding: '18px', background: '#f9fafb', borderRadius: '16px', border: '1px solid #e5e7eb' }}>
-                                                <div style={{ fontSize: '13px', fontWeight: 600, color: '#6d28d9', marginBottom: '10px' }}>{RISK_PROFILE_LABELS[rp.profile_type]}</div>
+                                                <div style={{ fontSize: '13px', fontWeight: 600, color: '#6d28d9', marginBottom: '10px' }}>{RISK_PROFILE_LABELS_RU[rp.profile_type]}</div>
                                                 <div style={{ marginBottom: '10px' }}>
                                                     <label style={{ display: 'block', fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Объяснение для консультанта / ИИ (почему этот профиль)</label>
                                                     <textarea

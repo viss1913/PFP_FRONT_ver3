@@ -279,13 +279,47 @@ components:
       properties:
         profile_type:
           type: string
-          enum: [CONSERVATIVE, BALANCED, AGGRESSIVE]
+          description: |
+            Пять уровней (как `risk_profile_extended` в анкете). Допустимо по-прежнему передавать только три
+            «крупных» профиля — обратная совместимость с существующими портфелями.
+          enum:
+            - CONSERVATIVE
+            - MODERATELY_CONSERVATIVE
+            - BALANCED
+            - MODERATELY_AGGRESSIVE
+            - AGGRESSIVE
         potential_yield_percent:
           type: number
+        explanation:
+          type: string
+          nullable: true
+          description: >
+            Текстовое объяснение для агента, зачем этот риск-профиль и когда его
+            выбирать. Используется только на фронтенде ЛК агента для подсказок.
         instruments:
           type: array
           items:
             $ref: '#/components/schemas/PortfolioInstrument'
+    ClientGoalRiskFields:
+      type: object
+      description: |
+        Риск цели в API расчёта / first-run / карточки клиента. `risk_profile` — три уровня (как раньше).
+        `risk_profile_extended` — пять уровней (как `RiskProfileResult.risk_profile_extended` и как `PortfolioRiskProfile.profile_type`,
+        если в портфеле заданы срезы MODERATELY_*).
+      properties:
+        risk_profile:
+          type: string
+          nullable: true
+          enum: [CONSERVATIVE, BALANCED, AGGRESSIVE]
+        risk_profile_extended:
+          type: string
+          nullable: true
+          enum:
+            - CONSERVATIVE
+            - MODERATELY_CONSERVATIVE
+            - BALANCED
+            - MODERATELY_AGGRESSIVE
+            - AGGRESSIVE
     PortfolioInstrument:
       type: object
       description: |

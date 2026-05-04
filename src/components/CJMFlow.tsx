@@ -8,7 +8,8 @@ import StepAssets from './steps/StepAssets';
 import StepFinReserve from './steps/StepFinReserve';
 import StepLifeInsurance from './steps/StepLifeInsurance';
 import StepRiskProfile from './steps/StepRiskProfile';
-import { clientApi } from '../api/clientApi';
+import { clientApi, type RiskAnswersResponse } from '../api/clientApi';
+import { extendedToLegacy } from '../constants/portfolioRiskProfiles';
 import type { Asset, ClientGoal } from '../types/client';
 import type { RiskQuestionnaire } from '../api/clientApi';
 
@@ -226,6 +227,54 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                 });
             }
 
+            const questionnaireQuestions = riskQuestionnaire?.questions || [];
+            const normalizedRiskAnswers = questionnaireQuestions.reduce<Record<string, string>>((acc, question) => {
+                const selectedOptionCode = data.riskProfileAnswers[question.code];
+                if (typeof selectedOptionCode !== 'string') {
+                    return acc;
+                }
+                const optionExists = (question.options || []).some((option) => option.code === selectedOptionCode);
+                if (optionExists) {
+                    acc[question.code] = selectedOptionCode;
+                }
+                return acc;
+            }, {});
+            const hasAllRiskAnswers =
+                questionnaireQuestions.length > 0 &&
+                questionnaireQuestions.every((question) => typeof normalizedRiskAnswers[question.code] === 'string');
+            if (!hasAllRiskAnswers) {
+                alert('Заполни риск-профиль полностью.');
+                return;
+            }
+
+            const questionnaireVersionIdForRisk = data.riskQuestionnaireVersionId ?? riskQuestionnaire?.id;
+            let preSavedRiskResponse: RiskAnswersResponse | null = null;
+            if (clientId && questionnaireVersionIdForRisk) {
+                try {
+                    preSavedRiskResponse = await clientApi.saveRiskAnswers(
+                        {
+                            risk_profile_answers: normalizedRiskAnswers,
+                            risk_questionnaire_version_id: questionnaireVersionIdForRisk,
+                        },
+                        clientId,
+                    );
+                    const nextRiskProfile = preSavedRiskResponse.risk_profile_result?.risk_profile;
+                    if (nextRiskProfile && typeof nextRiskProfile === 'string') {
+                        setData((prev) => ({
+                            ...prev,
+                            riskProfile: nextRiskProfile as CJMData['riskProfile'],
+                        }));
+                    }
+                } catch (e) {
+                    console.error('Failed to pre-save risk profile answers:', e);
+                }
+            }
+
+            const questionnaireExtended =
+                typeof preSavedRiskResponse?.risk_profile_result?.risk_profile_extended === 'string'
+                    ? preSavedRiskResponse.risk_profile_result.risk_profile_extended
+                    : null;
+
             const goalsPayload = goalsToProcess.map(g => {
                 // Определяем типы целей сначала
                 const isRent = g.goal_type_id === 8;
@@ -250,12 +299,24 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     ? (g.monthly_replenishment !== undefined ? g.monthly_replenishment : (data.monthlyReplenishment || undefined))
                     : undefined;
 
+                const goalExt = typeof g.risk_profile_extended === 'string' ? g.risk_profile_extended : null;
                 const payload: any = {
                     goal_type_id: g.goal_type_id,
                     name: g.name,
-                    risk_profile: (g.risk_profile || data.riskProfile || 'BALANCED') as "CONSERVATIVE" | "BALANCED" | "AGGRESSIVE",
-                    inflation_rate: g.inflation_rate || 10
+                    inflation_rate: g.inflation_rate || 10,
                 };
+                if (questionnaireExtended) {
+                    payload.risk_profile_extended = questionnaireExtended;
+                    payload.risk_profile = extendedToLegacy(questionnaireExtended);
+                } else if (goalExt) {
+                    payload.risk_profile_extended = goalExt;
+                    payload.risk_profile = extendedToLegacy(goalExt);
+                } else {
+                    payload.risk_profile = (g.risk_profile || data.riskProfile || 'BALANCED') as
+                        | 'CONSERVATIVE'
+                        | 'BALANCED'
+                        | 'AGGRESSIVE';
+                }
 
                 // Для PENSION и PASSIVE_INCOME: target_amount = desired_monthly_income, term_months не нужен
                 if (isPension || isPassiveIncome) {
@@ -300,26 +361,6 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     inflation_rate: 10,
                     desired_monthly_income: undefined
                 });
-            }
-
-            const questionnaireQuestions = riskQuestionnaire?.questions || [];
-            const normalizedRiskAnswers = questionnaireQuestions.reduce<Record<string, string>>((acc, question) => {
-                const selectedOptionCode = data.riskProfileAnswers[question.code];
-                if (typeof selectedOptionCode !== 'string') {
-                    return acc;
-                }
-                const optionExists = (question.options || []).some((option) => option.code === selectedOptionCode);
-                if (optionExists) {
-                    acc[question.code] = selectedOptionCode;
-                }
-                return acc;
-            }, {});
-            const hasAllRiskAnswers =
-                questionnaireQuestions.length > 0 &&
-                questionnaireQuestions.every((question) => typeof normalizedRiskAnswers[question.code] === 'string');
-            if (!hasAllRiskAnswers) {
-                alert('Заполни риск-профиль полностью.');
-                return;
             }
 
             const familyProfilePayload = {
@@ -438,17 +479,27 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
 
             if (questionnaireVersionId) {
                 try {
-                    const riskSaveResponse = await clientApi.saveRiskAnswers({
-                        risk_profile_answers: normalizedRiskAnswers,
-                        risk_questionnaire_version_id: questionnaireVersionId
-                    }, clientId || Number(response?.client_id) || Number(response?.id) || Number(response?.summary?.client_id));
-                    latestRiskResponse = riskSaveResponse;
-                    const nextRiskProfile = riskSaveResponse.risk_profile_result?.risk_profile;
-                    if (nextRiskProfile && typeof nextRiskProfile === 'string') {
-                        setData((prev) => ({
-                            ...prev,
-                            riskProfile: nextRiskProfile as CJMData['riskProfile']
-                        }));
+                    if (preSavedRiskResponse) {
+                        latestRiskResponse = preSavedRiskResponse;
+                    } else {
+                        const riskSaveResponse = await clientApi.saveRiskAnswers(
+                            {
+                                risk_profile_answers: normalizedRiskAnswers,
+                                risk_questionnaire_version_id: questionnaireVersionId,
+                            },
+                            clientId ||
+                                Number(response?.client_id) ||
+                                Number(response?.id) ||
+                                Number(response?.summary?.client_id),
+                        );
+                        latestRiskResponse = riskSaveResponse;
+                        const nextRiskProfile = riskSaveResponse.risk_profile_result?.risk_profile;
+                        if (nextRiskProfile && typeof nextRiskProfile === 'string') {
+                            setData((prev) => ({
+                                ...prev,
+                                riskProfile: nextRiskProfile as CJMData['riskProfile'],
+                            }));
+                        }
                     }
                 } catch (riskSaveError) {
                     console.error('Failed to save risk profile answers:', riskSaveError);

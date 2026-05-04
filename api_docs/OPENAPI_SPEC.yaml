@@ -323,7 +323,15 @@ components:
       properties:
         profile_type:
           type: string
-          enum: [CONSERVATIVE, BALANCED, AGGRESSIVE]
+          description: |
+            Пять уровней (как `risk_profile_extended` в анкете). Допустимо по-прежнему передавать только три
+            «крупных» профиля — обратная совместимость с существующими портфелями.
+          enum:
+            - CONSERVATIVE
+            - MODERATELY_CONSERVATIVE
+            - BALANCED
+            - MODERATELY_AGGRESSIVE
+            - AGGRESSIVE
         potential_yield_percent:
           type: number
         explanation:
@@ -369,6 +377,26 @@ components:
             ID профиля риска (только в GET-ответе, игнорируется при PUT).
             Это поле присутствует в ответе API, но не нужно отправлять при обновлении.
           readOnly: true
+    ClientGoalRiskFields:
+      type: object
+      description: |
+        Риск цели в API расчёта / first-run / карточки клиента. `risk_profile` — три уровня (как раньше).
+        `risk_profile_extended` — пять уровней (как `RiskProfileResult.risk_profile_extended` и как `PortfolioRiskProfile.profile_type`,
+        если в портфеле заданы срезы MODERATELY_*). Детальный расчёт в ответе может содержать `risk_profile_details`.
+      properties:
+        risk_profile:
+          type: string
+          nullable: true
+          enum: [CONSERVATIVE, BALANCED, AGGRESSIVE]
+        risk_profile_extended:
+          type: string
+          nullable: true
+          enum:
+            - CONSERVATIVE
+            - MODERATELY_CONSERVATIVE
+            - BALANCED
+            - MODERATELY_AGGRESSIVE
+            - AGGRESSIVE
     SystemSetting:
       type: object
       description: |
@@ -835,6 +863,12 @@ components:
           type: string
         email:
           type: string
+        email_corp:
+          type: string
+          nullable: true
+          description: |
+            Локальная часть корпоративной почты без домена (например vissarov), для подстановки в RESEND_FROM_EMAIL
+            вида {agent}@bank-future.com при отправке NDA и др. Если передан полный адрес — используется часть до @.
         phone:
           type: string
         website_url:
@@ -857,6 +891,24 @@ components:
           type: string
         experience_years:
           type: integer
+        passport_series:
+          type: string
+          description: Серия паспорта
+        passport_number:
+          type: string
+          description: Номер паспорта
+        birth_date:
+          type: string
+          format: date
+          description: Дата рождения (YYYY-MM-DD)
+        gender:
+          type: string
+          enum: [male, female]
+          description: Пол
+        signature_image_url:
+          type: string
+          format: uri
+          description: Публичный URL изображения подписи (после загрузки через POST .../signature-upload или вручную)
         created_at:
           type: string
           format: date-time
@@ -903,6 +955,23 @@ components:
           type: string
         experience_years:
           type: integer
+        passport_series:
+          type: string
+        passport_number:
+          type: string
+        birth_date:
+          type: string
+          format: date
+        gender:
+          type: string
+          enum: [male, female]
+        signature_image_url:
+          type: string
+          format: uri
+        email_corp:
+          type: string
+          nullable: true
+          description: Локальная часть корпоративного ящика (см. Agent.email_corp)
 
     AgentUpdate:
       type: object
@@ -937,6 +1006,23 @@ components:
           type: string
         experience_years:
           type: integer
+        passport_series:
+          type: string
+        passport_number:
+          type: string
+        birth_date:
+          type: string
+          format: date
+        gender:
+          type: string
+          enum: [male, female]
+        signature_image_url:
+          type: string
+          format: uri
+        email_corp:
+          type: string
+          nullable: true
+          description: Локальная часть корпоративного ящика (см. Agent.email_corp)
 
     Project:
       type: object
@@ -2441,6 +2527,57 @@ paths:
               schema:
                 $ref: '#/components/schemas/Agent'
 
+  /pfp/agents/{id}/signature-upload:
+    post:
+      summary: Загрузить изображение подписи агента
+      description: |
+        Multipart, поле `image` (jpeg, png, webp, до 8MB). Файл сохраняется в Cloudflare R2 (если настроен) или в `/uploads` на сервере; в БД пишется `signature_image_url`.
+        Доступ: admin/super_admin или сам агент (`id` совпадает с токеном).
+      tags:
+        - Agents
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - image
+              properties:
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: URL сохранён в профиле агента
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+                  signature_image_url:
+                    type: string
+                    format: uri
+                  agent:
+                    $ref: '#/components/schemas/Agent'
+        '400':
+          description: Нет файла или неверный тип
+        '403':
+          description: Нет прав
+        '503':
+          description: R2 не настроен или ошибка загрузки (если включён STORAGE_REQUIRE_R2)
+
   # ==================== Agent: Clients (B2C/CRM hub) ====================
   /pfp/clients:
     get:
@@ -2545,6 +2682,140 @@ paths:
                       totalPages: { type: integer }
         '400':
           description: Agent ID not found in token
+
+  /pfp/clients/nda/send:
+    post:
+      summary: Отправить NDA без клиента в БД (до first-run)
+      description: |
+        То же тело, что у `POST /pfp/clients/{clientId}/nda/send`, но **без** карточки клиента: запись в `clients` не нужна (например, до first-run).
+        Проверка привязки клиента к агенту не выполняется. Ответ такой же (`pdf_base64`, …).
+      tags: [Agents, Clients]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [client_email, client_full_name, client_phone, client_birth_date, client_gender]
+              additionalProperties: false
+              properties:
+                client_email:
+                  type: string
+                  format: email
+                  description: Адрес доставки PDF и email в таблице сторон NDA
+                client_full_name:
+                  type: string
+                  minLength: 2
+                  maxLength: 500
+                  description: ФИО клиента в таблице сторон NDA
+                client_phone:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                  description: Телефон в таблице сторон NDA
+                client_birth_date:
+                  type: string
+                  format: date
+                  description: Дата рождения клиента (ISO 8601)
+                client_gender:
+                  type: string
+                  enum: [male, female]
+                  description: Пол клиента — для приветствия в письме с PDF (в документ NDA не входит)
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  success: { type: boolean, description: Дублирует контракт ЛК (как у других POST) }
+                  message_id: { type: string, nullable: true }
+                  filename: { type: string }
+                  pdf_base64: { type: string }
+                  client_email: { type: string, format: email }
+        '400':
+          description: Ошибка валидации тела или нет подписи у агента
+        '403':
+          description: Нет прав агента
+        '404':
+          description: Агент не найден
+        '502':
+          description: Не удалось загрузить подпись или отправить почту
+
+  /pfp/clients/{clientId}/nda/send:
+    post:
+      summary: Сформировать NDA (PDF), отправить клиенту на email, вернуть PDF в base64
+      description: |
+        Только для агента. Тело запроса **обязательно** содержит `client_email`, `client_full_name`, `client_phone`, `client_birth_date` (ISO), `client_gender` (`male`/`female`).
+        Дополнительно проверяется, что клиент `{clientId}` существует и привязан к текущему агенту.
+        На `client_email` уходит PDF; первые четыре поля — в таблице сторон документа. Пол клиента используется только для обращения в тексте письма («Уважаемый/Уважаемая»), в PDF не подставляется.
+        URL оферты/политики ПДн задаются на бэкенде (`NDA_*` в env).
+        У агента должна быть загружена подпись (`signature_image_url`). Письмо с PDF через Resend.
+      tags: [Agents, Clients]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: clientId
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [client_email, client_full_name, client_phone, client_birth_date, client_gender]
+              additionalProperties: false
+              properties:
+                client_email:
+                  type: string
+                  format: email
+                  description: Адрес доставки PDF и email в таблице сторон NDA
+                client_full_name:
+                  type: string
+                  minLength: 2
+                  maxLength: 500
+                  description: ФИО клиента в таблице сторон NDA
+                client_phone:
+                  type: string
+                  minLength: 1
+                  maxLength: 50
+                  description: Телефон в таблице сторон NDA
+                client_birth_date:
+                  type: string
+                  format: date
+                  description: Дата рождения клиента (ISO 8601)
+                client_gender:
+                  type: string
+                  enum: [male, female]
+                  description: Пол клиента — для приветствия в письме с PDF (в документ NDA не входит)
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  success: { type: boolean }
+                  message_id: { type: string, nullable: true }
+                  filename: { type: string }
+                  pdf_base64: { type: string }
+                  client_email: { type: string, format: email }
+        '400':
+          description: Неполное или невалидное тело (все поля клиента обязательны), нет подписи у агента и т.п.
+        '403':
+          description: Нет доступа к клиенту
+        '404':
+          description: Клиент или агент не найден
+        '502':
+          description: Не удалось загрузить подпись или отправить почту
 
   /admin/constructor/bots:
     get:

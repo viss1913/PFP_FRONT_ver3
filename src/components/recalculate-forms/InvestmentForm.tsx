@@ -1,4 +1,9 @@
 import React from 'react';
+import {
+    RISK_PROFILE_SELECT_OPTIONS,
+    extendedToLegacy,
+    legacyToExtended,
+} from '../../constants/portfolioRiskProfiles';
 import { SliderField, SelectField } from './SharedFields';
 import type { BaseFormProps } from './SharedFields';
 
@@ -33,9 +38,15 @@ const InvestmentForm: React.FC<BaseFormProps> = ({ editForm, setEditForm, format
             />
             <SelectField
                 label="Риск-профиль"
-                value={editForm.risk_profile || 'BALANCED'}
-                options={['CONSERVATIVE', 'BALANCED', 'AGGRESSIVE']}
-                onChange={(val) => setEditForm({ ...editForm, risk_profile: val })}
+                value={editForm.risk_profile_extended || legacyToExtended(editForm.risk_profile || 'BALANCED')}
+                options={RISK_PROFILE_SELECT_OPTIONS}
+                onChange={(val) =>
+                    setEditForm({
+                        ...editForm,
+                        risk_profile_extended: val,
+                        risk_profile: extendedToLegacy(val),
+                    })
+                }
             />
         </div>
     );

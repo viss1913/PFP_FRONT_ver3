@@ -61,10 +61,16 @@ export const SliderField: React.FC<SliderFieldProps> = ({ label, value, min, max
     );
 };
 
+export type SelectFieldOption = string | { value: string; label: string };
+
+function selectFieldNormalize(opt: SelectFieldOption): { value: string; label: string } {
+    return typeof opt === 'string' ? { value: opt, label: opt } : opt;
+}
+
 export interface SelectFieldProps {
     label: string;
     value: string;
-    options: string[];
+    options: SelectFieldOption[];
     onChange: (val: string) => void;
 }
 
@@ -74,28 +80,33 @@ export const SelectField: React.FC<SelectFieldProps> = ({ label, value, options,
             <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#666' }}>
                 {label}
             </label>
-            <div style={{ display: 'flex', gap: '8px' }}>
-                {options.map((opt: string) => (
-                    <button
-                        key={opt}
-                        onClick={() => onChange(opt)}
-                        style={{
-                            flex: 1,
-                            padding: '12px',
-                            borderRadius: '12px',
-                            border: '2px solid',
-                            borderColor: value === opt ? 'var(--primary)' : '#eee',
-                            background: value === opt ? 'var(--primary-light)' : '#fff',
-                            color: value === opt ? 'var(--primary)' : '#666',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                            fontSize: '13px'
-                        }}
-                    >
-                        {opt}
-                    </button>
-                ))}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {options.map((opt) => {
+                    const { value: optVal, label: optLabel } = selectFieldNormalize(opt);
+                    return (
+                        <button
+                            key={optVal}
+                            type="button"
+                            onClick={() => onChange(optVal)}
+                            style={{
+                                flex: '1 1 120px',
+                                minWidth: 0,
+                                padding: '12px',
+                                borderRadius: '12px',
+                                border: '2px solid',
+                                borderColor: value === optVal ? 'var(--primary)' : '#eee',
+                                background: value === optVal ? 'var(--primary-light)' : '#fff',
+                                color: value === optVal ? 'var(--primary)' : '#666',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                fontSize: '13px',
+                            }}
+                        >
+                            {optLabel}
+                        </button>
+                    );
+                })}
             </div>
         </div>
     );

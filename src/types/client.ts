@@ -159,6 +159,7 @@ export interface ClientGoal {
     desired_monthly_income?: number; // For Passive Income
     term_months?: number;
     risk_profile?: string;
+    risk_profile_extended?: string;
     initial_capital?: number; // Initial capital for the goal
     monthly_replenishment?: number; // Monthly replenishment amount
     inflation_rate?: number;
@@ -223,6 +224,7 @@ export interface CalculationGoal {
     target_amount: number;
     term_months: number;
     risk_profile: string;
+    risk_profile_extended?: string;
     initial_capital?: number;
     avg_monthly_income?: number;
     monthly_replenishment?: number;
