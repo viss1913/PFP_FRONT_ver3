@@ -673,7 +673,33 @@ export interface LifeInsuranceEmailResponse {
     offer_url?: string;
 }
 
+export interface BrokerAccountEmailRequest {
+    /** Кастомный URL открытия счета; если не указан — бэк подставит дефолтный. */
+    open_url?: string;
+    /** Короткое описание для тела письма; если не указано — бэк возьмёт стандартное. */
+    short_description?: string;
+}
+
+export interface BrokerAccountEmailResponse {
+    ok: boolean;
+    message_id?: string;
+    client_email?: string;
+    open_url?: string;
+    promo_urls?: {
+        bonus?: string;
+        transfer?: string;
+        [key: string]: string | undefined;
+    };
+}
+
 export type LifeInsuranceEmailErrorCode =
+    | 'NO_EMAIL'
+    | 'FORBIDDEN'
+    | 'NOT_FOUND'
+    | 'MAIL_PROVIDER_DOWN'
+    | 'UNKNOWN';
+
+export type BrokerAccountEmailErrorCode =
     | 'NO_EMAIL'
     | 'FORBIDDEN'
     | 'NOT_FOUND'
@@ -687,6 +713,18 @@ export class LifeInsuranceEmailError extends Error {
     constructor(message: string, status: number, code: LifeInsuranceEmailErrorCode) {
         super(message);
         this.name = 'LifeInsuranceEmailError';
+        this.status = status;
+        this.code = code;
+    }
+}
+
+export class BrokerAccountEmailError extends Error {
+    status: number;
+    code: BrokerAccountEmailErrorCode;
+
+    constructor(message: string, status: number, code: BrokerAccountEmailErrorCode) {
+        super(message);
+        this.name = 'BrokerAccountEmailError';
         this.status = status;
         this.code = code;
     }
@@ -727,6 +765,48 @@ function mapLifeInsuranceEmailError(error: unknown): LifeInsuranceEmailError {
             );
         default:
             return new LifeInsuranceEmailError(
+                backendMessage || 'Не удалось отправить письмо клиенту',
+                status,
+                'UNKNOWN',
+            );
+    }
+}
+
+function mapBrokerAccountEmailError(error: unknown): BrokerAccountEmailError {
+    const e = error as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } }; message?: string };
+    const status = Number(e?.response?.status) || 0;
+    const backendMessage =
+        e?.response?.data?.error?.message ||
+        e?.response?.data?.message ||
+        e?.message;
+
+    switch (status) {
+        case 400:
+            return new BrokerAccountEmailError(
+                backendMessage || 'У клиента не указан email или некорректный ID',
+                status,
+                'NO_EMAIL',
+            );
+        case 403:
+            return new BrokerAccountEmailError(
+                backendMessage || 'Нет доступа к этому клиенту',
+                status,
+                'FORBIDDEN',
+            );
+        case 404:
+            return new BrokerAccountEmailError(
+                backendMessage || 'Клиент или агент не найден',
+                status,
+                'NOT_FOUND',
+            );
+        case 502:
+            return new BrokerAccountEmailError(
+                backendMessage || 'Почтовый сервис временно недоступен. Попробуйте позже',
+                status,
+                'MAIL_PROVIDER_DOWN',
+            );
+        default:
+            return new BrokerAccountEmailError(
                 backendMessage || 'Не удалось отправить письмо клиенту',
                 status,
                 'UNKNOWN',
@@ -931,6 +1011,26 @@ export const agentLkApi = {
             return response.data;
         } catch (error) {
             throw mapLifeInsuranceEmailError(error);
+        }
+    },
+
+    /**
+     * Отправить клиенту HTML-письмо для открытия брокерского счёта Финам.
+     * Бэк сам подставляет дефолтный open_url и short_description, если они не переданы.
+     */
+    sendBrokerAccountEmail: async (
+        clientId: number | string,
+        payload?: BrokerAccountEmailRequest,
+    ): Promise<BrokerAccountEmailResponse> => {
+        try {
+            const response = await axios.post<BrokerAccountEmailResponse>(
+                `${API_BASE}/clients/${clientId}/broker-account/send-email`,
+                payload ?? {},
+                { headers: getHeaders() },
+            );
+            return response.data;
+        } catch (error) {
+            throw mapBrokerAccountEmailError(error);
         }
     },
 

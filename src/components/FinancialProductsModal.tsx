@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     agentLkApi,
+    BrokerAccountEmailError,
+    type BrokerAccountEmailResponse,
     LifeInsuranceEmailError,
     type LifeInsuranceEmailResponse,
 } from '../api/agentLkApi';
@@ -18,6 +20,12 @@ type LifeInsuranceState =
     | { kind: 'success'; email: string; offerUrl: string }
     | { kind: 'error'; message: string };
 
+type BrokerAccountState =
+    | { kind: 'idle' }
+    | { kind: 'loading' }
+    | { kind: 'success'; email: string; openUrl: string }
+    | { kind: 'error'; message: string };
+
 const SBER_GREEN = '#21A038';
 const SBER_GREEN_DARK = '#1B8A2D';
 
@@ -28,6 +36,7 @@ const FinancialProductsModal: React.FC<FinancialProductsModalProps> = ({
     onClose,
 }) => {
     const [lifeState, setLifeState] = useState<LifeInsuranceState>({ kind: 'idle' });
+    const [brokerState, setBrokerState] = useState<BrokerAccountState>({ kind: 'idle' });
     const [toast, setToast] = useState<string | null>(null);
 
     useEffect(() => {
@@ -47,6 +56,7 @@ const FinancialProductsModal: React.FC<FinancialProductsModalProps> = ({
     useEffect(() => {
         if (!isOpen) {
             setLifeState({ kind: 'idle' });
+            setBrokerState({ kind: 'idle' });
             setToast(null);
         }
     }, [isOpen]);
@@ -87,6 +97,39 @@ const FinancialProductsModal: React.FC<FinancialProductsModalProps> = ({
                     ? error.message
                     : 'Не удалось отправить письмо. Попробуйте позже.';
             setLifeState({ kind: 'error', message });
+        }
+    }, [clientId, clientEmail]);
+
+    const handleSendBrokerAccount = useCallback(async () => {
+        if (clientId == null || (typeof clientId === 'string' && !clientId.trim())) {
+            setBrokerState({
+                kind: 'error',
+                message: 'Не удалось определить ID клиента. Обнови страницу и попробуй снова.',
+            });
+            return;
+        }
+
+        setBrokerState({ kind: 'loading' });
+        try {
+            const res: BrokerAccountEmailResponse = await agentLkApi.sendBrokerAccountEmail(clientId);
+            if (!res?.ok) {
+                setBrokerState({
+                    kind: 'error',
+                    message: 'Сервер вернул ok=false. Попробуйте ещё раз чуть позже.',
+                });
+                return;
+            }
+            const email = res.client_email || clientEmail || 'email клиента';
+            const openUrl = res.open_url || 'https://www.finam.ru/open/order/russia/';
+            setBrokerState({ kind: 'success', email, openUrl });
+            setToast(`Письмо отправили на ${email}`);
+            window.open(openUrl, '_blank', 'noopener,noreferrer');
+        } catch (error) {
+            const message =
+                error instanceof BrokerAccountEmailError
+                    ? error.message
+                    : 'Не удалось отправить письмо. Попробуйте позже.';
+            setBrokerState({ kind: 'error', message });
         }
     }, [clientId, clientEmail]);
 
@@ -166,11 +209,24 @@ const FinancialProductsModal: React.FC<FinancialProductsModalProps> = ({
                 >
                     <ProductCard
                         icon="🏦"
-                        iconBg="linear-gradient(135deg, #94a3b8 0%, #64748b 100%)"
+                        iconBg="linear-gradient(135deg, #1f6feb 0%, #1d4ed8 100%)"
                         title="Открыть банковский счёт"
-                        description="Дебетовая карта СберПрайм с кешбэком"
-                        right={<ComingSoonBadge />}
-                        disabled
+                        description="Брокерский счёт Финам с быстрым онлайн-открытием"
+                        accent
+                        right={
+                            <BrokerAccountCta
+                                state={brokerState}
+                                onSend={() => void handleSendBrokerAccount()}
+                                onReopen={(url) => window.open(url, '_blank', 'noopener,noreferrer')}
+                            />
+                        }
+                        bottomSlot={
+                            brokerState.kind === 'error' ? (
+                                <ErrorBanner message={brokerState.message} onRetry={() => void handleSendBrokerAccount()} />
+                            ) : brokerState.kind === 'success' ? (
+                                <SuccessBanner email={brokerState.email} />
+                            ) : null
+                        }
                     />
 
                     <ProductCard
@@ -325,6 +381,95 @@ const ComingSoonBadge: React.FC = () => (
         Скоро
     </span>
 );
+
+interface BrokerAccountCtaProps {
+    state: BrokerAccountState;
+    onSend: () => void;
+    onReopen: (url: string) => void;
+}
+
+const BrokerAccountCta: React.FC<BrokerAccountCtaProps> = ({ state, onSend, onReopen }) => {
+    if (state.kind === 'loading') {
+        return (
+            <button
+                type="button"
+                disabled
+                style={{
+                    background: '#1d4ed8',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '999px',
+                    padding: '12px 20px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    cursor: 'wait',
+                    opacity: 0.85,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    minWidth: '160px',
+                    justifyContent: 'center',
+                }}
+            >
+                <span
+                    style={{
+                        width: '14px',
+                        height: '14px',
+                        border: '2px solid rgba(255,255,255,0.4)',
+                        borderTopColor: '#fff',
+                        borderRadius: '50%',
+                        animation: 'fpmSpin 0.8s linear infinite',
+                    }}
+                />
+                Отправляем…
+            </button>
+        );
+    }
+
+    if (state.kind === 'success') {
+        return (
+            <button
+                type="button"
+                onClick={() => onReopen(state.openUrl)}
+                style={{
+                    background: '#fff',
+                    color: '#1d4ed8',
+                    border: '1.5px solid #1d4ed8',
+                    borderRadius: '999px',
+                    padding: '11px 18px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    minWidth: '160px',
+                }}
+            >
+                Открыть счёт
+            </button>
+        );
+    }
+
+    return (
+        <button
+            type="button"
+            onClick={onSend}
+            style={{
+                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '999px',
+                padding: '12px 24px',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(37,99,235,0.35)',
+                minWidth: '160px',
+                transition: 'transform 0.1s',
+            }}
+        >
+            Открыть счёт
+        </button>
+    );
+};
 
 interface LifeInsuranceCtaProps {
     state: LifeInsuranceState;
