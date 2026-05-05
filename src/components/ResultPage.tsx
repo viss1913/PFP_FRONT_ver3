@@ -4,6 +4,7 @@ import { ChatWindow } from './ai/ChatWindow';
 import { aiService } from '../services/aiService';
 import type { AiMessage } from '../types/ai';
 import ReportPreviewModal from './ReportPreviewModal';
+import FinancialProductsModal from './FinancialProductsModal';
 import {
     agentLkApi,
     extractResolutLinkUrl,
@@ -63,6 +64,7 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
     const [isTyping, setIsTyping] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [isReportPreviewOpen, setIsReportPreviewOpen] = useState(false);
+    const [isProductsModalOpen, setIsProductsModalOpen] = useState(false);
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [isResolutPublishing, setIsResolutPublishing] = useState(false);
     /** Опции plan-publish-preview / publish-from-plan (см. PlanQuotesRequest). */
@@ -433,11 +435,26 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
                 onResolutIncludeMonthlyFlowChange={setResolutIncludeMonthlyFlow}
                 resolutTermMonths={resolutTermMonths}
                 onResolutTermMonthsChange={setResolutTermMonths}
+                onOpenFinancialProducts={() => {
+                    const clientId = resolveClientId();
+                    if (!clientId) {
+                        console.error('Financial Products Error: Could not resolve Client ID', { client, data });
+                        alert('Ошибка: Не удалось определить ID клиента. Обновите страницу.');
+                        return;
+                    }
+                    setIsProductsModalOpen(true);
+                }}
             />
             <ReportPreviewModal
                 isOpen={isReportPreviewOpen}
                 clientId={resolveClientId()}
                 onClose={() => setIsReportPreviewOpen(false)}
+            />
+            <FinancialProductsModal
+                isOpen={isProductsModalOpen}
+                clientId={resolvedClientId}
+                clientEmail={(client as any)?.email ?? null}
+                onClose={() => setIsProductsModalOpen(false)}
             />
             {isChatOpen && (
                 <div

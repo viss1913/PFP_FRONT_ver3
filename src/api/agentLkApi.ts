@@ -657,6 +657,83 @@ export interface ComonApiTrace {
 
 const DEFAULT_COMON_RISK_PROFILES: ComonRiskProfile[] = ['conservative', 'balanced', 'aggressive'];
 
+// --- НСЖ / Защита жизни: отправка письма клиенту ---
+
+export interface LifeInsuranceEmailRequest {
+    /** Кастомный URL предложения; если не указан — бэк подставит дефолтный. */
+    offer_url?: string;
+    /** Короткое описание для тела письма; если не указано — бэк возьмёт стандартное. */
+    short_description?: string;
+}
+
+export interface LifeInsuranceEmailResponse {
+    ok: boolean;
+    message_id?: string;
+    client_email?: string;
+    offer_url?: string;
+}
+
+export type LifeInsuranceEmailErrorCode =
+    | 'NO_EMAIL'
+    | 'FORBIDDEN'
+    | 'NOT_FOUND'
+    | 'MAIL_PROVIDER_DOWN'
+    | 'UNKNOWN';
+
+export class LifeInsuranceEmailError extends Error {
+    status: number;
+    code: LifeInsuranceEmailErrorCode;
+
+    constructor(message: string, status: number, code: LifeInsuranceEmailErrorCode) {
+        super(message);
+        this.name = 'LifeInsuranceEmailError';
+        this.status = status;
+        this.code = code;
+    }
+}
+
+function mapLifeInsuranceEmailError(error: unknown): LifeInsuranceEmailError {
+    const e = error as { response?: { status?: number; data?: { message?: string; error?: { message?: string } } }; message?: string };
+    const status = Number(e?.response?.status) || 0;
+    const backendMessage =
+        e?.response?.data?.error?.message ||
+        e?.response?.data?.message ||
+        e?.message;
+
+    switch (status) {
+        case 400:
+            return new LifeInsuranceEmailError(
+                backendMessage || 'У клиента не указан email или некорректный ID',
+                status,
+                'NO_EMAIL',
+            );
+        case 403:
+            return new LifeInsuranceEmailError(
+                backendMessage || 'Нет доступа к этому клиенту',
+                status,
+                'FORBIDDEN',
+            );
+        case 404:
+            return new LifeInsuranceEmailError(
+                backendMessage || 'Клиент или агент не найден',
+                status,
+                'NOT_FOUND',
+            );
+        case 502:
+            return new LifeInsuranceEmailError(
+                backendMessage || 'Почтовый сервис временно недоступен. Попробуйте позже',
+                status,
+                'MAIL_PROVIDER_DOWN',
+            );
+        default:
+            return new LifeInsuranceEmailError(
+                backendMessage || 'Не удалось отправить письмо клиенту',
+                status,
+                'UNKNOWN',
+            );
+    }
+}
+
 export const agentLkApi = {
     getProducts: async (includeDefaults = true): Promise<AgentProduct[]> => {
         const response = await axios.get(`${API_BASE}/products`, {
@@ -833,6 +910,28 @@ export const agentLkApi = {
             { headers: getHeaders() },
         );
         return response.data;
+    },
+
+    /**
+     * Отправить клиенту HTML-письмо с предложением «Защитить жизнь» (Сбер НСЖ).
+     * Бэк сам подставляет дефолтный offer_url и short_description, если они не переданы.
+     * Ошибки маппятся в {@link LifeInsuranceEmailError} с понятным сообщением:
+     *   400 → NO_EMAIL, 403 → FORBIDDEN, 404 → NOT_FOUND, 502 → MAIL_PROVIDER_DOWN.
+     */
+    sendLifeInsuranceEmail: async (
+        clientId: number | string,
+        payload?: LifeInsuranceEmailRequest,
+    ): Promise<LifeInsuranceEmailResponse> => {
+        try {
+            const response = await axios.post<LifeInsuranceEmailResponse>(
+                `${API_BASE}/clients/${clientId}/life-insurance/send-email`,
+                payload ?? {},
+                { headers: getHeaders() },
+            );
+            return response.data;
+        } catch (error) {
+            throw mapLifeInsuranceEmailError(error);
+        }
     },
 
     cloneProduct: async (id: number | string): Promise<AgentProduct> => {

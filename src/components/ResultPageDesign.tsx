@@ -94,6 +94,7 @@ interface ResultPageDesignProps {
   onResolutIncludeMonthlyFlowChange?: (value: boolean) => void;
   resolutTermMonths?: string;
   onResolutTermMonthsChange?: (value: string) => void;
+  onOpenFinancialProducts?: () => void;
 }
 
 interface EditFormState {
@@ -139,6 +140,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   onResolutIncludeMonthlyFlowChange,
   resolutTermMonths,
   onResolutTermMonthsChange,
+  onOpenFinancialProducts,
 }: ResultPageDesignProps) => {
   const [editingGoal, setEditingGoal] = React.useState<GoalResult | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = React.useState(false);
@@ -976,6 +978,27 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
             >
               {htmlReportOpening ? 'Открываем…' : 'HTML-отчет'}
             </button>
+            {onOpenFinancialProducts && (
+              <button
+                type="button"
+                onClick={() => onOpenFinancialProducts?.()}
+                style={{
+                  background: 'linear-gradient(135deg, #21A038 0%, #1B8A2D 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '100px',
+                  padding: '16px 32px',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  boxShadow: '0px 4px 6px -1px rgba(33, 160, 56, 0.4)',
+                  transition: 'transform 0.1s',
+                  minWidth: '240px',
+                }}
+              >
+                Финансовые продукты
+              </button>
+            )}
           </div>
 
           {/* Portfolio Distribution Charts */}
