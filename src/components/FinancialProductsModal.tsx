@@ -209,24 +209,11 @@ const FinancialProductsModal: React.FC<FinancialProductsModalProps> = ({
                 >
                     <ProductCard
                         icon="🏦"
-                        iconBg="linear-gradient(135deg, #1f6feb 0%, #1d4ed8 100%)"
+                        iconBg="linear-gradient(135deg, #94a3b8 0%, #64748b 100%)"
                         title="Открыть банковский счёт"
-                        description="Брокерский счёт Финам с быстрым онлайн-открытием"
-                        accent
-                        right={
-                            <BrokerAccountCta
-                                state={brokerState}
-                                onSend={() => void handleSendBrokerAccount()}
-                                onReopen={(url) => window.open(url, '_blank', 'noopener,noreferrer')}
-                            />
-                        }
-                        bottomSlot={
-                            brokerState.kind === 'error' ? (
-                                <ErrorBanner message={brokerState.message} onRetry={() => void handleSendBrokerAccount()} />
-                            ) : brokerState.kind === 'success' ? (
-                                <SuccessBanner email={brokerState.email} />
-                            ) : null
-                        }
+                        description="Дебетовая карта СберПрайм с кешбэком"
+                        right={<ComingSoonBadge />}
+                        disabled
                     />
 
                     <ProductCard
@@ -253,11 +240,24 @@ const FinancialProductsModal: React.FC<FinancialProductsModalProps> = ({
 
                     <ProductCard
                         icon="📈"
-                        iconBg="linear-gradient(135deg, #94a3b8 0%, #64748b 100%)"
-                        title="Инвестировать"
-                        description="Брокерский счёт и готовые портфели"
-                        right={<ComingSoonBadge />}
-                        disabled
+                        iconBg="linear-gradient(135deg, #1f6feb 0%, #1d4ed8 100%)"
+                        title="Открыть брокерский счёт"
+                        description="Брокерский счёт Финам с быстрым онлайн-открытием"
+                        accent
+                        right={
+                            <BrokerAccountCta
+                                state={brokerState}
+                                onSend={() => void handleSendBrokerAccount()}
+                                onReopen={(url) => window.open(url, '_blank', 'noopener,noreferrer')}
+                            />
+                        }
+                        bottomSlot={
+                            brokerState.kind === 'error' ? (
+                                <ErrorBanner message={brokerState.message} onRetry={() => void handleSendBrokerAccount()} />
+                            ) : brokerState.kind === 'success' ? (
+                                <SuccessBanner email={brokerState.email} />
+                            ) : null
+                        }
                     />
                 </div>
 
