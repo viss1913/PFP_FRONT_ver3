@@ -1,30 +1,5 @@
 import React from 'react';
 import { extendedToLegacy, legacyToExtended } from '../constants/portfolioRiskProfiles';
-
-/** Если где-то есть непустой `risk_profile_extended` — он главный; иначе тройка `risk_profile` как раньше. */
-function resolveGoalRiskFields(
-    root: Record<string, unknown>,
-    input: Record<string, unknown>,
-    summary: Record<string, unknown>,
-    details: Record<string, unknown>,
-): { risk_profile: string; risk_profile_extended: string } {
-    const extCandidates = [
-        root.risk_profile_extended,
-        summary.risk_profile_extended,
-        details.risk_profile_extended,
-        input.risk_profile_extended,
-    ];
-    for (const c of extCandidates) {
-        if (typeof c === 'string' && c.trim() !== '') {
-            const ext = c.trim();
-            return { risk_profile: extendedToLegacy(ext), risk_profile_extended: ext };
-        }
-    }
-    const rp = String(
-        input.risk_profile ?? details.risk_profile ?? summary.risk_profile ?? root.risk_profile ?? 'BALANCED',
-    );
-    return { risk_profile: rp, risk_profile_extended: legacyToExtended(rp) };
-}
 import { X, Plus, ArrowLeft, Trash2, Send } from 'lucide-react';
 import avatarImage from '../assets/avatar_full.png';
 import { clientApi } from '../api/clientApi';
@@ -42,6 +17,31 @@ import LifeInsuranceForm from './recalculate-forms/LifeInsuranceForm';
 import FinReserveForm from './recalculate-forms/FinReserveForm';
 import RentForm from './recalculate-forms/RentForm';
 import type { BaseFormProps } from './recalculate-forms/SharedFields';
+
+/** Если где-то есть непустой `risk_profile_extended` — он главный; иначе тройка `risk_profile` как раньше. */
+function resolveGoalRiskFields(
+    root: any,
+    input: any,
+    summary: any,
+    details: any,
+): { risk_profile: string; risk_profile_extended: string } {
+    const extCandidates = [
+        root?.risk_profile_extended,
+        summary?.risk_profile_extended,
+        details?.risk_profile_extended,
+        input?.risk_profile_extended,
+    ];
+    for (const c of extCandidates) {
+        if (typeof c === 'string' && c.trim() !== '') {
+            const ext = c.trim();
+            return { risk_profile: extendedToLegacy(ext), risk_profile_extended: ext };
+        }
+    }
+    const rp = String(
+        input?.risk_profile ?? details?.risk_profile ?? summary?.risk_profile ?? root?.risk_profile ?? 'BALANCED',
+    );
+    return { risk_profile: rp, risk_profile_extended: legacyToExtended(rp) };
+}
 
 export interface GoalCardSlot {
   label: string;
@@ -157,10 +157,10 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     setEditingGoal(goal);
 
     // CRITICAL: Pull fields from goal_input (user inputs) FIRST, fallback to results
-    const root = (goal.originalData || {}) as Record<string, unknown>;
-    const input = (root.goal_input || {}) as Record<string, unknown>;
-    const summary = (root.summary || {}) as Record<string, unknown>;
-    const details = (root.details || {}) as Record<string, unknown>;
+    const root = goal.originalData || {};
+    const input = root.goal_input || {};
+    const summary = root.summary || {};
+    const details = root.details || {};
     const { risk_profile: riskProfileResolved, risk_profile_extended: riskExtResolved } = resolveGoalRiskFields(
         root,
         input,
@@ -168,7 +168,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
         details,
     );
 
-    const statePension = details.state_pension as Record<string, unknown> | undefined;
+    const statePension = details.state_pension;
     const initialForm: EditFormState = {
       name: goal.name,
       // Priority: User Input -> Calculated Result -> Legacy Field -> Default
@@ -520,10 +520,10 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
         setEditingGoal(updatedGoal);
 
         // Update snapshot to the newest stable state from backend
-        const root = (updatedGoal.originalData || {}) as Record<string, unknown>;
-        const input = (root.goal_input || {}) as Record<string, unknown>;
-        const summary = (root.summary || {}) as Record<string, unknown>;
-        const details = (root.details || {}) as Record<string, unknown>;
+        const root = updatedGoal.originalData || {};
+        const input = root.goal_input || {};
+        const summary = root.summary || {};
+        const details = root.details || {};
         const { risk_profile: riskProfileResolved, risk_profile_extended: riskExtResolved } = resolveGoalRiskFields(
             root,
             input,
@@ -531,7 +531,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
             details,
         );
 
-        const statePension = details.state_pension as Record<string, unknown> | undefined;
+        const statePension = details.state_pension;
         const newSnapshot: EditFormState = {
           name: updatedGoal.name,
           target_amount: coerceFormNumber(
