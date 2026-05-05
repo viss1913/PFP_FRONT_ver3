@@ -16,6 +16,7 @@ import {
     GOAL_TYPE_RENT,
 } from '../../utils/GoalImages';
 import { clampGoalValue, getGoalModalConfig } from '../../utils/goalOnboardingBounds';
+import { rangeFillStyle } from '../../utils/rangeInputStyle';
 import avatarImage from '../../assets/avatar_full.png';
 
 const INVEST_SAVE_TITLE = 'Сохранить и преумножить';
@@ -571,7 +572,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                         step={targetRange.step}
                                         value={targetAmount}
                                         onChange={(e) => setTargetAmount(Number(e.target.value))}
-                                        style={{ width: '100%' }}
+                                        style={rangeFillStyle(targetAmount, targetRange.min, targetRange.max)}
                                     />
                                 </div>
                                 <div style={{ marginBottom: '40px' }}>
@@ -605,7 +606,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                         step={termRange.step}
                                         value={termMonths / 12}
                                         onChange={(e) => setTermMonths(Number(e.target.value) * 12)}
-                                        style={{ width: '100%' }}
+                                        style={rangeFillStyle(termMonths / 12, termRange.min, termRange.max)}
                                     />
                                     <div style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '8px', textAlign: 'right' }}>
                                         {termMonths} месяцев
@@ -637,7 +638,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                     step={desiredIncomeRange.step}
                                     value={desiredIncome}
                                     onChange={(e) => setDesiredIncome(Number(e.target.value))}
-                                    style={{ width: '100%' }}
+                                    style={rangeFillStyle(desiredIncome, desiredIncomeRange.min, desiredIncomeRange.max)}
                                 />
                                 {isPassive && (
                                     <div style={{ marginTop: '24px' }}>
@@ -666,7 +667,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                             step={termRange.step}
                                             value={termMonths / 12}
                                             onChange={(e) => setTermMonths(Number(e.target.value) * 12)}
-                                            style={{ width: '100%' }}
+                                            style={rangeFillStyle(termMonths / 12, termRange.min, termRange.max)}
                                         />
                                     </div>
                                 )}
@@ -697,7 +698,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                         step={initialCapitalRange.step}
                                         value={initialCapital}
                                         onChange={(e) => setInitialCapital(Number(e.target.value))}
-                                        style={{ width: '100%' }}
+                                        style={rangeFillStyle(initialCapital, initialCapitalRange.min, initialCapitalRange.max)}
                                     />
                                 </div>
                                 <div style={{ marginBottom: '24px' }}>
@@ -721,7 +722,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                         step={desiredIncomeRange.step}
                                         value={desiredIncome}
                                         onChange={(e) => setDesiredIncome(Number(e.target.value))}
-                                        style={{ width: '100%' }}
+                                        style={rangeFillStyle(desiredIncome, desiredIncomeRange.min, desiredIncomeRange.max)}
                                     />
                                 </div>
                                 <div style={{ marginBottom: '32px' }}>
@@ -750,7 +751,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                         step={termRange.step}
                                         value={termMonths / 12}
                                         onChange={(e) => setTermMonths(Number(e.target.value) * 12)}
-                                        style={{ width: '100%' }}
+                                        style={rangeFillStyle(termMonths / 12, termRange.min, termRange.max)}
                                     />
                                 </div>
                             </>
@@ -780,7 +781,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                         step={initialCapitalRange.step}
                                         value={initialCapital}
                                         onChange={(e) => setInitialCapital(Number(e.target.value))}
-                                        style={{ width: '100%' }}
+                                        style={rangeFillStyle(initialCapital, initialCapitalRange.min, initialCapitalRange.max)}
                                     />
                                     <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '8px' }}>Доступно из активов: {formatCurrency(totalAssetsSum)}</div>
                                 </div>
@@ -805,7 +806,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                         step={desiredIncomeRange.step}
                                         value={desiredIncome}
                                         onChange={(e) => setDesiredIncome(Number(e.target.value))}
-                                        style={{ width: '100%' }}
+                                        style={rangeFillStyle(desiredIncome, desiredIncomeRange.min, desiredIncomeRange.max)}
                                     />
                                 </div>
                             </>
@@ -840,7 +841,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                         step={initialCapitalRange.step}
                                         value={initialCapital}
                                         onChange={(e) => setInitialCapital(Number(e.target.value))}
-                                        style={{ width: '100%' }}
+                                        style={rangeFillStyle(initialCapital, initialCapitalRange.min, initialCapitalRange.max)}
                                     />
                                 </div>
                             </>

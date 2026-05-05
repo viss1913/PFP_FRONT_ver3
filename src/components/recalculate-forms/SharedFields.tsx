@@ -1,4 +1,5 @@
 import React from 'react';
+import { rangeFillStyle } from '../../utils/rangeInputStyle';
 
 export interface SliderFieldProps {
     label: string;
@@ -26,37 +27,13 @@ export const SliderField: React.FC<SliderFieldProps> = ({ label, value, min, max
                 step={step}
                 value={value}
                 onChange={(e) => onChange(Number(e.target.value))}
-                style={{
-                    width: '100%',
-                    height: '6px',
-                    background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${(value - min) / (max - min) * 100}%, #eee ${(value - min) / (max - min) * 100}%, #eee 100%)`,
-                    borderRadius: '3px',
-                    appearance: 'none',
-                    outline: 'none',
-                    cursor: 'pointer'
-                }}
-                className="custom-slider"
+                className="goal-modal-range"
+                style={rangeFillStyle(value, min, max)}
             />
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '12px', color: '#999' }}>
                 <span>{format ? format(min) : min}</span>
                 <span>{format ? format(max) : max}</span>
             </div>
-            <style>{`
-        .custom-slider::-webkit-slider-thumb {
-          appearance: none;
-          width: 20px;
-          height: 20px;
-          background: #fff;
-          border: 3px solid var(--primary);
-          border-radius: 50%;
-          cursor: pointer;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-          transition: transform 0.1s;
-        }
-        .custom-slider::-webkit-slider-thumb:hover {
-          transform: scale(1.1);
-        }
-      `}</style>
         </div>
     );
 };

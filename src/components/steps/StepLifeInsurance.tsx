@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { CJMData } from '../CJMFlow';
 import avatarImage from '../../assets/avatar_full.png';
+import { rangeFillStyle } from '../../utils/rangeInputStyle';
 
 interface StepLifeInsuranceProps {
     data: CJMData;
@@ -130,7 +131,7 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
                                 step={STEP}
                                 value={Math.min(limit, MAX_LIMIT)}
                                 onChange={(e) => setLimit(Number(e.target.value))}
-                                style={{ width: '100%' }}
+                                style={rangeFillStyle(Math.min(limit, MAX_LIMIT), MIN_LIMIT, MAX_LIMIT)}
                             />
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', color: 'var(--text-muted)', fontSize: '12px' }}>
                                 <span>0 ₽</span>

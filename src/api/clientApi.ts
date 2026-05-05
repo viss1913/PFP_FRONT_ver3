@@ -415,6 +415,16 @@ export const clientApi = {
         return response.data;
     },
 
+    /** ЛК клиента: PATCH цели в корне тела + при смене риска — risk_profile и risk_profile_extended. */
+    recalculateMyPlanGoal: async (goalId: number | string, payload: Record<string, unknown>): Promise<any> => {
+        const enrichedPayload = {
+            ...payload,
+            project_id: (payload.project_id as number | undefined) || getProjectId(),
+        };
+        const response = await api.post(`/my/plan/${goalId}/recalculate`, enrichedPayload);
+        return response.data;
+    },
+
     getRiskQuestionnaireV2: async (): Promise<RiskQuestionnaire> => {
         const response = await api.get<RiskQuestionnaireResponse | RiskQuestionnaire>('/my/risk-profile/questionnaire-v2');
         const raw = response.data;

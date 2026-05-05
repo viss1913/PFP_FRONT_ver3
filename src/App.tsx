@@ -171,14 +171,30 @@ function App() {
 
         setLoadingPlan(true);
         try {
-            console.log(`Sending recalculate request to /client/${clientId}/recalculate`);
-            // NEW: Adding client_id to the payload as requested
-            const finalPayload = {
-                ...payload,
-                client_id: clientId,
-                risk_profile_answers: calculationResult?.risk_profile_answers || undefined
-            };
-            const result = await clientApi.recalculate(clientId, finalPayload);
+            const useMyPlanRecalc =
+                import.meta.env.VITE_USE_MY_PLAN_RECALCULATE === 'true' ||
+                import.meta.env.VITE_USE_MY_PLAN_RECALCULATE === '1';
+            const goalIdRaw = payload?.goal_id;
+            const hasGoalId = goalIdRaw !== undefined && goalIdRaw !== null && String(goalIdRaw).trim() !== '';
+
+            let result: any;
+            if (useMyPlanRecalc && hasGoalId) {
+                const { goal_id: _gid, ...patch } = payload;
+                const body: Record<string, unknown> = {
+                    ...patch,
+                    risk_profile_answers: calculationResult?.risk_profile_answers || undefined,
+                };
+                console.log(`Sending recalculate request to /my/plan/${goalIdRaw}/recalculate`);
+                result = await clientApi.recalculateMyPlanGoal(goalIdRaw, body);
+            } else {
+                console.log(`Sending recalculate request to /client/${clientId}/recalculate`);
+                const finalPayload = {
+                    ...payload,
+                    client_id: clientId,
+                    risk_profile_answers: calculationResult?.risk_profile_answers || undefined,
+                };
+                result = await clientApi.recalculate(clientId, finalPayload);
+            }
             console.log('Recalculate success:', result);
 
             const enrichedResult = await enrichWithRiskProfileResult(result, clientId);

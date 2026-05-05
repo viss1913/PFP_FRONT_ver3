@@ -1,7 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { CheckCircle2, Loader2 } from 'lucide-react';
 import type { CJMData } from '../CJMFlow';
 import avatarImage from '../../assets/avatar_full.png';
 import type { RiskQuestionnaire } from '../../api/clientApi';
+
+const HANDOFF_MS = 640;
+const MOTION_EASE = [0.4, 0, 0.2, 1] as const;
 
 interface StepProps {
     data: CJMData;
@@ -38,11 +43,16 @@ const StepRiskProfile: React.FC<StepProps> = ({
     const allAnswered = questions.length > 0 && answeredCount === questions.length;
     const firstUnansweredIndex = questions.findIndex((q) => typeof answers[q.code] !== 'string');
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(firstUnansweredIndex >= 0 ? firstUnansweredIndex : 0);
-    /** Без этого при вызове onComplete сразу после setData родитель ещё со старым data — расчёт отваливается по проверке анкеты. */
-    const pendingCompleteRef = useRef(false);
+    /** После последнего ответа — короткий экран «готово», потом вызов расчёта (чтобы data успел обновиться). */
+    const [handoffAfterLastAnswer, setHandoffAfterLastAnswer] = useState(false);
 
     useEffect(() => {
-        const nextIndex = firstUnansweredIndex >= 0 ? firstUnansweredIndex : 0;
+        const nextIndex =
+            firstUnansweredIndex >= 0
+                ? firstUnansweredIndex
+                : questions.length > 0
+                  ? questions.length - 1
+                  : 0;
         setCurrentQuestionIndex(nextIndex);
     }, [firstUnansweredIndex, questions.length]);
 
@@ -55,15 +65,18 @@ const StepRiskProfile: React.FC<StepProps> = ({
     }, [answers, currentQuestionIndex, allAnswered, questions]);
 
     useEffect(() => {
-        if (!allAnswered) {
-            pendingCompleteRef.current = false;
-            return;
+        if (loading) {
+            setHandoffAfterLastAnswer(false);
         }
-        if (loading) return;
-        if (!pendingCompleteRef.current) return;
-        pendingCompleteRef.current = false;
-        onComplete();
-    }, [allAnswered, loading, onComplete]);
+    }, [loading]);
+
+    useEffect(() => {
+        if (!handoffAfterLastAnswer || !allAnswered || loading) return;
+        const t = window.setTimeout(() => {
+            onComplete();
+        }, HANDOFF_MS);
+        return () => window.clearTimeout(t);
+    }, [handoffAfterLastAnswer, allAnswered, loading, onComplete]);
 
     const setAnswer = (questionCode: string, optionCode: string) => {
         setData((prev) => {
@@ -86,14 +99,167 @@ const StepRiskProfile: React.FC<StepProps> = ({
             q.code === questionCode ? true : typeof answers[q.code] === 'string'
         );
         if (!wasAllAnswered && willCompleteAll && !loading) {
-            pendingCompleteRef.current = true;
+            setHandoffAfterLastAnswer(true);
         }
     };
 
     const currentQuestion = questions[currentQuestionIndex];
     const visualProgress = questions.length > 0 ? currentQuestionIndex + 1 : 0;
 
+    const phase: 'form' | 'handoff' | 'loading' = loading ? 'loading' : handoffAfterLastAnswer ? 'handoff' : 'form';
+    const blockBusy = loading || handoffAfterLastAnswer;
+
+    const loaderBlock = (
+        <motion.div
+            key="loader"
+            initial={{ opacity: 0, y: 16, filter: 'blur(6px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, y: -12, filter: 'blur(4px)' }}
+            transition={{ duration: 0.4, ease: MOTION_EASE }}
+            style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center',
+                padding: '32px 16px 48px',
+                minHeight: 380,
+                gap: 24,
+            }}
+        >
+            <motion.div
+                initial={{ scale: 0.92, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.08, duration: 0.35, ease: MOTION_EASE }}
+                style={{
+                    width: 120,
+                    height: 120,
+                    borderRadius: 24,
+                    overflow: 'hidden',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+                    background: '#fff',
+                }}
+            >
+                <img src={avatarImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </motion.div>
+            <div
+                style={{
+                    width: 72,
+                    height: 72,
+                    borderRadius: '50%',
+                    background: 'linear-gradient(145deg, rgba(255,199,80,0.22) 0%, rgba(0,168,177,0.12) 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginTop: -8,
+                }}
+            >
+                <Loader2 className="animate-spin" size={36} color="var(--secondary, #00A8B1)" strokeWidth={2.2} />
+            </div>
+            <div>
+                <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-main)', marginBottom: 10 }}>
+                    Считаем персональный план
+                </h2>
+                <p style={{ fontSize: 15, color: 'var(--text-muted)', maxWidth: 400, margin: '0 auto', lineHeight: 1.55 }}>
+                    Учитываем ответы по риск-профилю, цели и капитал. Обычно это несколько секунд.
+                </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {[0, 1, 2].map((i) => (
+                    <span
+                        key={i}
+                        className="risk-loader-dot"
+                        style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            background: 'var(--primary)',
+                            animationDelay: `${i * 0.2}s`,
+                        }}
+                    />
+                ))}
+            </div>
+        </motion.div>
+    );
+
+    const handoffBlock = (
+        <motion.div
+            key="handoff"
+            initial={{ opacity: 0, y: 20, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -14, scale: 0.98, filter: 'blur(4px)' }}
+            transition={{ duration: 0.38, ease: MOTION_EASE }}
+            style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center',
+                padding: '40px 20px 56px',
+                minHeight: 380,
+                gap: 20,
+            }}
+        >
+            <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 18, delay: 0.05 }}
+                style={{
+                    width: 88,
+                    height: 88,
+                    borderRadius: '50%',
+                    background: 'linear-gradient(145deg, rgba(16,185,129,0.15) 0%, rgba(0,168,177,0.12) 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                }}
+            >
+                <CheckCircle2 size={44} color="var(--accent-green, #10B981)" strokeWidth={2.2} />
+            </motion.div>
+            <div>
+                <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-main)', marginBottom: 8 }}>Готово</h2>
+                <p style={{ fontSize: 15, color: 'var(--text-muted)', maxWidth: 420, margin: '0 auto', lineHeight: 1.55 }}>
+                    Риск-профиль заполнен. Сейчас запустим расчёт персонального плана.
+                </p>
+            </div>
+            <div
+                style={{
+                    width: 200,
+                    height: 3,
+                    borderRadius: 3,
+                    background: 'rgba(0,0,0,0.06)',
+                    overflow: 'hidden',
+                    alignSelf: 'center',
+                }}
+            >
+                <motion.div
+                    initial={{ width: '0%' }}
+                    animate={{ width: '100%' }}
+                    transition={{ duration: HANDOFF_MS / 1000, ease: 'linear' }}
+                    style={{
+                        height: '100%',
+                        borderRadius: 3,
+                        background: 'linear-gradient(90deg, var(--secondary), var(--primary))',
+                    }}
+                />
+            </div>
+        </motion.div>
+    );
+
     return (
+        <AnimatePresence mode="wait">
+            {phase === 'loading' ? (
+                loaderBlock
+            ) : phase === 'handoff' ? (
+                handoffBlock
+            ) : (
+                <motion.div
+                    key="form"
+                    initial={{ opacity: 0, x: 12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -16, filter: 'blur(3px)' }}
+                    transition={{ duration: 0.32, ease: MOTION_EASE }}
+                >
         <div>
             <div style={{ marginBottom: '24px' }}>
                 <div style={{
@@ -194,13 +360,13 @@ const StepRiskProfile: React.FC<StepProps> = ({
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                <button className="btn-secondary" style={{ flex: 1, minWidth: 120 }} onClick={onPrev} disabled={loading}>Назад</button>
+                <button className="btn-secondary" style={{ flex: 1, minWidth: 120 }} onClick={onPrev} disabled={blockBusy}>Назад</button>
                 {currentQuestionIndex > 0 && (
                     <button
                         className="btn-secondary"
                         style={{ flex: 1, minWidth: 120 }}
                         onClick={() => setCurrentQuestionIndex((prev) => Math.max(0, prev - 1))}
-                        disabled={loading || questions.length === 0}
+                        disabled={blockBusy || questions.length === 0}
                     >
                         Предыдущий вопрос
                     </button>
@@ -211,18 +377,16 @@ const StepRiskProfile: React.FC<StepProps> = ({
                         type="button"
                         style={{ flex: '1 1 100%', minWidth: 200 }}
                         onClick={() => onComplete()}
-                        disabled={loading || questions.length === 0}
+                        disabled={blockBusy || questions.length === 0}
                     >
                         Рассчитать план
                     </button>
                 )}
             </div>
-            {loading && (
-                <p style={{ marginTop: 16, textAlign: 'center', color: 'var(--text-muted)', fontSize: 15 }}>
-                    Считаем план…
-                </p>
-            )}
         </div>
+                </motion.div>
+            )}
+        </AnimatePresence>
     );
 };
 

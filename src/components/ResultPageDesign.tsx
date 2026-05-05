@@ -218,6 +218,17 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
       }
     });
 
+    // Патч риска: бэк ждёт согласованную пару (тройка + extended для Финама и т.д.)
+    if (goalPayload.risk_profile !== undefined || goalPayload.risk_profile_extended !== undefined) {
+      const extRaw = editForm.risk_profile_extended;
+      const ext =
+        typeof extRaw === 'string' && extRaw.trim() !== ''
+          ? extRaw.trim()
+          : legacyToExtended(String(editForm.risk_profile ?? 'BALANCED'));
+      goalPayload.risk_profile_extended = ext;
+      goalPayload.risk_profile = extendedToLegacy(ext);
+    }
+
     if (!hasChanges) {
       console.log('No changes detected compared to snapshot');
       setEditingGoal(null);

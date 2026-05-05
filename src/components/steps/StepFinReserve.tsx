@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { rangeFillStyle } from '../../utils/rangeInputStyle';
 import avatarImage from '../../assets/avatar_full.png';
 import type { CJMData } from '../CJMFlow';
 
@@ -141,7 +142,7 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
                     step={Math.max(1000, Math.floor((totalLiquidCapital || 1000000) / 100))}
                     value={initialCapital}
                     onChange={(e) => setInitialCapital(Number(e.target.value))}
-                    style={{ width: '100%' }}
+                    style={rangeFillStyle(initialCapital, 0, totalLiquidCapital || 1000000)}
                 />
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', alignItems: 'center' }}>
                     <span className="hint" style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Начальная сумма для финрезерва</span>
@@ -194,7 +195,7 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
                     step="5000"
                     value={monthlyReplenishment}
                     onChange={(e) => setMonthlyReplenishment(Number(e.target.value))}
-                    style={{ width: '100%' }}
+                    style={rangeFillStyle(monthlyReplenishment, 0, 200000)}
                 />
                 <span className="hint" style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '16px', display: 'block' }}>
                     Сумма, которую вы планируете добавлять ежемесячно к финрезерву (опционально)
