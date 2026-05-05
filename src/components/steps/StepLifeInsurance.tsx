@@ -101,7 +101,7 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
                     }}>
                         {MAX_LIMIT <= 0
                             ? 'После вычета финансового резерва для страховой суммы не остаётся запаса — верхняя граница 0 ₽.'
-                            : `Давайте еще создадим резерв для Защиты Жизни. Я рекомендую создать доп резерв в размере ${formatCurrency(recommendedLimit)}.`}
+                            : `Предлагаю включить в финансовый план дополнительный резерв на защиту жизни и здоровья в размере ${formatCurrency(recommendedLimit)}. Сейчас рассчитаю, как это повлияет на общую структуру плана, и при необходимости мы затем внесём корректировки.`}
                     </div>
                 </div>
             </div>
@@ -117,7 +117,7 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
             }}>
                 <div style={{ marginBottom: '40px' }}>
                     <label style={{ display: 'block', fontSize: '16px', fontWeight: '600', color: 'var(--text-main)', marginBottom: '16px' }}>
-                        Страховая сумма по риску "Уход из жизни"
+                        Размер резерва «Защита жизни и здоровья»
                     </label>
 
                     {MAX_LIMIT > 0 ? (
