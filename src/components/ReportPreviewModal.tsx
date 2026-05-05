@@ -127,6 +127,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
     const [sendEmailLoading, setSendEmailLoading] = useState(false);
     const [sendEmailBanner, setSendEmailBanner] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
     const sendEmailBannerTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+    const autoDownloadTriggeredRef = useRef(false);
 
     const revokePdfBlobUrl = () => {
         const u = pdfBlobUrlRef.current;
@@ -177,6 +178,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
             window.clearTimeout(sendEmailBannerTimerRef.current);
             sendEmailBannerTimerRef.current = null;
         }
+        autoDownloadTriggeredRef.current = false;
     }, [isOpen, clientId]);
 
     useEffect(() => {
@@ -223,6 +225,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
             let attempts = 0;
             let transientErrors = 0;
             let lastLoadedRemoteUrl: string | null = null;
+            let eagerDirectDownloadTried = false;
 
             while (!cancelled) {
                 let meta: Awaited<ReturnType<typeof clientApi.getAgentReportPdfUrl>>;
@@ -319,6 +322,34 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
 
                     setReportState((prev) => ({ ...prev, pdfLoading: false, pdfProgress: null }));
                 }
+                else if (!pdfBlobUrlRef.current && !remotePdfUrl && !eagerDirectDownloadTried) {
+                    eagerDirectDownloadTried = true;
+                    setReportState((prev) => ({ ...prev, pdfLoading: true, pdfProgress: null }));
+                    try {
+                        const eagerBlob = await clientApi.getReportPdfBlob(
+                            clientId,
+                            { includeCover: 1, includeSummary: 1 },
+                            onDlProgress
+                        );
+                        if (cancelled) return;
+                        const jsonErr = await readPdfBlobErrorMessage(eagerBlob);
+                        if (!jsonErr) {
+                            transientErrors = 0;
+                            revokePdfBlobUrl();
+                            const objectUrl = URL.createObjectURL(toPdfObjectBlob(eagerBlob));
+                            pdfBlobUrlRef.current = objectUrl;
+                            setPdfBlobUrl(objectUrl);
+                        }
+                    } catch (error) {
+                        if (!isTransientPdfError(error)) {
+                            throw error;
+                        }
+                    } finally {
+                        if (!cancelled) {
+                            setReportState((prev) => ({ ...prev, pdfLoading: false, pdfProgress: null }));
+                        }
+                    }
+                }
 
                 if (isReady) {
                     if (!pdfBlobUrlRef.current) {
@@ -376,6 +407,20 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
             }
         };
     }, []);
+
+    useEffect(() => {
+        if (!isOpen || clientId == null) return;
+        if (reportState.metaLoading || reportState.pdfLoading) return;
+        if (!pdfBlobUrl || autoDownloadTriggeredRef.current) return;
+        autoDownloadTriggeredRef.current = true;
+        const a = document.createElement('a');
+        a.href = pdfBlobUrl;
+        a.download = `financial_plan_${clientId}.pdf`;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    }, [isOpen, clientId, pdfBlobUrl, reportState.metaLoading, reportState.pdfLoading]);
 
     useEffect(() => {
         if (!isOpen) return;
