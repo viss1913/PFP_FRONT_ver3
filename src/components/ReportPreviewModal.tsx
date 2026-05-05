@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Download, FileText, Loader2, Mail, X } from 
 import axios from 'axios';
 import { clientApi, type ReportTocItem } from '../api/clientApi';
 import { API_BASE_WITH_API } from '../api/config';
+import { REPORT_WAITING_TIPS, REPORT_WAITING_TIP_INTERVAL_MS, useRotatingWaitingTip } from '../constants/reportWaitingTips';
 
 interface ReportPreviewModalProps {
     isOpen: boolean;
@@ -149,6 +150,9 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
         if (start != null && Number(start) > 0) return `${pdfBlobUrl}#page=${start}`;
         return pdfBlobUrl;
     }, [pdfBlobUrl, activeTocItem]);
+
+    const loadingLocksNav = reportState.metaLoading || reportState.pdfLoading;
+    const waitingTipText = useRotatingWaitingTip(loadingLocksNav, REPORT_WAITING_TIPS, REPORT_WAITING_TIP_INTERVAL_MS);
 
     useEffect(() => {
         if (!isOpen || !clientId) return;
@@ -372,8 +376,6 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
             }
         };
     }, []);
-
-    const loadingLocksNav = reportState.metaLoading || reportState.pdfLoading;
 
     useEffect(() => {
         if (!isOpen) return;
@@ -608,8 +610,8 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                                     <Loader2 className="animate-spin" size={40} color="var(--primary, #c2185b)" strokeWidth={2.2} />
                                     <div style={{ fontSize: '16px', fontWeight: 600, maxWidth: '360px', lineHeight: 1.45 }}>
                                         {reportState.metaLoading
-                                            ? 'Готовлю отчёт и ссылку…'
-                                            : 'Качаю PDF — если файл большой, подожди чутка'}
+                                            ? 'Подготавливается отчёт…'
+                                            : 'Выполняется загрузка PDF. При большом объёме данных процесс может занять продолжительное время.'}
                                     </div>
                                     {reportState.pdfLoading && reportState.pdfProgress != null && (
                                         <div style={{ width: 'min(360px, 80%)', height: '8px', background: '#e5e7eb', borderRadius: '999px', overflow: 'hidden' }}>
@@ -628,7 +630,19 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                                         <div style={{ fontSize: '13px', color: '#6b7280' }}>{reportState.pdfProgress}%</div>
                                     )}
                                     {reportState.pdfLoading && reportState.pdfProgress == null && (
-                                        <div style={{ fontSize: '13px', color: '#9ca3af' }}>размер заранее неизвестен — качаем потоком</div>
+                                        <div style={{ fontSize: '13px', color: '#9ca3af' }}>
+                                            Размер файла заранее неизвестен; используется потоковая загрузка.
+                                        </div>
+                                    )}
+                                    {waitingTipText && (
+                                        <div style={{ maxWidth: '360px', marginTop: '4px' }}>
+                                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280', letterSpacing: '0.02em' }}>
+                                                Короткая справка
+                                            </div>
+                                            <div style={{ fontSize: '14px', color: '#4b5563', lineHeight: 1.5, marginTop: '8px' }}>
+                                                {waitingTipText}
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             )}

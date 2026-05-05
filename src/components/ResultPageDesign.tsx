@@ -111,6 +111,15 @@ interface EditFormState {
   [key: string]: any;
 }
 
+function coerceFormNumber(value: unknown, fallback = 0): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return fallback;
+}
+
 const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   calculationData,
   client,
@@ -159,20 +168,25 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
         details,
     );
 
+    const statePension = details.state_pension as Record<string, unknown> | undefined;
     const initialForm: EditFormState = {
       name: goal.name,
       // Priority: User Input -> Calculated Result -> Legacy Field -> Default
-      target_amount: input.target_amount ?? details.target_amount ?? summary.target_amount ?? goal.targetAmount ?? 0,
-      desired_monthly_income: input.desired_monthly_income ?? details.target_amount ?? summary.target_amount ?? 0,
-      term_months: input.term_months ?? details.term_months ?? summary.target_months ?? goal.termMonths ?? 0,
-      initial_capital: input.initial_capital ?? summary.initial_capital ?? goal.initialCapital ?? 0,
-      monthly_replenishment: input.monthly_replenishment ?? summary.monthly_replenishment ?? 0,
+      target_amount: coerceFormNumber(
+        input.target_amount ?? details.target_amount ?? summary.target_amount ?? goal.targetAmount,
+      ),
+      desired_monthly_income: coerceFormNumber(input.desired_monthly_income ?? details.target_amount ?? summary.target_amount),
+      term_months: coerceFormNumber(input.term_months ?? details.term_months ?? summary.target_months ?? goal.termMonths),
+      initial_capital: coerceFormNumber(input.initial_capital ?? summary.initial_capital ?? goal.initialCapital),
+      monthly_replenishment: coerceFormNumber(input.monthly_replenishment ?? summary.monthly_replenishment),
 
-      ops_capital: input.ops_capital ?? details.ops_capital ?? root.ops_capital ?? 0,
-      ipk_current: input.ipk_current ?? details.state_pension?.ipk_current ?? details.ipk_current ?? root.ipk_current ?? 0,
+      ops_capital: coerceFormNumber(input.ops_capital ?? details.ops_capital ?? root.ops_capital),
+      ipk_current: coerceFormNumber(
+        input.ipk_current ?? statePension?.ipk_current ?? details.ipk_current ?? root.ipk_current,
+      ),
       risk_profile: riskProfileResolved,
       risk_profile_extended: riskExtResolved,
-      inflation_rate: input.inflation_rate ?? details.inflation_rate ?? root.inflation_rate ?? 0,
+      inflation_rate: coerceFormNumber(input.inflation_rate ?? details.inflation_rate ?? root.inflation_rate),
     };
 
     setEditForm(initialForm);
@@ -517,18 +531,23 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
             details,
         );
 
+        const statePension = details.state_pension as Record<string, unknown> | undefined;
         const newSnapshot: EditFormState = {
           name: updatedGoal.name,
-          target_amount: input.target_amount ?? details.target_amount ?? summary.target_amount ?? updatedGoal.targetAmount ?? 0,
-          desired_monthly_income: input.desired_monthly_income ?? details.target_amount ?? summary.target_amount ?? 0,
-          term_months: input.term_months ?? details.term_months ?? summary.target_months ?? updatedGoal.termMonths ?? 0,
-          initial_capital: input.initial_capital ?? summary.initial_capital ?? updatedGoal.initialCapital ?? 0,
-          monthly_replenishment: input.monthly_replenishment ?? summary.monthly_replenishment ?? 0,
-          ops_capital: input.ops_capital ?? details.ops_capital ?? root.ops_capital ?? 0,
-          ipk_current: input.ipk_current ?? details.state_pension?.ipk_current ?? details.ipk_current ?? root.ipk_current ?? 0,
+          target_amount: coerceFormNumber(
+            input.target_amount ?? details.target_amount ?? summary.target_amount ?? updatedGoal.targetAmount,
+          ),
+          desired_monthly_income: coerceFormNumber(input.desired_monthly_income ?? details.target_amount ?? summary.target_amount),
+          term_months: coerceFormNumber(input.term_months ?? details.term_months ?? summary.target_months ?? updatedGoal.termMonths),
+          initial_capital: coerceFormNumber(input.initial_capital ?? summary.initial_capital ?? updatedGoal.initialCapital),
+          monthly_replenishment: coerceFormNumber(input.monthly_replenishment ?? summary.monthly_replenishment),
+          ops_capital: coerceFormNumber(input.ops_capital ?? details.ops_capital ?? root.ops_capital),
+          ipk_current: coerceFormNumber(
+            input.ipk_current ?? statePension?.ipk_current ?? details.ipk_current ?? root.ipk_current,
+          ),
           risk_profile: riskProfileResolved,
           risk_profile_extended: riskExtResolved,
-          inflation_rate: input.inflation_rate ?? details.inflation_rate ?? root.inflation_rate ?? 0,
+          inflation_rate: coerceFormNumber(input.inflation_rate ?? details.inflation_rate ?? root.inflation_rate),
         };
 
         setSnapshotForm(newSnapshot);

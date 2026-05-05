@@ -8,6 +8,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from 'recharts';
 import { clientApi } from '../api/clientApi';
+import { REPORT_WAITING_TIPS, REPORT_WAITING_TIP_INTERVAL_MS, useRotatingWaitingTip } from '../constants/reportWaitingTips';
 
 // Colors from Figma
 const COLORS_FIGMA = {
@@ -51,6 +52,7 @@ export const ReportPreviewPage: React.FC = () => {
     const [reportData, setReportData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const waitingTipInitialLoad = useRotatingWaitingTip(loading, REPORT_WAITING_TIPS, REPORT_WAITING_TIP_INTERVAL_MS);
 
     useEffect(() => {
         const loadReport = async () => {
@@ -84,7 +86,29 @@ export const ReportPreviewPage: React.FC = () => {
         loadReport();
     }, []);
 
-    if (loading) return <div style={styles.center}>Загрузка отчета...</div>;
+    if (loading) {
+        return (
+            <div
+                style={{
+                    ...styles.center,
+                    flexDirection: 'column',
+                    gap: 16,
+                    padding: 24,
+                    textAlign: 'center',
+                }}
+            >
+                <div style={{ fontSize: 16, fontWeight: 600, color: COLORS_FIGMA.dark }}>Подготавливается отчёт…</div>
+                {waitingTipInitialLoad ? (
+                    <div style={{ maxWidth: 400 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: COLORS_FIGMA.slate, marginBottom: 8 }}>
+                            Короткая справка
+                        </div>
+                        <div style={{ fontSize: 14, color: '#475569', lineHeight: 1.5 }}>{waitingTipInitialLoad}</div>
+                    </div>
+                ) : null}
+            </div>
+        );
+    }
     if (error) return <div style={styles.center}>Ошибка: {error}</div>;
     if (!reportData) return <div style={styles.center}>Нет данных для отображения</div>;
 
@@ -118,12 +142,7 @@ export const ReportPreviewPage: React.FC = () => {
                     fileName={`financial_plan_${client_info?.id || 'client'}.pdf`}
                     style={{ textDecoration: 'none' }}
                 >
-                    {({ loading: pdfLoading }) => (
-                        <button disabled={pdfLoading} style={styles.btnPrimary}>
-                            <Download size={18} />
-                            {pdfLoading ? 'Генерация...' : 'Скачать PDF'}
-                        </button>
-                    )}
+                    {({ loading: pdfLoading }) => <ReportPdfDownloadControl pdfLoading={pdfLoading} />}
                 </PDFDownloadLink>
             </div>
 
@@ -409,6 +428,32 @@ const styles: any = {
     sectionLabel: { fontSize: 11, color: COLORS_FIGMA.slate, textTransform: 'uppercase', fontWeight: 600, marginBottom: 10 },
     pensionBigValue: { fontSize: 24, fontWeight: 800 },
     pensionSubText: { fontSize: 12, color: COLORS_FIGMA.slate, marginTop: 5 },
+};
+
+const ReportPdfDownloadControl: React.FC<{ pdfLoading: boolean }> = ({ pdfLoading }) => {
+    const tip = useRotatingWaitingTip(pdfLoading, REPORT_WAITING_TIPS, REPORT_WAITING_TIP_INTERVAL_MS);
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+            <button type="button" disabled={pdfLoading} style={styles.btnPrimary}>
+                <Download size={18} />
+                {pdfLoading ? 'Формируется PDF…' : 'Скачать PDF'}
+            </button>
+            {pdfLoading && tip ? (
+                <div
+                    style={{
+                        maxWidth: 280,
+                        textAlign: 'right',
+                        fontSize: 12,
+                        color: COLORS_FIGMA.slate,
+                        lineHeight: 1.5,
+                    }}
+                >
+                    <div style={{ fontWeight: 700, marginBottom: 6 }}>Короткая справка</div>
+                    {tip}
+                </div>
+            ) : null}
+        </div>
+    );
 };
 
 export default ReportPreviewPage;
