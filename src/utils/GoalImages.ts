@@ -45,7 +45,7 @@ export const GOAL_GALLERY_ITEMS = [
 
     // User mentioned: "Сохранить и приумножить - это INVESTMENT (id=3)"
     { id: 'invest_save', typeId: GOAL_TYPE_INVESTMENT, title: 'Сохранить и преумножить', image: invest, description: 'Инвестиции' },
-    { id: 'capital', typeId: GOAL_TYPE_INVESTMENT, title: 'Преумножение капитала', image: capital, description: 'Рост капитала' },
+    { id: 'capital', typeId: GOAL_TYPE_OTHER, title: 'Целевой капитал', image: capital, description: 'Рост капитала' },
 
     // "Все остальное - OTHER (id=9)"
     { id: 'auto', typeId: GOAL_TYPE_OTHER, title: 'Автомобиль', image: avtomobil, description: 'Покупка авто' },
