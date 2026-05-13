@@ -1,6 +1,6 @@
 import React from 'react';
 import { extendedToLegacy, legacyToExtended } from '../constants/portfolioRiskProfiles';
-import { X, Plus, ArrowLeft, Trash2, Send } from 'lucide-react';
+import { X, Plus, ArrowLeft, Trash2, Send, Loader2 } from 'lucide-react';
 import avatarImage from '../assets/avatar_full.png';
 import { clientApi } from '../api/clientApi';
 import { getGoalImage, GOAL_GALLERY_ITEMS } from '../utils/GoalImages';
@@ -255,6 +255,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   const closeHtmlReportModal = React.useCallback(() => {
     setHtmlReportModalOpen(false);
     setHtmlReportSrcDoc(null);
+    setHtmlReportOpening(false);
   }, []);
 
   React.useEffect(() => {
@@ -278,17 +279,20 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
       window.alert('Не найден клиент для отчёта (client_id).');
       return;
     }
+    setHtmlReportModalOpen(true);
+    setHtmlReportSrcDoc(null);
     setHtmlReportOpening(true);
     try {
       const html = await clientApi.buildClientFullReportHtmlDocument(Number(clientId));
       setHtmlReportSrcDoc(html);
-      setHtmlReportModalOpen(true);
     } catch (e: unknown) {
       const msg =
         e && typeof e === 'object' && 'message' in e && typeof (e as { message: unknown }).message === 'string'
           ? (e as { message: string }).message
           : 'Не удалось открыть HTML-отчёт';
       window.alert(msg);
+      setHtmlReportModalOpen(false);
+      setHtmlReportSrcDoc(null);
     } finally {
       setHtmlReportOpening(false);
     }
@@ -1470,10 +1474,11 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
         </div>
       )}
 
-      {htmlReportModalOpen && htmlReportSrcDoc != null && (
+      {htmlReportModalOpen && (
         <div
           role="dialog"
           aria-modal="true"
+          aria-busy={htmlReportOpening}
           aria-label="HTML-отчёт"
           style={{
             position: 'fixed',
@@ -1481,7 +1486,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
             zIndex: 10000,
             display: 'flex',
             flexDirection: 'column',
-            background: '#0f172a',
+            background: 'linear-gradient(165deg, #0f172a 0%, #1e293b 45%, #0f172a 100%)',
           }}
         >
           <div
@@ -1489,19 +1494,22 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
               flexShrink: 0,
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'flex-end',
+              justifyContent: 'space-between',
               gap: '12px',
-              padding: '10px 12px',
-              borderBottom: '1px solid rgba(255,255,255,0.12)',
+              padding: '10px 16px',
+              borderBottom: '1px solid rgba(255,255,255,0.1)',
               minHeight: '48px',
               boxSizing: 'border-box',
             }}
           >
+            <span style={{ color: '#e2e8f0', fontSize: '15px', fontWeight: 600, letterSpacing: '0.02em' }}>
+              HTML-отчёт
+            </span>
             <button
               type="button"
               onClick={closeHtmlReportModal}
               style={{
-                background: 'rgba(255,255,255,0.12)',
+                background: 'rgba(255,255,255,0.1)',
                 color: '#fff',
                 border: 'none',
                 borderRadius: '100px',
@@ -1514,17 +1522,61 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
               Закрыть
             </button>
           </div>
-          <iframe
-            title="HTML-отчёт"
-            srcDoc={htmlReportSrcDoc}
-            style={{
-              flex: 1,
-              width: '100%',
-              minHeight: 0,
-              border: 'none',
-              background: '#fff',
-            }}
-          />
+          <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
+            {htmlReportOpening && !htmlReportSrcDoc && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  zIndex: 2,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '20px',
+                  background: 'radial-gradient(ellipse 70% 50% at 50% 40%, rgba(194, 24, 91, 0.12) 0%, transparent 65%)',
+                }}
+              >
+                <div
+                  style={{
+                    width: '88px',
+                    height: '88px',
+                    borderRadius: '50%',
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
+                  }}
+                >
+                  <Loader2
+                    size={40}
+                    strokeWidth={2}
+                    color="#f472b6"
+                    className="animate-spin"
+                    aria-hidden
+                  />
+                </div>
+                <div style={{ color: '#f1f5f9', fontSize: '17px', fontWeight: 600, textAlign: 'center' }}>
+                  Готовим отчёт
+                </div>
+              </div>
+            )}
+            {htmlReportSrcDoc != null && (
+              <iframe
+                title="HTML-отчёт"
+                srcDoc={htmlReportSrcDoc}
+                style={{
+                  flex: 1,
+                  width: '100%',
+                  minHeight: 0,
+                  border: 'none',
+                  background: '#fff',
+                }}
+              />
+            )}
+          </div>
         </div>
       )}
     </div>
