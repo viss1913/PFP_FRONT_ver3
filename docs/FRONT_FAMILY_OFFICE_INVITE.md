@@ -1,6 +1,6 @@
 # Фронт: Family Office invite (magic-link)
 
-Спека API: [`docs/api/agent_lk.yaml`](api/agent_lk.yaml).
+Спека API: [`api_docs/agent_lk.yaml`](../api_docs/agent_lk.yaml).
 
 ## Два режима приглашения субагента
 
