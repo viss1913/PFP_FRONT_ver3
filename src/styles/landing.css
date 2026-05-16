@@ -141,8 +141,7 @@
     overflow: hidden;
 }
 
-.landing-lang-toggle button,
-.landing-theme-toggle button {
+.landing-lang-toggle button {
     background: transparent;
     border: none;
     color: var(--landing-text-muted);
@@ -156,13 +155,43 @@
 .landing-theme-toggle {
     display: flex;
     border: 1px solid var(--landing-border);
-    border-radius: 8px;
+    border-radius: 999px;
     overflow: hidden;
+    padding: 2px;
+    gap: 2px;
+}
+
+.landing-theme-toggle button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 30px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 999px;
+    color: var(--landing-text-muted);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, transform 0.15s;
+}
+
+.landing-theme-toggle button:hover:not(.active) {
+    color: var(--landing-text);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.landing-page--light .landing-theme-toggle button:hover:not(.active) {
+    background: rgba(0, 0, 0, 0.05);
 }
 
 .landing-theme-toggle button.active {
     background: var(--landing-gold-muted);
     color: var(--landing-gold);
+}
+
+.landing-theme-toggle button:active {
+    transform: scale(0.94);
 }
 
 .landing-lang-toggle button.active {
@@ -333,6 +362,7 @@
 }
 
 .landing-hero__image-wrap {
+    width: 100%;
     border-radius: var(--landing-radius-lg);
     overflow: hidden;
     border: 1px solid var(--landing-border);
@@ -350,6 +380,24 @@
 @media (min-width: 1024px) {
     .landing-hero__grid {
         grid-template-columns: 1fr 1fr;
+        gap: 48px;
+    }
+
+    .landing-hero__image-wrap {
+        max-height: 520px;
+    }
+}
+
+/* Hero & layout: tablet/mobile */
+@media (max-width: 1023px) {
+    .landing-hero__grid {
+        grid-template-columns: 1fr;
+        gap: 28px;
+    }
+
+    .landing-hero__image-wrap {
+        max-height: none;
+        aspect-ratio: 16 / 11;
     }
 }
 
@@ -1634,9 +1682,13 @@ button.landing-btn {
         gap: 8px;
     }
 
-    .landing-theme-toggle button,
     .landing-lang-toggle button {
         padding: 8px 10px;
+    }
+
+    .landing-theme-toggle button {
+        width: 36px;
+        height: 32px;
     }
 
     .landing-header__login {
@@ -1644,21 +1696,92 @@ button.landing-btn {
         font-size: var(--landing-fs-xs);
     }
 
+    .landing-page.landing-cookie-open {
+        padding-bottom: 220px;
+    }
+
     .landing-hero {
-        padding: 32px 0 48px;
+        padding: 24px 0 40px;
+    }
+
+    .landing-hero__copy {
+        text-align: center;
+    }
+
+    .landing-hero__title {
+        font-size: clamp(1.75rem, 8vw, 2.25rem);
     }
 
     .landing-hero__subtitle,
     .landing-fo__definition {
         font-size: var(--landing-fs-md);
+        max-width: none;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .landing-hero__image-wrap {
+        aspect-ratio: 4 / 5;
+        max-width: 100%;
+        margin-inline: auto;
     }
 
     .landing-cta-row {
         flex-direction: column;
+        justify-content: center;
+    }
+
+    .landing-cta-row--single .landing-btn {
+        width: 100%;
+        min-width: 0;
+        max-width: none;
     }
 
     .landing-cta-row .landing-btn {
         width: 100%;
+    }
+
+    .landing-section-title {
+        text-align: center;
+    }
+
+    .landing-section-subtitle {
+        margin-left: auto;
+        margin-right: auto;
+        text-align: center;
+    }
+
+    .landing-stats__layout {
+        gap: 20px;
+    }
+
+    .landing-benefits--panel {
+        padding: 22px 18px;
+    }
+
+    .landing-benefits {
+        text-align: left;
+    }
+
+    .landing-cookie__inner {
+        gap: 14px;
+    }
+
+    .landing-cookie__actions {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .landing-cookie__btn {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .landing-final-cta .landing-section-title,
+    .landing-final-cta .landing-section-subtitle {
+        text-align: center;
     }
 
     .landing-stat-card__label,

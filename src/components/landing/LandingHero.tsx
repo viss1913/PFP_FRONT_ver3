@@ -14,7 +14,7 @@ const LandingHero: React.FC<LandingHeroProps> = ({ copy }) => {
     return (
         <section className="landing-hero">
             <div className="landing-container landing-hero__grid">
-                <div>
+                <div className="landing-hero__copy">
                     <span className="landing-hero__pill">{copy.hero.pill}</span>
                     <h1 className="landing-hero__title">
                         {copy.hero.title}

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Moon, Sun } from 'lucide-react';
 import type { LandingCopy, LandingLang } from '../../content/landingCopy';
 import type { LandingTheme } from '../../hooks/useLandingTheme';
 
@@ -60,15 +61,19 @@ const LandingHeader: React.FC<LandingHeaderProps> = ({
                             type="button"
                             className={theme === 'light' ? 'active' : ''}
                             onClick={() => onThemeChange('light')}
+                            aria-label={copy.header.themeLight}
+                            title={copy.header.themeLight}
                         >
-                            {copy.header.themeLight}
+                            <Sun size={18} strokeWidth={2} aria-hidden />
                         </button>
                         <button
                             type="button"
                             className={theme === 'dark' ? 'active' : ''}
                             onClick={() => onThemeChange('dark')}
+                            aria-label={copy.header.themeDark}
+                            title={copy.header.themeDark}
                         >
-                            {copy.header.themeDark}
+                            <Moon size={18} strokeWidth={2} aria-hidden />
                         </button>
                     </div>
                     <div className="landing-lang-toggle" role="group" aria-label="Language">
