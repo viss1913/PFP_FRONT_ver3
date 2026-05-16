@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "generate:landing-stats-image": "node scripts/generate-landing-stats-image.mjs"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.2",

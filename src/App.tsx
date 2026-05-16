@@ -15,8 +15,15 @@ import { clientApi } from './api/clientApi'
 import NewsPage from './pages/NewsPage'
 import MacroStatsPage from './pages/MacroStatsPage'
 import SettingsPage from './pages/SettingsPage'
+import LandingPage from './pages/LandingPage'
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
+import { appendLandingParams } from './utils/landingNavigation'
+import type { LandingLang } from './content/landingCopy'
+import type { LandingVariant } from './content/landingAssets'
 
 type Page =
+    | 'landing'
+    | 'privacy'
     | 'login'
     | 'list'
     | 'cjm'
@@ -31,9 +38,19 @@ type Page =
     | 'macro'
     | 'settings'
 
+function getInitialPage(): Page {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('page') === 'preview') return 'report-preview'
+    if (params.get('page') === 'html-report-preview') return 'html-report-preview'
+    if (params.get('page') === 'privacy') return 'privacy'
+    if (params.get('page') === 'landing') return 'landing'
+    if (localStorage.getItem('token')) return 'list'
+    return 'landing'
+}
+
 function App() {
     // Для тестирования: устанавливаем 'test' чтобы сразу видеть страницу результатов
-    const [currentPage, setCurrentPage] = useState<Page>('login')
+    const [currentPage, setCurrentPage] = useState<Page>(getInitialPage)
     const [calculationResult, setCalculationResult] = useState<any>(null)
     const [newClientData, setNewClientData] = useState<{ fio: string; phone: string; email?: string; uuid: string } | null>(null);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -57,8 +74,44 @@ function App() {
             setCurrentPage('report-preview');
         } else if (params.get('page') === 'html-report-preview') {
             setCurrentPage('html-report-preview');
+        } else if (params.get('page') === 'privacy') {
+            setCurrentPage('privacy');
+        } else if (params.get('page') === 'landing') {
+            setCurrentPage('landing');
         }
     }, []);
+
+    const goToPrivacy = () => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('page', 'privacy');
+        window.history.pushState({}, '', url);
+        setCurrentPage('privacy');
+    };
+
+    const goToLanding = () => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('page', 'landing');
+        window.history.pushState({}, '', url);
+        setCurrentPage('landing');
+    };
+
+    const handleLandingLogin = (intent?: 'client' | 'consultant') => {
+        if (localStorage.getItem('token') && !intent) {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('page');
+            window.history.pushState({}, '', url);
+            setCurrentPage('list');
+            return;
+        }
+        const lang = (localStorage.getItem('landing_lang') as LandingLang) || 'ru';
+        const variant = (localStorage.getItem('landing_variant') as LandingVariant) || 'm';
+        const path = appendLandingParams(window.location.pathname, lang, variant, {
+            page: 'login',
+            ...(intent ? { intent } : {}),
+        });
+        window.history.pushState({}, '', path);
+        setCurrentPage('login');
+    };
 
     const handleNavigate = (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings') => {
         console.log('Navigating to:', page);
@@ -264,6 +317,12 @@ function App() {
 
     return (
         <div className="app-container">
+            {currentPage === 'landing' && (
+                <LandingPage onLogin={handleLandingLogin} onPrivacy={goToPrivacy} />
+            )}
+
+            {currentPage === 'privacy' && <PrivacyPolicyPage onBackHome={goToLanding} />}
+
             {currentPage === 'login' && <LoginPage onLoginSuccess={handleLoginSuccess} />}
 
             {currentPage === 'ai-assistant' && (

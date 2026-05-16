@@ -11,7 +11,15 @@ interface LoginPageProps {
 const defaultEmail = import.meta.env.VITE_LOGIN ?? '';
 const defaultPassword = import.meta.env.VITE_PASSWORD ?? '';
 
+const INTENT_HINTS: Record<string, string> = {
+    client: 'Войдите в личный family office BankFuture',
+    consultant: 'Войдите в кабинет вашего family office (агент)',
+};
+
 const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
+    const intent = new URLSearchParams(window.location.search).get('intent');
+    const intentHint = intent ? INTENT_HINTS[intent] : null;
+
     const [email, setEmail] = useState(defaultEmail);
     const [password, setPassword] = useState(defaultPassword);
     const [loading, setLoading] = useState(false);
@@ -74,7 +82,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         <LogIn size={32} color="#000" />
                     </div>
                     <h1 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '8px' }}>Добро пожаловать</h1>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Введите ваши данные для входа в систему PFP</p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
+                        {intentHint ?? 'Введите ваши данные для входа в систему PFP'}
+                    </p>
                 </div>
 
                 <form onSubmit={handleSubmit}>
