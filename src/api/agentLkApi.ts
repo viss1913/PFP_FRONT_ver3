@@ -814,6 +814,36 @@ function mapBrokerAccountEmailError(error: unknown): BrokerAccountEmailError {
     }
 }
 
+export interface FamilyOfficeInviteRequest {
+    email: string;
+    first_name: string;
+    last_name: string;
+    phone: string;
+    middle_name?: string;
+    birth_date?: string;
+    gender?: 'male' | 'female' | string;
+    source_note?: string;
+}
+
+export interface FamilyOfficeInviteResponse {
+    message: string;
+    agent_id: number;
+    email: string;
+    expires_at: string;
+}
+
+export function getFamilyOfficeInviteErrorMessage(error: unknown): string {
+    if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        const data = error.response?.data as { message?: string } | undefined;
+        const backendMessage = typeof data?.message === 'string' ? data.message : undefined;
+        if (status === 409) return backendMessage || 'Email уже зарегистрирован';
+        if (status === 502) return backendMessage || 'Не удалось отправить письмо';
+        if (backendMessage) return backendMessage;
+    }
+    return 'Не удалось отправить приглашение';
+}
+
 export const agentLkApi = {
     getProducts: async (includeDefaults = true): Promise<AgentProduct[]> => {
         const response = await axios.get(`${API_BASE}/products`, {
@@ -1814,6 +1844,28 @@ export const agentLkApi = {
             trace.responseBody = e?.response?.data ?? { message: String(e?.message ?? e) };
             return { ok: false, trace };
         }
+    },
+
+    sendFamilyOfficeInvite: async (
+        body: FamilyOfficeInviteRequest,
+    ): Promise<FamilyOfficeInviteResponse> => {
+        const payload: FamilyOfficeInviteRequest = {
+            email: body.email.trim(),
+            first_name: body.first_name.trim(),
+            last_name: body.last_name.trim(),
+            phone: body.phone.trim(),
+        };
+        if (body.middle_name?.trim()) payload.middle_name = body.middle_name.trim();
+        if (body.birth_date?.trim()) payload.birth_date = body.birth_date.trim();
+        if (body.gender) payload.gender = body.gender;
+        if (body.source_note?.trim()) payload.source_note = body.source_note.trim();
+
+        const response = await axios.post<FamilyOfficeInviteResponse>(
+            `${API_BASE}/agents/me/family-office-invite`,
+            payload,
+            { headers: getHeaders() },
+        );
+        return response.data;
     },
 };
 

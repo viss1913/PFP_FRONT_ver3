@@ -3,7 +3,8 @@ info:
   title: Agent LK API (Личный кабинет агента)
   description: |
     API для управления инвестиционными продуктами и портфелями со стороны Агента.
-    Авторизация происходит через стандартный `/api/auth/login`. 
+    **Авторизация и регистрация агента:** `POST /auth/login`, двухшаговая регистрация `POST /auth/register-agent` → `POST /auth/verify-agent-registration` (код **6 цифр** на email через **Resend**, отправитель `noreply@…` при `RESEND_FROM_EMAIL={agent}@domain`). Поля партнёра: `partner_agent_id`, `partner_ref_url`, `ref` (приглашение субагента). См. тег **«Регистрация и профиль агента»**.
+
     Все методы работают с привязкой к `project_id` авторизованного агента.
     Системные (дефолтные) продукты и портфели (где `project_id == null`) доступны Агенту только на чтение и клонирование.
 
@@ -27,9 +28,13 @@ info:
     Полные схемы тел: **`openapi/pfp-api.yaml`** (`CalculationRequest`, `TaxPlanningRequest`). В этой спеке — тег **«Расчёт ПФП и налоги»**.
     Для карточки клиента кредиты передаются как `liabilities` (основной контракт) либо как алиас `credits` (`type`, `balance`, `monthlyPayment`, `rate`) с серверным маппингом в `liabilities`.
 
+    **ЛК клиента (B2C), сохранённый план:** пути **`POST /my/plan/first-run`**, **`POST /my/plan/{goalId}/recalculate`** и схемы — в **`docs/api/b2c_lk.yaml`** / **`openapi/pfpB2C.yaml`**. При пересчёте одной цели с ручным риском в корне тела передают **`risk_profile`** (тройка); для портфелей с пятью срезами (напр. Финам) — ещё **`risk_profile_extended`** (те же строки, что `profile_type` в строке портфеля). Если эти поля присутствуют в запросе, бэкенд **не подменяет** их результатом риск-анкеты для этой цели.
+
     **NDA (соглашение о неразглашении):** тело `NdaSendRequestBody` — обязательны `client_email`, `client_full_name`, `client_phone`, `client_birth_date`, `client_gender` (`male`/`female`, только для текста письма).
     - **`POST /pfp/clients/nda/send`** — клиента в БД ещё нет (до first-run), только JWT агента.
     - **`POST /pfp/clients/{clientId}/nda/send`** — клиент уже есть; проверяется привязка к агенту.
+    - **`POST /pfp/clients/{clientId}/life-insurance/send-email`** — отправить клиенту HTML-письмо по продукту «Подушка безопасности» с кнопкой **«Оформить НСЖ»**.
+    - **`POST /pfp/clients/{clientId}/broker-account/send-email`** — письмо Финам (Resend); ссылки с UTM и `partner_agent_id`, если включён `partner_link_tracking` в settings проекта.
   version: 1.0.0
 servers:
   - url: /api
@@ -39,6 +44,245 @@ security:
   - bearerAuth: []
 
 paths:
+  # ==================== РЕГИСТРАЦИЯ И ПРОФИЛЬ АГЕНТА ====================
+  /auth/login:
+    post:
+      tags: [ "Регистрация и профиль агента" ]
+      summary: Вход агента (JWT)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 6 }
+                project_key: { type: string, description: "Опционально, игнорируется" }
+      responses:
+        '200':
+          description: JWT и профиль пользователя
+
+  /auth/register-agent:
+    post:
+      tags: [ "Регистрация и профиль агента" ]
+      summary: "Регистрация агента, шаг 1 — отправить код на email (Resend)"
+      description: |
+        Публичный endpoint. Проверяет `project_key`, Finam ID (если `require_on_registration` в settings проекта), `ref` пригласившего агента (связь `parent_agent_id`).
+        Для Finam после миграции `20260517120000`: регистрация **без** обязательного Finam ID на шаге 1; поле `phone` сохраняется в профиле агента.
+        Генерирует 6-значный код, сохраняет черновик в `email_verifications` (`purpose=agent_register`), отправляет письмо через **Resend**.
+
+        **From:** `getVerificationFrom()` в `emailService` — при `RESEND_FROM_EMAIL` вида `{agent}@bank-future.com` используется **`noreply@bank-future.com`** (или `RESEND_SYSTEM_LOCAL`, по умолчанию `noreply`).
+
+        **Env:** `RESEND_API_KEY`, `RESEND_FROM_EMAIL` (verified домен), опционально `RESEND_SYSTEM_LOCAL=noreply`.
+
+        Пароль на этом шаге **не** передаётся.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentRegisterStep1Request'
+      responses:
+        '200':
+          description: Код отправлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationCodeSentResponse'
+        '400':
+          description: Email занят, нет Finam ID, неверный ref
+        '409':
+          description: partner_agent_id уже занят в проекте
+        '502':
+          description: Ошибка Resend (в production)
+
+  /auth/verify-agent-registration:
+    post:
+      tags: [ "Регистрация и профиль агента" ]
+      summary: "Регистрация агента, шаг 2 — код + пароль → JWT"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentRegisterStep2Request'
+      responses:
+        '201':
+          description: Аккаунт создан, JWT как при login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentAuthResponse'
+        '400':
+          description: Неверный или просроченный код
+
+  /auth/parse-partner-agent:
+    post:
+      tags: [ "Регистрация и профиль агента" ]
+      summary: Распознать partner_agent_id из ссылки или текста
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ParsePartnerAgentRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParsePartnerAgentResponse'
+
+  /auth/me:
+    get:
+      tags: [ "Регистрация и профиль агента" ]
+      summary: Текущий пользователь (JWT)
+      description: |
+        Для роли `agent` дополнительно: профиль, `partner_agent_id`, `partner_agent_id_required` (гейт Finam ID на фронте).
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthMeResponse'
+
+  /auth/agent-invite/preview:
+    get:
+      tags: [ "Регистрация и профиль агента" ]
+      summary: Проверить magic-link приглашения (Family Office)
+      security: []
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentInvitePreviewResponse'
+
+  /auth/activate-agent-invite:
+    post:
+      tags: [ "Регистрация и профиль агента" ]
+      summary: Активировать приглашение — задать пароль и получить JWT
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivateAgentInviteRequest'
+      responses:
+        '200':
+          description: JWT как при login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentAuthResponse'
+        '400':
+          description: Невалидный, просроченный или использованный token
+
+  /pfp/agents/me/subagents:
+    get:
+      tags: [ "Регистрация и профиль агента" ]
+      summary: Прямые субагенты текущего агента
+      description: Список с `partner_agent_id`, email, `clients_count`. Требует `agent_network.enabled` в проекте.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AgentSubagentRow'
+
+  /pfp/agents/me/invite-link:
+    get:
+      tags: [ "Регистрация и профиль агента" ]
+      summary: Реферальная ссылка для приглашения субагентов
+      description: |
+        Возвращает `url` с `project_key`, `ref={referral_slug}` и UTM (`utm_source`, `utm_medium`, `utm_campaign`, `utm_partner_finam` пригласившего).
+        База URL: env `AGENT_REGISTER_BASE_URL` или `FRONTEND_AGENT_REGISTER_URL` (по умолчанию `https://pfp-front-ver3.vercel.app/register`).
+
+        **Связь субагента с куратором:** параметр `ref` в ссылке → поле `ref` в `POST /auth/register-agent` → `agents.parent_agent_id`.
+        `utm_partner_finam` — только атрибуция в `registration_attribution`, **не** подставлять в `partner_agent_id` нового агента.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentInviteLinkResponse'
+
+  /pfp/agents/me/subagent-invite/send-email:
+    post:
+      tags: [ "Регистрация и профиль агента" ]
+      summary: Отправить приглашение субагенту на email (Resend)
+      description: |
+        Строит ту же ссылку, что `GET .../invite-link`, и отправляет HTML-письмо с кнопкой «Зарегистрироваться».
+        From/Reply-To — как у писем агента (NDA/broker), если настроен `RESEND_FROM_EMAIL` с `{agent}`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubagentInviteEmailRequest'
+      responses:
+        '200':
+          description: Письмо отправлено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubagentInviteEmailResponse'
+        '400':
+          description: Невалидный email
+        '502':
+          description: Ошибка Resend
+
+  /pfp/agents/me/family-office-invite:
+    post:
+      tags: [ "Регистрация и профиль агента" ]
+      summary: Пригласить в Family Office (провижининг + magic-link)
+      description: |
+        Куратор передаёт профиль будущего субагента (как при ПФП клиента). Бэкенд сразу создаёт `agents` + `users`
+        с `parent_agent_id` = текущий агент, генерирует одноразовый token и шлёт премиальное письмо со ссылкой активации
+        (без кода на email). Субагент задаёт пароль через `POST /auth/activate-agent-invite`.
+
+        Env: `AGENT_INVITE_ACTIVATE_BASE_URL` (по умолчанию `https://pfp-front-ver3.vercel.app/invite/activate`),
+        `AGENT_INVITE_TOKEN_TTL_DAYS` (по умолчанию 7).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FamilyOfficeInviteRequest'
+      responses:
+        '201':
+          description: Агент создан, письмо отправлено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FamilyOfficeInviteResponse'
+        '409':
+          description: Email уже занят
+        '502':
+          description: Ошибка Resend
+
   # ==================== ПРОДУКТЫ ====================
   /pfp/products:
     get:
@@ -469,6 +713,7 @@ paths:
           Каждый диапазон: fromMonth, toMonthExcl, rateAnnual (годовая %). Для месяцев вне диапазонов используется ставка последнего диапазона.
         - **inflation_rate_year** — одна годовая инфляция % (используется, если матрица не задана).
         - **investment_expense_growth_annual** — рост расходов на инвестиции (% годовых); в расчётах переводится в месячную. Если не задан — используется investment_expense_growth_monthly (% в месяц).
+        - **report_finam** — версия отчёта для Finam-template проекта: `1` или отсутствие project override = текущий v1, `2` = Finam Report v2. Значение `2` задаётся только в контексте проекта. На стороне процесса env **`FINAM_REPORT_VERSION`** (`1`|`2`) и опционально **`FINAM_REPORT_VERSION_PROJECT_IDS`** могут переопределить БД (см. `src/reports/finam/reportVersionResolver.js`, OpenAPI `getReport.yaml`).
         - прочие ключи категорий `calculation`, `pension`, `passive-income` и т.д.
       parameters:
         - name: category
@@ -499,6 +744,7 @@ paths:
         - **inflation_rate_year** — число, одна годовая инфляция % (fallback при отсутствии матрицы).
         - **investment_expense_growth_annual** — число, рост расходов на инвестиции в % годовых (в расчётах — месячная доля).
         - **investment_expense_growth_monthly** — число, рост расходов на инвестиции в % в месяц (fallback).
+        - **report_finam** — число `1` или `2`; `2` включает Finam Report v2 через `buildFinamReportV2HtmlPackage.js`, при изменении backend сбрасывает `clients.report_pdf_*` для проекта. Env **`FINAM_REPORT_VERSION`** при необходимости сильнее записи в БД.
       parameters:
         - name: key
           in: path
@@ -561,6 +807,10 @@ paths:
                       - fromMonth: 24
                         toMonthExcl: 48
                         rateAnnual: 6.0
+              report_finam_v2:
+                summary: Включить Finam Report v2 для проекта
+                value:
+                  value: 2
       responses:
         '200':
           description: Обновлено
@@ -846,6 +1096,142 @@ paths:
           description: Клиент или агент не найден
         '502':
           description: Не удалось загрузить подпись или отправить почту
+
+  /pfp/clients/{clientId}/life-insurance/send-email:
+    post:
+      tags: [ "Клиенты B2C в ЛК Агента" ]
+      summary: Отправить клиенту письмо по продукту «Подушка безопасности»
+      description: |
+        Отправляет клиенту из карточки (`clients.email`) HTML-письмо через Resend:
+        логотип Сбер Страхование Жизни, короткое описание и кнопка **«Оформить НСЖ»**.
+
+        Доступ: агент-владелец клиента, admin, super_admin.
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                offer_url:
+                  type: string
+                  format: uri
+                  description: Ссылка открытия, по умолчанию `https://sberbank-insurance.ru/podushka-bezopasnosti`
+                short_description:
+                  type: string
+                  description: Короткое описание продукта в теле письма
+      responses:
+        '200':
+          description: Письмо отправлено
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, client_email, offer_url]
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  message_id:
+                    type: string
+                    nullable: true
+                  client_email:
+                    type: string
+                    format: email
+                  offer_url:
+                    type: string
+                    format: uri
+        '400':
+          description: Невалидный `clientId`, нет email у клиента или нет агента для отправки
+        '401':
+          description: Нет токена
+        '403':
+          description: Нет доступа к клиенту
+        '404':
+          description: Клиент или агент не найдены
+        '502':
+          description: Ошибка отправки письма (Resend)
+
+  /pfp/clients/{clientId}/broker-account/send-email:
+    post:
+      tags: [ "Клиенты B2C в ЛК Агента" ]
+      summary: Отправить клиенту письмо по открытию брокерского счёта Финам
+      description: |
+        Отправляет клиенту из карточки (`clients.email`) письмо через **Resend** с:
+        - ссылкой открытия брокерского счёта Финам;
+        - блоком спецакций («Финам Бонус», «Выгодный переход»).
+
+        Если у агента заполнен `partner_agent_id` и в `projects.settings` включён `partner_link_tracking.enabled`,
+        в `open_url` и `promo_urls` автоматически добавляются UTM и `utm_partner_finam=<partner_agent_id>`
+        (см. `partner_link_tracking` в settings проекта; для писем `utm_medium=email`).
+
+        Доступ: агент-владелец клиента, admin, super_admin.
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                open_url:
+                  type: string
+                  format: uri
+                  description: Ссылка открытия, по умолчанию `https://www.finam.ru/open/order/russia/`
+                short_description:
+                  type: string
+                  description: Короткое описание в теле письма
+      responses:
+        '200':
+          description: Письмо отправлено
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, client_email, open_url]
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  message_id:
+                    type: string
+                    nullable: true
+                  client_email:
+                    type: string
+                    format: email
+                  open_url:
+                    type: string
+                    format: uri
+                  promo_urls:
+                    type: object
+                    properties:
+                      bonus:
+                        type: string
+                        format: uri
+                      transfer:
+                        type: string
+                        format: uri
+        '400':
+          description: Невалидный `clientId`, нет email у клиента или нет агента для отправки
+        '401':
+          description: Нет токена
+        '403':
+          description: Нет доступа к клиенту
+        '404':
+          description: Клиент или агент не найдены
+        '502':
+          description: Ошибка отправки письма (Resend)
 
   /pfp/reports/{clientId}/pdf/send-email:
     post:
@@ -2213,6 +2599,170 @@ paths:
 
 components:
   schemas:
+    AgentRegisterStep1Request:
+      type: object
+      required: [email, project_key]
+      properties:
+        email: { type: string, format: email }
+        first_name: { type: string, maxLength: 100 }
+        last_name: { type: string, maxLength: 100 }
+        phone: { type: string, maxLength: 50, description: "Телефон агента" }
+        project_key: { type: string, description: "Публичный ключ проекта (pk_…)" }
+        partner_agent_id:
+          type: string
+          maxLength: 64
+          description: "Finam ID / ID партнёра (если require_on_registration)"
+        partner_ref_url:
+          type: string
+          description: Ссылка из ЛК партнёра — ID извлекается на сервере
+        ref:
+          type: string
+          description: referral_slug или uuid пригласившего агента
+        utm_source: { type: string }
+        utm_medium: { type: string }
+        utm_campaign: { type: string }
+        utm_content: { type: string }
+        utm_term: { type: string }
+
+    AgentRegisterStep2Request:
+      type: object
+      required: [email, code, password]
+      properties:
+        email: { type: string, format: email }
+        code: { type: string, pattern: '^[0-9]{6}$' }
+        password: { type: string, minLength: 6 }
+
+    VerificationCodeSentResponse:
+      type: object
+      properties:
+        message: { type: string, example: "Код подтверждения отправлен на вашу почту" }
+        email: { type: string, format: email }
+        expires_in_minutes: { type: integer, example: 10 }
+
+    AgentAuthResponse:
+      type: object
+      properties:
+        token: { type: string }
+        user:
+          type: object
+          properties:
+            id: { type: integer }
+            email: { type: string }
+            name: { type: string }
+            role: { type: string, example: agent }
+            agentId: { type: integer }
+            projectId: { type: integer }
+
+    ParsePartnerAgentRequest:
+      type: object
+      required: [project_key]
+      properties:
+        project_key: { type: string }
+        partner_agent_id: { type: string }
+        partner_ref_url: { type: string }
+
+    ParsePartnerAgentResponse:
+      type: object
+      properties:
+        partner_agent_id: { type: string }
+        label: { type: string, example: "Finam ID" }
+
+    AgentSubagentRow:
+      type: object
+      properties:
+        id: { type: integer }
+        uuid: { type: string, format: uuid }
+        first_name: { type: string }
+        last_name: { type: string }
+        email: { type: string, format: email }
+        partner_agent_id: { type: string, nullable: true }
+        referral_slug: { type: string, nullable: true }
+        is_active: { type: boolean }
+        clients_count: { type: integer }
+        created_at: { type: string, format: date-time }
+
+    AgentInviteLinkResponse:
+      type: object
+      properties:
+        url: { type: string, format: uri }
+        referral_slug: { type: string }
+        ref: { type: string }
+
+    SubagentInviteEmailRequest:
+      type: object
+      required: [to_email]
+      properties:
+        to_email: { type: string, format: email }
+        recipient_name: { type: string, maxLength: 255, description: "Имя в приветствии письма" }
+
+    SubagentInviteEmailResponse:
+      type: object
+      properties:
+        message: { type: string, example: "Приглашение отправлено" }
+        to_email: { type: string, format: email }
+        url: { type: string, format: uri }
+        referral_slug: { type: string }
+        ref: { type: string }
+
+    FamilyOfficeInviteRequest:
+      type: object
+      required: [email, first_name, last_name, phone]
+      properties:
+        email: { type: string, format: email }
+        first_name: { type: string, maxLength: 100 }
+        last_name: { type: string, maxLength: 100 }
+        phone: { type: string, maxLength: 50 }
+        middle_name: { type: string, maxLength: 100 }
+        birth_date: { type: string, format: date }
+        gender: { type: string, enum: [male, female, M, F, мужской, женский] }
+        source_note: { type: string, maxLength: 500, description: "Аудит, напр. демо ПФП" }
+
+    FamilyOfficeInviteResponse:
+      type: object
+      properties:
+        message: { type: string }
+        agent_id: { type: integer }
+        email: { type: string, format: email }
+        expires_at: { type: string, format: date-time }
+
+    ActivateAgentInviteRequest:
+      type: object
+      required: [token, password]
+      properties:
+        token: { type: string, minLength: 16, maxLength: 128 }
+        password: { type: string, minLength: 6 }
+
+    AgentInvitePreviewResponse:
+      type: object
+      properties:
+        valid: { type: boolean }
+        expired: { type: boolean }
+        used: { type: boolean }
+        email: { type: string, format: email, nullable: true }
+        first_name: { type: string, nullable: true }
+        last_name: { type: string, nullable: true }
+
+    AuthMeResponse:
+      type: object
+      properties:
+        id: { type: integer }
+        uuid: { type: string }
+        email: { type: string }
+        role: { type: string }
+        agentId: { type: integer }
+        projectId: { type: integer }
+        clientId: { type: integer, description: "Только для role=client" }
+        first_name: { type: string, nullable: true }
+        last_name: { type: string, nullable: true }
+        middle_name: { type: string, nullable: true }
+        phone: { type: string, nullable: true }
+        birth_date: { type: string, format: date, nullable: true }
+        gender: { type: string, enum: [male, female], nullable: true }
+        partner_agent_id: { type: string, nullable: true }
+        partner_agent_id_label: { type: string, example: "Finam ID" }
+        partner_agent_id_required: { type: boolean, description: "Фронт: блокировать ЛК без Finam ID" }
+        parent_agent_id: { type: integer, nullable: true }
+
     AiAssistantChatMessage:
       type: object
       properties:

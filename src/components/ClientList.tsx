@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, User, Calendar, Wallet, ChevronLeft, ChevronRight, Edit2, TrendingUp, FileText, MessageCircle } from 'lucide-react';
+import { Search, Plus, User, Calendar, Wallet, ChevronLeft, ChevronRight, Edit2, TrendingUp, FileText, MessageCircle, UserPlus } from 'lucide-react';
 import { clientApi } from '../api/clientApi';
 import type { Client } from '../types/client';
 import StatusDropdown from './StatusDropdown';
 import ClientB2cChatAiModal from './ClientB2cChatAiModal';
+import FamilyOfficeInviteModal from './FamilyOfficeInviteModal';
 import { getGoalTypeLabel } from '../utils/GoalImages';
+import { clientToFamilyOfficeInvitePrefill } from '../utils/familyOfficeInvite';
+import type { FamilyOfficeInviteRequest } from '../api/agentLkApi';
 
 
 interface ClientListProps {
@@ -23,6 +26,18 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
     const [limit] = useState(50);
     const [activeDropdownId, setActiveDropdownId] = useState<number | null>(null);
     const [chatModalClient, setChatModalClient] = useState<Client | null>(null);
+    const [inviteModalOpen, setInviteModalOpen] = useState(false);
+    const [invitePrefill, setInvitePrefill] = useState<Partial<FamilyOfficeInviteRequest> | undefined>();
+
+    const openInviteModal = (prefill?: Partial<FamilyOfficeInviteRequest>) => {
+        setInvitePrefill(prefill);
+        setInviteModalOpen(true);
+    };
+
+    const closeInviteModal = () => {
+        setInviteModalOpen(false);
+        setInvitePrefill(undefined);
+    };
 
     // Debounce search
     useEffect(() => {
@@ -115,14 +130,36 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
                     <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '8px' }}>Клиенты</h1>
                     <p style={{ color: 'var(--text-muted)' }}>Управление базой клиентов</p>
                 </div>
-                <button
-                    className="btn-primary"
-                    style={{ width: 'auto', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px' }}
-                    onClick={onNewClient}
-                >
-                    <Plus size={20} />
-                    Новый клиент
-                </button>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    <button
+                        type="button"
+                        style={{
+                            width: 'auto',
+                            padding: '12px 24px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            borderRadius: '12px',
+                            background: 'rgba(255,255,255,0.08)',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                            color: '#fff',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                        }}
+                        onClick={() => openInviteModal()}
+                    >
+                        <UserPlus size={20} />
+                        Пригласить в Family Office
+                    </button>
+                    <button
+                        className="btn-primary"
+                        style={{ width: 'auto', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                        onClick={onNewClient}
+                    >
+                        <Plus size={20} />
+                        Новый клиент
+                    </button>
+                </div>
             </div>
 
             {/* Search Bar */}
@@ -257,6 +294,28 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <button
                                         type="button"
+                                        title="Пригласить в Family Office"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            openInviteModal(clientToFamilyOfficeInvitePrefill(client));
+                                        }}
+                                        style={{
+                                            width: '36px',
+                                            height: '36px',
+                                            borderRadius: '50%',
+                                            border: 'none',
+                                            background: 'rgba(255,255,255,0.05)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: 'var(--primary)',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        <UserPlus size={16} />
+                                    </button>
+                                    <button
+                                        type="button"
                                         title="История чата B2C AI"
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -351,6 +410,11 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
                 onClose={() => setChatModalClient(null)}
                 clientId={chatModalClient?.id ?? null}
                 clientTitle={`${chatModalClient?.first_name ?? ''} ${chatModalClient?.last_name ?? ''}`}
+            />
+            <FamilyOfficeInviteModal
+                isOpen={inviteModalOpen}
+                onClose={closeInviteModal}
+                initialValues={invitePrefill}
             />
         </div>
     );
