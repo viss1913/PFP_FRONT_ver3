@@ -5,6 +5,7 @@ import InviteActivatePage from './pages/invite/InviteActivatePage.tsx'
 import { AgentProfileProvider } from './context/AgentProfileContext.tsx'
 import { resolvePublicRoute } from './routing/publicRoutes.ts'
 import './index.css'
+import './styles/lk-responsive.css'
 
 function Root() {
     const publicRoute = resolvePublicRoute(window.location.pathname)

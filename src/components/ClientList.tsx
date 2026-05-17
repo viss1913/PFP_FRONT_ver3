@@ -118,19 +118,17 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
     };
 
     return (
-        <div style={{
-            maxWidth: embedded ? '100%' : '1000px',
-            margin: embedded ? '0' : '0 auto',
-            padding: embedded ? '0' : '20px',
-            ...style
-        }}>
+        <div
+            className={`client-list-root${embedded ? ' client-list-root--embedded' : ''}`}
+            style={style}
+        >
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+            <div className="lk-stack" style={{ marginBottom: '32px' }}>
                 <div>
                     <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '8px' }}>Клиенты</h1>
                     <p style={{ color: 'var(--text-muted)' }}>Управление базой клиентов</p>
                 </div>
-                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <div className="lk-stack__actions">
                     <button
                         type="button"
                         style={{
@@ -163,22 +161,13 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
             </div>
 
             {/* Search Bar */}
-            <div style={{ marginBottom: '24px', position: 'relative' }}>
+            <div className="client-list-search">
                 <Search size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input
                     type="text"
                     placeholder="Поиск по имени, телефону или ID..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    style={{
-                        width: '100%',
-                        padding: '16px 16px 16px 48px',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: '16px',
-                        color: '#fff',
-                        fontSize: '16px'
-                    }}
                 />
             </div>
 
@@ -190,16 +179,12 @@ const ClientList: React.FC<ClientListProps> = ({ onSelectClient, onNewClient, em
                     clients.map((client) => (
                         <div
                             key={client.id || client.uuid}
-                            className="premium-card"
+                            className="premium-card client-card"
                             style={{
-                                padding: '20px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
                                 transition: 'transform 0.2s',
                                 cursor: 'pointer',
                                 position: 'relative',
-                                zIndex: activeDropdownId === client.id ? 100 : 1
+                                zIndex: activeDropdownId === client.id ? 100 : 1,
                             }}
                             onClick={() => onSelectClient(client)}
                         >

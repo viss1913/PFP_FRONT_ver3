@@ -58,8 +58,9 @@ const DonutChart: React.FC<{ items: AllocationItem[], title: string, total: numb
         }}>
             <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '24px', color: '#111827' }}>{title}</h3>
 
-            <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+            <div className="portfolio-distribution__body">
                 {/* Chart */}
+                <div className="portfolio-distribution__chart-wrap">
                 <div style={{
                     width: '160px',
                     height: '160px',
@@ -89,9 +90,10 @@ const DonutChart: React.FC<{ items: AllocationItem[], title: string, total: numb
                         </div>
                     </div>
                 </div>
+                </div>
 
                 {/* Legend/Table */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div className="portfolio-distribution__legend">
                     {gradientSegments.map((item, index) => (
                         <div key={index} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '14px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -179,3 +181,4 @@ export const PortfolioDistribution: React.FC<PortfolioDistributionProps> = ({ as
         </div>
     );
 };
+

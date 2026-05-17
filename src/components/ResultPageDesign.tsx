@@ -1012,12 +1012,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
             totalYieldPercent={portfolioYieldPercent}
           />
 
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))',
-            gap: '24px',
-            marginBottom: '40px',
-          }}>
+          <div className="pfp-goals-grid" style={{ marginBottom: '40px' }}>
             {/* Карточки целей */}
             {goalCards.map((goal: GoalResult, _index: number) => {
 
@@ -1087,7 +1082,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                     )}
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', position: 'relative', zIndex: 1 }}>
+                  <div className="pfp-goal-card-inner-grid" style={{ position: 'relative', zIndex: 1 }}>
                     {goal.displaySlots.map((slot: GoalCardSlot, idx: number) => (
                       <div key={idx}>
                         <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '4px' }}>{slot.label}</div>
@@ -1225,45 +1220,15 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
 
       {/* Editing Modal */}
       {editingGoal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.8)',
-          backdropFilter: 'blur(12px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 2000,
-          padding: '20px'
-        }}>
-          <div style={{
-            background: '#fff',
-            borderRadius: '32px',
-            width: '100%',
-            maxWidth: '900px',
-            maxHeight: '90vh',
-            display: 'flex',
-            flexDirection: 'column',
-            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
-            color: '#1a1a1a',
-            overflow: 'hidden'
-          }}>
+        <div className="goal-edit-modal-overlay">
+          <div className="goal-edit-modal">
             {/* Modal Header with Background Image */}
-            <div style={{
-              position: 'relative',
-              height: '240px',
+            <div
+              className="goal-edit-modal__hero"
+              style={{
               backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.8) 100%), url(${getGoalImage(editingGoal.name, editingGoal.goalTypeId || 0)})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'flex-end',
-              padding: '40px',
-              color: '#fff'
-            }}>
+            }}
+            >
               <button
                 onClick={() => setEditingGoal(null)}
                 style={{
@@ -1288,18 +1253,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                   type="text"
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#fff',
-                    fontSize: '42px',
-                    fontWeight: '800',
-                    margin: 0,
-                    padding: 0,
-                    width: '100%',
-                    outline: 'none',
-                    textShadow: '0 2px 10px rgba(0,0,0,0.5)',
-                  }}
+                  className="goal-edit-modal__title"
                   autoFocus={false}
                 />
                 <p style={{ margin: '8px 0 0 0', opacity: 0.9, fontSize: '16px', fontWeight: '500' }}>
@@ -1308,7 +1262,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
               </div>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: '40px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '60px' }}>
+            <div className="goal-edit-modal__body">
               {/* Left Column: Form */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
 
@@ -1439,7 +1393,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
             </div>
 
             {/* Modal Footer */}
-            <div style={{ padding: '24px 32px', borderTop: '1px solid #eee', background: '#F9FAFB', display: 'flex', justifyContent: 'flex-end', gap: '16px' }}>
+            <div className="goal-edit-modal__footer" style={{ background: '#F9FAFB' }}>
               <button
                 onClick={() => setEditingGoal(null)}
                 style={{

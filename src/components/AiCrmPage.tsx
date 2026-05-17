@@ -225,16 +225,7 @@ const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNa
         <div style={{ minHeight: '100vh', background: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
             <Header activePage="crm" onNavigate={onNavigate} />
 
-                <main
-                    style={{
-                        flex: 1,
-                        padding: '24px',
-                        maxWidth: '1600px',
-                        margin: '0 auto',
-                        width: '100%',
-                        boxSizing: 'border-box',
-                    }}
-                >
+                <main className="lk-page-main">
                     <div
                         onClick={() => setIsChatOpen(true)}
                         style={{
@@ -297,14 +288,7 @@ const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNa
                         </div>
                     </div>
 
-                    <div
-                        style={{
-                            background: '#fff',
-                            borderRadius: '24px',
-                            padding: '32px',
-                            boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
-                        }}
-                    >
+                    <div className="lk-card">
                         {networkProbeDone && networkAvailable && (
                             <CrmViewSwitcher mode={viewMode} onChange={handleViewModeChange} />
                         )}
