@@ -35,6 +35,48 @@ const formatValue = (value: number | string, unit: string) => {
     return `${n.toLocaleString('ru-RU')} ${unit || ''}`.trim();
 };
 
+/** Скрытые на UI показатели (битые/неактуальные или лишние) */
+function isHiddenMacroIndicator(item: MacroLatestItem): boolean {
+    const name = item.name.toLowerCase();
+    const slug = item.slug.toLowerCase();
+    const hay = `${name} ${slug}`;
+
+    if (name.includes('росстат') && name.includes('инфляц')) return true;
+    if (slug.includes('rosstat') && slug.includes('inflation')) return true;
+    if (hay.includes('золот') || slug.includes('gold')) return true;
+    if (hay.includes('rucbicp') || slug.includes('rucbicp')) return true;
+    if (name.includes('корпоративн') && name.includes('облигац')) return true;
+
+    return false;
+}
+
+/** Порядок карточек: инфляция → ставка ЦБ → средняя макс. → остальное */
+function getMacroSortPriority(item: MacroLatestItem): number {
+    const name = item.name.toLowerCase();
+    const slug = item.slug.toLowerCase();
+    const hay = `${name} ${slug}`;
+
+    if (hay.includes('инфляц') || hay.includes('inflation')) return 0;
+    if (
+        (hay.includes('ключев') && hay.includes('ставк'))
+        || (hay.includes('ставка') && (hay.includes('цб') || hay.includes('cbr')))
+        || hay.includes('key_rate')
+    ) {
+        return 1;
+    }
+    if (hay.includes('средн') && hay.includes('макс')) return 2;
+
+    return 10;
+}
+
+function sortMacroIndicators(items: MacroLatestItem[]): MacroLatestItem[] {
+    return [...items].sort((a, b) => {
+        const diff = getMacroSortPriority(a) - getMacroSortPriority(b);
+        if (diff !== 0) return diff;
+        return a.name.localeCompare(b.name, 'ru');
+    });
+}
+
 const MacroStatsPage: React.FC<MacroStatsPageProps> = ({ onNavigate }) => {
     const [latest, setLatest] = useState<MacroLatestItem[]>([]);
     const [history, setHistory] = useState<MacroHistoryPoint[]>([]);
@@ -52,7 +94,16 @@ const MacroStatsPage: React.FC<MacroStatsPageProps> = ({ onNavigate }) => {
                 const data = await macroApi.getLatest();
                 if (!cancelled) {
                     setLatest(data);
-                    if (data.length > 0 && !selectedSlug) setSelectedSlug(data[0].slug);
+                    const visible = sortMacroIndicators(
+                        data.filter((item) => !isHiddenMacroIndicator(item)),
+                    );
+                    if (visible.length > 0) {
+                        setSelectedSlug((prev) =>
+                            prev && visible.some((x) => x.slug === prev) ? prev : visible[0].slug,
+                        );
+                    } else {
+                        setSelectedSlug(null);
+                    }
                 }
             } catch (e: unknown) {
                 if (!cancelled) {
@@ -92,9 +143,21 @@ const MacroStatsPage: React.FC<MacroStatsPageProps> = ({ onNavigate }) => {
         return () => { cancelled = true; };
     }, [selectedSlug]);
 
+    const visibleLatest = useMemo(
+        () =>
+            sortMacroIndicators(latest.filter((item) => !isHiddenMacroIndicator(item))),
+        [latest],
+    );
+
+    useEffect(() => {
+        if (!selectedSlug) return;
+        if (visibleLatest.some((x) => x.slug === selectedSlug)) return;
+        setSelectedSlug(visibleLatest[0]?.slug ?? null);
+    }, [visibleLatest, selectedSlug]);
+
     const selectedMeta = useMemo(
-        () => latest.find((x) => x.slug === selectedSlug),
-        [latest, selectedSlug]
+        () => visibleLatest.find((x) => x.slug === selectedSlug),
+        [visibleLatest, selectedSlug],
     );
 
     const chartData = useMemo(
@@ -133,7 +196,7 @@ const MacroStatsPage: React.FC<MacroStatsPageProps> = ({ onNavigate }) => {
                         Макростатистика
                     </h1>
                     <p style={{ fontSize: '14px', color: '#666', marginBottom: '24px' }}>
-                        Ключевые макро‑показатели: инфляция, ключевая ставка, курсы валют и другое.
+                        Ключевые макро‑показатели: инфляция, ставка ЦБ, вклады и курсы валют.
                     </p>
                     {error && (
                         <p style={{ fontSize: '13px', color: '#b91c1c', marginBottom: '16px' }}>
@@ -155,12 +218,12 @@ const MacroStatsPage: React.FC<MacroStatsPageProps> = ({ onNavigate }) => {
                         <div style={{ gridColumn: '1 / -1', color: '#64748B', fontSize: '14px' }}>
                             Загрузка показателей…
                         </div>
-                    ) : latest.length === 0 && !error ? (
+                    ) : visibleLatest.length === 0 && !error ? (
                         <div style={{ gridColumn: '1 / -1', color: '#64748B', fontSize: '14px' }}>
                             Нет данных. Проверь авторизацию или что бэк отдаёт /api/pfp/macro/latest.
                         </div>
                     ) : (
-                        latest.map((item) => (
+                        visibleLatest.map((item) => (
                             <div
                                 key={item.slug}
                                 onClick={() => setSelectedSlug(item.slug)}
@@ -215,7 +278,7 @@ const MacroStatsPage: React.FC<MacroStatsPageProps> = ({ onNavigate }) => {
                                     minWidth: '220px',
                                 }}
                             >
-                                {latest.map((item) => (
+                                {visibleLatest.map((item) => (
                                     <option key={item.slug} value={item.slug}>
                                         {item.name}
                                     </option>
