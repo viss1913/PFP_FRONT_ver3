@@ -1,11 +1,24 @@
 import React from 'react';
 import Header from '../components/Header';
+import NewsFeedCard from '../components/news/NewsFeedCard';
+import NewsFeedSkeleton from '../components/news/NewsFeedSkeleton';
+import NewsQuietState from '../components/news/NewsQuietState';
+import { useNewsFeed } from '../hooks/useNewsFeed';
 
 interface NewsPageProps {
     onNavigate: (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings') => void;
 }
 
+const DISCLAIMER =
+    'Материал носит ознакомительный характер и не является индивидуальной инвестиционной рекомендацией.';
+
 const NewsPage: React.FC<NewsPageProps> = ({ onNavigate }) => {
+    const { data, loading, error } = useNewsFeed();
+
+    const showQuiet =
+        !loading && !error && (data?.quiet === true || (data && !data.quiet && data.items.length === 0));
+    const showItems = !loading && !error && data && data.items.length > 0 && !data.quiet;
+
     return (
         <div style={{ minHeight: '100vh', background: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
             <Header activePage="news" onNavigate={onNavigate} />
@@ -30,25 +43,39 @@ const NewsPage: React.FC<NewsPageProps> = ({ onNavigate }) => {
                         textAlign: 'left',
                     }}
                 >
-                    <h1 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '12px', color: '#111' }}>
-                        Новости
+                    <h1 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '8px', color: '#111' }}>
+                        Важное сегодня
                     </h1>
                     <p style={{ fontSize: '14px', color: '#666', marginBottom: '24px' }}>
-                        Здесь скоро появятся новости, обзоры и аналитика для агентов и их клиентов.
+                        Что обсудить с клиентом
                     </p>
-                    <div
+
+                    {error && (
+                        <p style={{ fontSize: '13px', color: '#b91c1c', marginBottom: '16px' }}>{error}</p>
+                    )}
+
+                    {loading && <NewsFeedSkeleton />}
+
+                    {showQuiet && <NewsQuietState message={data?.message} />}
+
+                    {showItems && (
+                        <div>
+                            {data!.items.map((item) => (
+                                <NewsFeedCard key={item.id} item={item} />
+                            ))}
+                        </div>
+                    )}
+
+                    <p
                         style={{
-                            borderRadius: '18px',
-                            border: '1px dashed #e5e7eb',
-                            padding: '20px',
-                            background: '#faf5ff',
-                            color: '#4b5563',
-                            fontSize: '14px',
+                            marginTop: '24px',
+                            fontSize: '12px',
+                            color: '#9ca3af',
+                            lineHeight: 1.5,
                         }}
                     >
-                        Макет раздела готов. Как только бэкенд будет отдавать ленту новостей, сюда можно будет
-                        подключить реальные данные.
-                    </div>
+                        {DISCLAIMER}
+                    </p>
                 </div>
             </main>
         </div>
@@ -56,4 +83,3 @@ const NewsPage: React.FC<NewsPageProps> = ({ onNavigate }) => {
 };
 
 export default NewsPage;
-
