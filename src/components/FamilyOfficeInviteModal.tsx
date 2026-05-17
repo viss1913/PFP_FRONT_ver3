@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Mail, Phone, User } from 'lucide-react';
+import { X, Mail, Phone, User, UserPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     agentLkApi,
@@ -14,6 +14,7 @@ import {
     getPhoneInputCaretPosition,
     hasCompleteRussianPhone,
 } from '../utils/phone';
+import './FamilyOfficeInviteModal.css';
 
 interface FamilyOfficeInviteModalProps {
     isOpen: boolean;
@@ -151,144 +152,92 @@ const FamilyOfficeInviteModal: React.FC<FamilyOfficeInviteModalProps> = ({
         <AnimatePresence>
             {isOpen && (
                 <motion.div
+                    className="fo-invite-overlay"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     onClick={onClose}
-                    style={{
-                        position: 'fixed',
-                        inset: 0,
-                        background: 'rgba(0,0,0,0.5)',
-                        backdropFilter: 'blur(5px)',
-                        zIndex: 1100,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '20px',
-                    }}
                 >
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                        className="fo-invite-modal"
+                        initial={{ opacity: 0, scale: 0.96, y: 16 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                        exit={{ opacity: 0, scale: 0.96, y: 16 }}
                         onClick={(e) => e.stopPropagation()}
-                        className="premium-card"
-                        style={{
-                            width: '100%',
-                            maxWidth: '520px',
-                            maxHeight: '90vh',
-                            overflowY: 'auto',
-                            position: 'relative',
-                        }}
                     >
                         <button
                             type="button"
+                            className="fo-invite-modal__close"
                             onClick={onClose}
-                            style={{
-                                position: 'absolute',
-                                top: '20px',
-                                right: '20px',
-                                background: 'transparent',
-                                border: 'none',
-                                color: 'var(--text-muted)',
-                                cursor: 'pointer',
-                            }}
+                            aria-label="Закрыть"
                         >
-                            <X size={24} />
+                            <X size={20} />
                         </button>
 
-                        <h2 style={{ fontSize: '22px', marginBottom: '8px', paddingRight: '32px' }}>
-                            Пригласить в Family Office
-                        </h2>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '24px' }}>
-                            Субагент получит письмо со ссылкой для активации аккаунта.
-                        </p>
+                        <header className="fo-invite-modal__header">
+                            <div className="fo-invite-modal__icon">
+                                <UserPlus size={24} strokeWidth={2} />
+                            </div>
+                            <div>
+                                <h2 className="fo-invite-modal__title">Пригласить в Family Office</h2>
+                                <p className="fo-invite-modal__subtitle">
+                                    Субагент получит письмо со ссылкой для активации аккаунта.
+                                </p>
+                            </div>
+                        </header>
 
                         {success ? (
-                            <motion.div
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                style={{
-                                    padding: '16px',
-                                    borderRadius: '12px',
-                                    background: 'rgba(34, 197, 94, 0.12)',
-                                    border: '1px solid rgba(34, 197, 94, 0.35)',
-                                    marginBottom: '20px',
-                                }}
-                            >
-                                <p style={{ margin: 0, fontWeight: 600, color: '#86efac' }}>
-                                    Письмо отправлено
-                                </p>
-                                <p style={{ margin: '8px 0 0', fontSize: '14px', color: 'var(--text-muted)' }}>
-                                    На <strong style={{ color: '#fff' }}>{success.email}</strong>
-                                    {success.expires_at && (
-                                        <>
-                                            {' '}
-                                            · действует до {formatExpiresAt(success.expires_at)}
-                                        </>
-                                    )}
-                                </p>
-                            </motion.div>
+                            <>
+                                <div className="fo-invite-alert fo-invite-alert--success">
+                                    <p style={{ margin: 0, fontWeight: 600 }}>Письмо отправлено</p>
+                                    <p style={{ margin: '8px 0 0', fontSize: '14px' }}>
+                                        На <strong>{success.email}</strong>
+                                        {success.expires_at && (
+                                            <> · действует до {formatExpiresAt(success.expires_at)}</>
+                                        )}
+                                    </p>
+                                </div>
+                                <button type="button" className="btn-primary" onClick={onClose}>
+                                    Закрыть
+                                </button>
+                            </>
                         ) : (
                             <form onSubmit={handleSubmit}>
                                 {error && (
-                                    <div
-                                        style={{
-                                            padding: '12px 16px',
-                                            borderRadius: '12px',
-                                            background: 'rgba(239, 68, 68, 0.12)',
-                                            border: '1px solid rgba(239, 68, 68, 0.35)',
-                                            color: '#fca5a5',
-                                            fontSize: '14px',
-                                            marginBottom: '16px',
-                                        }}
-                                    >
-                                        {error}
-                                    </div>
+                                    <div className="fo-invite-alert fo-invite-alert--error">{error}</div>
                                 )}
 
-                                <div className="input-group">
-                                    <label className="label">Email</label>
-                                    <div style={{ position: 'relative' }}>
-                                        <Mail
-                                            size={18}
-                                            style={{
-                                                position: 'absolute',
-                                                left: '12px',
-                                                top: '50%',
-                                                transform: 'translateY(-50%)',
-                                                color: 'var(--text-muted)',
-                                            }}
-                                        />
+                                <div className="fo-invite-group">
+                                    <label className="label" htmlFor="fo-invite-email">
+                                        Email
+                                    </label>
+                                    <div className="fo-invite-field-wrap">
+                                        <Mail className="fo-invite-field-wrap__icon" size={18} />
                                         <input
+                                            id="fo-invite-email"
                                             type="email"
+                                            className="fo-invite-field fo-invite-field--icon"
                                             value={form.email}
                                             onChange={(e) =>
                                                 setForm((prev) => ({ ...prev, email: e.target.value }))
                                             }
                                             placeholder="ivan@example.com"
-                                            style={{ paddingLeft: '40px' }}
                                             required
                                         />
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                    <div className="input-group">
-                                        <label className="label">Имя</label>
-                                        <div style={{ position: 'relative' }}>
-                                            <User
-                                                size={18}
-                                                style={{
-                                                    position: 'absolute',
-                                                    left: '12px',
-                                                    top: '50%',
-                                                    transform: 'translateY(-50%)',
-                                                    color: 'var(--text-muted)',
-                                                }}
-                                            />
+                                <div className="fo-invite-modal__grid-2">
+                                    <div className="fo-invite-group">
+                                        <label className="label" htmlFor="fo-invite-first">
+                                            Имя
+                                        </label>
+                                        <div className="fo-invite-field-wrap">
+                                            <User className="fo-invite-field-wrap__icon" size={18} />
                                             <input
+                                                id="fo-invite-first"
                                                 type="text"
+                                                className="fo-invite-field fo-invite-field--icon"
                                                 value={form.first_name}
                                                 onChange={(e) =>
                                                     setForm((prev) => ({
@@ -296,15 +245,18 @@ const FamilyOfficeInviteModal: React.FC<FamilyOfficeInviteModalProps> = ({
                                                         first_name: e.target.value,
                                                     }))
                                                 }
-                                                style={{ paddingLeft: '40px' }}
                                                 required
                                             />
                                         </div>
                                     </div>
-                                    <div className="input-group">
-                                        <label className="label">Фамилия</label>
+                                    <div className="fo-invite-group">
+                                        <label className="label" htmlFor="fo-invite-last">
+                                            Фамилия
+                                        </label>
                                         <input
+                                            id="fo-invite-last"
                                             type="text"
+                                            className="fo-invite-field"
                                             value={form.last_name}
                                             onChange={(e) =>
                                                 setForm((prev) => ({
@@ -317,36 +269,34 @@ const FamilyOfficeInviteModal: React.FC<FamilyOfficeInviteModalProps> = ({
                                     </div>
                                 </div>
 
-                                <div className="input-group">
-                                    <label className="label">Телефон</label>
-                                    <div style={{ position: 'relative' }}>
-                                        <Phone
-                                            size={18}
-                                            style={{
-                                                position: 'absolute',
-                                                left: '12px',
-                                                top: '50%',
-                                                transform: 'translateY(-50%)',
-                                                color: 'var(--text-muted)',
-                                            }}
-                                        />
+                                <div className="fo-invite-group">
+                                    <label className="label" htmlFor="fo-invite-phone">
+                                        Телефон
+                                    </label>
+                                    <div className="fo-invite-field-wrap">
+                                        <Phone className="fo-invite-field-wrap__icon" size={18} />
                                         <input
+                                            id="fo-invite-phone"
                                             type="tel"
+                                            className="fo-invite-field fo-invite-field--icon"
                                             value={form.phone}
                                             onChange={handlePhoneChange}
                                             onFocus={handlePhoneFocus}
                                             placeholder={PHONE_PLACEHOLDER}
-                                            style={{ paddingLeft: '40px' }}
                                             required
                                         />
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                    <div className="input-group">
-                                        <label className="label">Дата рождения</label>
+                                <div className="fo-invite-modal__grid-2">
+                                    <div className="fo-invite-group">
+                                        <label className="label" htmlFor="fo-invite-birth">
+                                            Дата рождения
+                                        </label>
                                         <input
+                                            id="fo-invite-birth"
                                             type="date"
+                                            className="fo-invite-field fo-invite-field--date"
                                             value={form.birth_date ?? ''}
                                             onChange={(e) =>
                                                 setForm((prev) => ({
@@ -356,9 +306,13 @@ const FamilyOfficeInviteModal: React.FC<FamilyOfficeInviteModalProps> = ({
                                             }
                                         />
                                     </div>
-                                    <div className="input-group">
-                                        <label className="label">Пол</label>
+                                    <div className="fo-invite-group">
+                                        <label className="label" htmlFor="fo-invite-gender">
+                                            Пол
+                                        </label>
                                         <select
+                                            id="fo-invite-gender"
+                                            className="fo-invite-field fo-invite-field--select"
                                             value={form.gender ?? ''}
                                             onChange={(e) =>
                                                 setForm((prev) => ({
@@ -366,14 +320,6 @@ const FamilyOfficeInviteModal: React.FC<FamilyOfficeInviteModalProps> = ({
                                                     gender: e.target.value,
                                                 }))
                                             }
-                                            style={{
-                                                width: '100%',
-                                                padding: '12px 16px',
-                                                borderRadius: '12px',
-                                                background: 'rgba(255,255,255,0.05)',
-                                                border: '1px solid rgba(255,255,255,0.1)',
-                                                color: '#fff',
-                                            }}
                                         >
                                             <option value="">Не указан</option>
                                             <option value="male">Мужской</option>
@@ -382,9 +328,13 @@ const FamilyOfficeInviteModal: React.FC<FamilyOfficeInviteModalProps> = ({
                                     </div>
                                 </div>
 
-                                <div className="input-group">
-                                    <label className="label">Комментарий (необязательно)</label>
+                                <div className="fo-invite-group">
+                                    <label className="label" htmlFor="fo-invite-note">
+                                        Комментарий (необязательно)
+                                    </label>
                                     <textarea
+                                        id="fo-invite-note"
+                                        className="fo-invite-field fo-invite-field--textarea"
                                         value={form.source_note ?? ''}
                                         onChange={(e) =>
                                             setForm((prev) => ({
@@ -393,58 +343,24 @@ const FamilyOfficeInviteModal: React.FC<FamilyOfficeInviteModalProps> = ({
                                             }))
                                         }
                                         placeholder="Демо ПФП, источник лида…"
-                                        rows={2}
-                                        style={{
-                                            width: '100%',
-                                            padding: '12px 16px',
-                                            borderRadius: '12px',
-                                            background: 'rgba(255,255,255,0.05)',
-                                            border: '1px solid rgba(255,255,255,0.1)',
-                                            color: '#fff',
-                                            resize: 'vertical',
-                                        }}
+                                        rows={3}
                                     />
                                 </div>
 
-                                <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                                <div className="fo-invite-actions">
                                     <button
                                         type="button"
+                                        className="fo-invite-btn-cancel"
                                         onClick={onClose}
                                         disabled={loading}
-                                        style={{
-                                            flex: 1,
-                                            padding: '12px',
-                                            borderRadius: '12px',
-                                            background: 'rgba(255,255,255,0.1)',
-                                            color: '#fff',
-                                            border: 'none',
-                                            fontWeight: 600,
-                                            cursor: loading ? 'not-allowed' : 'pointer',
-                                        }}
                                     >
                                         Отмена
                                     </button>
-                                    <button
-                                        type="submit"
-                                        className="btn-primary"
-                                        style={{ flex: 2 }}
-                                        disabled={loading}
-                                    >
+                                    <button type="submit" className="btn-primary" disabled={loading}>
                                         {loading ? 'Отправка…' : 'Отправить приглашение'}
                                     </button>
                                 </div>
                             </form>
-                        )}
-
-                        {success && (
-                            <button
-                                type="button"
-                                className="btn-primary"
-                                style={{ width: '100%' }}
-                                onClick={onClose}
-                            >
-                                Закрыть
-                            </button>
                         )}
                     </motion.div>
                 </motion.div>
