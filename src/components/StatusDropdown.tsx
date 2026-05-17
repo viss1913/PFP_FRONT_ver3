@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ChevronDown, Check, Clock, XCircle, RefreshCw, Loader2 } from 'lucide-react';
 import type { ClientStatus } from '../types/client';
 import { clientApi } from '../api/clientApi';
+import { CRM_STATUS_COLORS, CRM_STATUS_LABELS, CRM_STATUS_ORDER } from '../constants/crmStatus';
 
 interface StatusDropdownProps {
     clientId?: number;
@@ -10,12 +11,22 @@ interface StatusDropdownProps {
     onOpenChange?: (isOpen: boolean) => void;
 }
 
-const STATUS_CONFIG: Record<ClientStatus, { label: string; color: string; icon: React.ReactNode }> = {
-    'THINKING': { label: 'Думает', color: '#FFA500', icon: <Clock size={16} /> },
-    'BOUGHT': { label: 'Купил', color: '#22C55E', icon: <Check size={16} /> },
-    'REFUSED': { label: 'Отказался', color: '#EF4444', icon: <XCircle size={16} /> },
-    'RENEWAL': { label: 'Продление', color: '#3B82F6', icon: <RefreshCw size={16} /> }
+const STATUS_ICONS: Record<ClientStatus, React.ReactNode> = {
+    THINKING: <Clock size={16} />,
+    BOUGHT: <Check size={16} />,
+    REFUSED: <XCircle size={16} />,
+    RENEWAL: <RefreshCw size={16} />,
 };
+
+const STATUS_CONFIG: Record<ClientStatus, { label: string; color: string; icon: React.ReactNode }> =
+    CRM_STATUS_ORDER.reduce((acc, key) => {
+        acc[key] = {
+            label: CRM_STATUS_LABELS[key],
+            color: CRM_STATUS_COLORS[key],
+            icon: STATUS_ICONS[key],
+        };
+        return acc;
+    }, {} as Record<ClientStatus, { label: string; color: string; icon: React.ReactNode }>);
 
 const StatusDropdown: React.FC<StatusDropdownProps> = ({ clientId, currentStatus = 'THINKING', onStatusChange, onOpenChange }) => {
     const [isOpen, setIsOpen] = useState(false);

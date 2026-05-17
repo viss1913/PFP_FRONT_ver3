@@ -862,6 +862,96 @@ export function getFamilyOfficeInviteErrorMessage(error: unknown): string {
     return 'Не удалось отправить приглашение';
 }
 
+export type SubagentCrmStatus = 'THINKING' | 'BOUGHT' | 'REFUSED' | 'RENEWAL';
+
+export type SubagentCrmCounts = Partial<Record<SubagentCrmStatus, number>>;
+
+export interface SubagentMetrics {
+    clients_count?: number;
+    clients_with_plan_count?: number;
+    nsj_annual_premium_rub?: number;
+    nsj_contract_premium_rub?: number;
+    nsj_clients_count?: number;
+    investment_capital_rub?: number;
+    avg_term_months?: number | null;
+    crm?: SubagentCrmCounts;
+    last_client_at?: string | null;
+}
+
+export interface SubagentDashboardSummary {
+    subagents_count: number;
+    clients_count: number;
+    clients_with_plan_count: number;
+    nsj_annual_premium_rub: number;
+    nsj_contract_premium_rub: number;
+    nsj_clients_count: number;
+    investment_capital_rub: number;
+    avg_term_months: number | null;
+}
+
+export interface SubagentDashboardRow {
+    id: number;
+    uuid?: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    partner_agent_id?: string | null;
+    referral_slug?: string | null;
+    is_active: boolean;
+    clients_count?: number;
+    created_at: string;
+    metrics?: SubagentMetrics;
+}
+
+export interface SubagentDashboardResponse {
+    enabled: boolean;
+    summary: SubagentDashboardSummary;
+    data: SubagentDashboardRow[];
+}
+
+export class SubagentNetworkDisabledError extends Error {
+    constructor() {
+        super('Агентская сеть отключена в этом проекте');
+        this.name = 'SubagentNetworkDisabledError';
+    }
+}
+
+export function isSubagentNetworkDisabledError(error: unknown): boolean {
+    return error instanceof SubagentNetworkDisabledError
+        || (axios.isAxiosError(error) && error.response?.status === 403);
+}
+
+export interface AgentInviteLinkResponse {
+    url: string;
+    referral_slug?: string;
+    ref?: string;
+}
+
+export interface SubagentInviteEmailRequest {
+    to_email: string;
+    recipient_name?: string;
+}
+
+export interface SubagentInviteEmailResponse {
+    message?: string;
+    to_email: string;
+    url?: string;
+    referral_slug?: string;
+    ref?: string;
+}
+
+export function getSubagentInviteErrorMessage(error: unknown): string {
+    if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        const data = error.response?.data as { message?: string } | undefined;
+        const backendMessage = typeof data?.message === 'string' ? data.message : undefined;
+        if (status === 400) return backendMessage || 'Некорректный email';
+        if (status === 502) return backendMessage || 'Не удалось отправить письмо';
+        if (backendMessage) return backendMessage;
+    }
+    return 'Не удалось отправить приглашение';
+}
+
 export const agentLkApi = {
     getProducts: async (includeDefaults = true): Promise<AgentProduct[]> => {
         const response = await axios.get(`${API_BASE}/products`, {
@@ -1892,6 +1982,46 @@ export const agentLkApi = {
         const response = await axios.post<PartnerIdWizardResponse>(
             `${API_BASE}/agents/me/partner-id-wizard`,
             body,
+            { headers: getHeaders() },
+        );
+        return response.data;
+    },
+
+    getSubagentsDashboard: async (): Promise<SubagentDashboardResponse> => {
+        try {
+            const response = await axios.get<SubagentDashboardResponse>(
+                `${API_BASE}/agents/me/subagents/dashboard`,
+                { headers: getHeaders() },
+            );
+            return response.data;
+        } catch (error) {
+            if (axios.isAxiosError(error) && error.response?.status === 403) {
+                throw new SubagentNetworkDisabledError();
+            }
+            throw error;
+        }
+    },
+
+    getAgentInviteLink: async (): Promise<AgentInviteLinkResponse> => {
+        const response = await axios.get<AgentInviteLinkResponse>(
+            `${API_BASE}/agents/me/invite-link`,
+            { headers: getHeaders() },
+        );
+        return response.data;
+    },
+
+    sendSubagentInviteEmail: async (
+        body: SubagentInviteEmailRequest,
+    ): Promise<SubagentInviteEmailResponse> => {
+        const payload: SubagentInviteEmailRequest = {
+            to_email: body.to_email.trim(),
+        };
+        if (body.recipient_name?.trim()) {
+            payload.recipient_name = body.recipient_name.trim();
+        }
+        const response = await axios.post<SubagentInviteEmailResponse>(
+            `${API_BASE}/agents/me/subagent-invite/send-email`,
+            payload,
             { headers: getHeaders() },
         );
         return response.data;
