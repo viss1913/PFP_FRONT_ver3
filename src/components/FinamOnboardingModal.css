@@ -1,0 +1,161 @@
+.finam-onboard-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(8px);
+    pointer-events: auto;
+}
+
+.finam-onboard-modal {
+    width: 100%;
+    max-width: 640px;
+    padding: 28px 32px 24px;
+    border-radius: 20px;
+    background: #fff;
+    border: 1px solid var(--border-color, #e5e7eb);
+    box-shadow: 0 24px 64px rgba(15, 23, 42, 0.18);
+}
+
+.finam-onboard-modal:hover {
+    transform: none;
+}
+
+.finam-onboard-hero {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 24px;
+}
+
+.finam-onboard-avatar {
+    width: 96px;
+    height: 96px;
+    min-width: 96px;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    background: #fff;
+}
+
+.finam-onboard-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.finam-onboard-bubble {
+    flex: 1;
+    background: #f8fafc;
+    border-radius: 20px;
+    border-top-left-radius: 4px;
+    padding: 20px 24px;
+    font-size: 16px;
+    line-height: 1.55;
+    color: var(--text-main, #1f2937);
+    font-weight: 500;
+}
+
+.finam-onboard-field {
+    margin-bottom: 16px;
+}
+
+.finam-onboard-field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted, #6b7280);
+    margin-bottom: 8px;
+}
+
+.finam-onboard-field input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 10px;
+    font-size: 14px;
+    color: var(--text-main, #1f2937);
+    background: #fff;
+    box-sizing: border-box;
+}
+
+.finam-onboard-field input:focus {
+    outline: none;
+    border-color: var(--primary, #ffc750);
+    box-shadow: 0 0 0 3px rgba(255, 199, 80, 0.25);
+}
+
+.finam-onboard-error {
+    margin-bottom: 12px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: #fef2f2;
+    color: #b91c1c;
+    font-size: 14px;
+}
+
+.finam-onboard-referral {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    font-size: 13px;
+    color: #166534;
+    word-break: break-all;
+}
+
+.finam-onboard-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.finam-onboard-btn {
+    width: 100%;
+    padding: 14px 20px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: opacity 0.15s;
+}
+
+.finam-onboard-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.finam-onboard-btn--primary {
+    background: var(--primary, #ffc750);
+    color: #000;
+}
+
+.finam-onboard-btn--secondary {
+    background: transparent;
+    color: var(--text-muted, #6b7280);
+    border: 1px solid var(--border-color, #e5e7eb);
+}
+
+.finam-onboard-btn--ghost {
+    background: transparent;
+    color: var(--text-muted, #6b7280);
+}
+
+@media (max-width: 520px) {
+    .finam-onboard-hero {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .finam-onboard-bubble {
+        border-top-left-radius: 20px;
+        text-align: center;
+    }
+}

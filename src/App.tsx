@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import './App.css'
 import LoginPage from './components/LoginPage'
+import LkFinamGate from './components/LkFinamGate'
+import { useAgentProfile } from './context/AgentProfileContext'
 import CJMFlow from './components/CJMFlow'
 import ResultPage from './components/ResultPage'
 import ResultPageTest from './components/ResultPageTest'
@@ -37,6 +39,27 @@ type Page =
     | 'news'
     | 'macro'
     | 'settings'
+
+const LK_PAGES: Page[] = [
+    'list',
+    'cjm',
+    'edit',
+    'result',
+    'ai-assistant',
+    'ai-agent',
+    'news',
+    'macro',
+    'settings',
+]
+
+function LoginPageConnected({ onLoginSuccess }: { onLoginSuccess: () => void }) {
+    const { refreshProfile } = useAgentProfile()
+    const handleSuccess = async () => {
+        await refreshProfile()
+        onLoginSuccess()
+    }
+    return <LoginPage onLoginSuccess={handleSuccess} />
+}
 
 function getInitialPage(): Page {
     const params = new URLSearchParams(window.location.search)
@@ -315,6 +338,8 @@ function App() {
         return <HtmlReportPreviewPage />;
     }
 
+    const lkGateEnabled = LK_PAGES.includes(currentPage)
+
     return (
         <div className="app-container">
             {currentPage === 'landing' && (
@@ -323,8 +348,9 @@ function App() {
 
             {currentPage === 'privacy' && <PrivacyPolicyPage onBackHome={goToLanding} />}
 
-            {currentPage === 'login' && <LoginPage onLoginSuccess={handleLoginSuccess} />}
+            {currentPage === 'login' && <LoginPageConnected onLoginSuccess={handleLoginSuccess} />}
 
+            <LkFinamGate enabled={lkGateEnabled}>
             {currentPage === 'ai-assistant' && (
                 <AiAssistantPage onNavigate={handleNavigate} />
             )}
@@ -434,6 +460,7 @@ function App() {
             )}
 
             {currentPage === 'test' && <ResultPageTest />}
+            </LkFinamGate>
         </div>
     )
 }

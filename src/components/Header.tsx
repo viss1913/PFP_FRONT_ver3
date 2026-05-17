@@ -1,5 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { User, ChevronDown } from 'lucide-react';
+import {
+    isFinamOnboardingDismissed,
+    useAgentProfileOptional,
+} from '../context/AgentProfileContext';
 
 type NavPage = 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings';
 
@@ -12,6 +16,10 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ activePage = 'crm', onNavigate, onLogout }) => {
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const profileMenuRef = useRef<HTMLDivElement | null>(null);
+    const agentProfile = useAgentProfileOptional();
+    const showFinamBanner =
+        agentProfile?.isLimitedAccess === true &&
+        isFinamOnboardingDismissed(agentProfile.profile?.agentId);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -58,6 +66,41 @@ const Header: React.FC<HeaderProps> = ({ activePage = 'crm', onNavigate, onLogou
     });
 
     return (
+        <>
+        {showFinamBanner && (
+            <div
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '16px',
+                    flexWrap: 'wrap',
+                    padding: '10px 32px',
+                    background: '#fffbeb',
+                    borderBottom: '1px solid #fde68a',
+                    fontSize: '14px',
+                    color: '#92400e',
+                }}
+            >
+                <span>Полный доступ — укажите Finam ID</span>
+                <button
+                    type="button"
+                    onClick={() => agentProfile?.openPasteLinkWizard()}
+                    style={{
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '8px 14px',
+                        background: 'var(--primary, #ffc750)',
+                        color: '#000',
+                        fontWeight: 600,
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                    }}
+                >
+                    Указать Finam ID
+                </button>
+            </div>
+        )}
         <header style={{
             height: '64px',
             background: '#fff',
@@ -175,6 +218,7 @@ const Header: React.FC<HeaderProps> = ({ activePage = 'crm', onNavigate, onLogou
                 )}
             </div>
         </header>
+        </>
     );
 };
 

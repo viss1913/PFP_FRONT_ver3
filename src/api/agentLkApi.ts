@@ -1,11 +1,29 @@
 import axios from 'axios';
 import type { PortfolioRiskProfileType } from '../constants/portfolioRiskProfiles';
+import type { AgentMeProfileFields } from './authApi';
 import { API_BASE_URL } from './config';
+import { PROJECT_KEY } from './projectKey';
 
 const API_BASE = `${API_BASE_URL}/api/pfp`;
 
-/** Ключ проекта для мультитенантности (настройки, продукты, портфели — привязаны к проекту). */
-const PROJECT_KEY = 'pk_proj_0e9fdde1e8cd961121906f04507af06e4afec281a58012c4';
+export type PartnerIdWizardAction = 'set' | 'skip';
+
+export interface PartnerIdWizardSetRequest {
+    action: 'set';
+    partner_agent_id?: string;
+    partner_ref_url?: string;
+}
+
+export interface PartnerIdWizardSkipRequest {
+    action: 'skip';
+}
+
+export type PartnerIdWizardRequest = PartnerIdWizardSetRequest | PartnerIdWizardSkipRequest;
+
+export interface PartnerIdWizardResponse extends AgentMeProfileFields {
+    message?: string;
+    action?: PartnerIdWizardAction;
+}
 
 const getHeaders = () => {
     const token = localStorage.getItem('token');
@@ -1863,6 +1881,17 @@ export const agentLkApi = {
         const response = await axios.post<FamilyOfficeInviteResponse>(
             `${API_BASE}/agents/me/family-office-invite`,
             payload,
+            { headers: getHeaders() },
+        );
+        return response.data;
+    },
+
+    submitPartnerIdWizard: async (
+        body: PartnerIdWizardRequest,
+    ): Promise<PartnerIdWizardResponse> => {
+        const response = await axios.post<PartnerIdWizardResponse>(
+            `${API_BASE}/agents/me/partner-id-wizard`,
+            body,
             { headers: getHeaders() },
         );
         return response.data;
