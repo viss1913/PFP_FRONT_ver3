@@ -457,32 +457,8 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
                 onClose={() => setIsProductsModalOpen(false)}
             />
             {isChatOpen && (
-                <div
-                    onClick={() => setIsChatOpen(false)}
-                    style={{
-                        position: 'fixed',
-                        inset: 0,
-                        background: 'rgba(15,23,42,0.45)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 1200,
-                        padding: '16px',
-                    }}
-                >
-                    <div
-                        onClick={(e) => e.stopPropagation()}
-                        style={{
-                            width: 'min(760px, 100%)',
-                            height: 'min(560px, 90vh)',
-                            background: '#fff',
-                            borderRadius: '24px',
-                            boxShadow: '0 24px 80px rgba(15,23,42,0.35)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            overflow: 'hidden',
-                        }}
-                    >
+                <div onClick={() => setIsChatOpen(false)} className="pfp-ai-chat-overlay">
+                    <div onClick={(e) => e.stopPropagation()} className="pfp-ai-chat-panel">
                         <div
                             style={{
                                 padding: '16px 20px',

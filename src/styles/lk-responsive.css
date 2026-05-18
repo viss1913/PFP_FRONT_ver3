@@ -743,3 +743,442 @@ body.lk-nav-open {
         align-items: flex-end;
     }
 }
+
+/* ——— Settings tabs (PDF report etc.) ——— */
+.lk-settings-tabs {
+    background: #fff;
+    border-radius: 20px;
+    padding: 8px;
+    display: inline-flex;
+    gap: 6px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+    margin-bottom: 24px;
+    max-width: 100%;
+}
+
+@media (max-width: 767px) {
+    .lk-settings-tabs {
+        display: flex;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap;
+    }
+
+    .lk-settings-tabs button {
+        flex-shrink: 0;
+    }
+}
+
+.pdf-report-layout {
+    display: flex;
+    gap: 28px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.pdf-report-layout__nav {
+    flex-shrink: 0;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.pdf-report-layout__content {
+    flex: 1;
+    min-width: min(100%, 320px);
+}
+
+@media (max-width: 767px) {
+    .pdf-report-layout {
+        flex-direction: column;
+    }
+
+    .pdf-report-layout__nav {
+        width: 100%;
+        min-width: 0;
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .pdf-report-layout__content {
+        width: 100%;
+    }
+}
+
+/* ——— Report preview shell (PDF / HTML) ——— */
+.report-preview-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    background: rgba(0, 0, 0, 0.65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+@media (max-width: 767px) {
+    .report-preview-overlay {
+        padding: 0;
+        align-items: stretch;
+    }
+}
+
+.report-preview-root {
+    min-height: 100vh;
+    background: #f3f4f6;
+    padding: 16px;
+    max-width: 100vw;
+    overflow-x: hidden;
+    box-sizing: border-box;
+}
+
+@media (max-width: 767px) {
+    .report-preview-root {
+        padding: 0;
+        min-height: 100dvh;
+    }
+}
+
+.report-preview-panel {
+    width: min(1920px, 98vw);
+    height: 94vh;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 16px;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.25);
+    max-width: 100%;
+    min-width: 0;
+}
+
+@media (max-width: 767px) {
+    .report-preview-panel {
+        width: 100%;
+        height: 100dvh;
+        max-height: 100dvh;
+        border-radius: 0;
+        margin: 0;
+        box-shadow: none;
+    }
+}
+
+.report-preview-header {
+    border-bottom: 1px solid #eee;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.report-preview-header__title {
+    min-width: 0;
+    flex: 1 1 200px;
+}
+
+.report-preview-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    min-width: 0;
+}
+
+@media (max-width: 767px) {
+    .report-preview-toolbar {
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .report-preview-toolbar button {
+        flex: 1 1 calc(50% - 5px);
+        min-width: 0;
+        justify-content: center;
+    }
+}
+
+.report-preview-body {
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) 1fr;
+    min-height: 0;
+    min-width: 0;
+}
+
+@media (max-width: 767px) {
+    .report-preview-body {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+    }
+}
+
+.report-preview-toc {
+    border-right: 1px solid #eee;
+    padding: 14px;
+    overflow-y: auto;
+    min-width: 0;
+}
+
+@media (max-width: 767px) {
+    .report-preview-toc {
+        border-right: none;
+        border-bottom: 1px solid #eee;
+        max-height: 38vh;
+    }
+}
+
+.report-preview-main {
+    background: #f9fafb;
+    padding: 14px;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.report-preview-viewer {
+    height: 100%;
+    border-radius: 14px;
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+    background: #fff;
+    position: relative;
+    min-width: 0;
+}
+
+.report-preview-viewer-scroll {
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: auto;
+    padding: 16px;
+    background: #f3f4f6;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.report-preview-iframe {
+    width: 100%;
+    max-width: 100%;
+    border: none;
+    display: block;
+}
+
+.report-preview-footer {
+    border-top: 1px solid #eee;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.report-preview-footer__status {
+    color: #6b7280;
+    font-size: 14px;
+    text-align: center;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+@media (max-width: 767px) {
+    .report-preview-footer {
+        flex-direction: column;
+    }
+
+    .report-preview-footer button {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .report-preview-footer__status {
+        order: -1;
+        width: 100%;
+    }
+}
+
+/* ——— PFP result page ——— */
+.pfp-result-back {
+    padding: 24px 32px 0;
+}
+
+@media (max-width: 767px) {
+    .pfp-result-back {
+        padding: 16px 16px 0;
+    }
+}
+
+.pfp-result-shell {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 40px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+@media (max-width: 767px) {
+    .pfp-result-shell {
+        padding: 16px;
+    }
+}
+
+.pfp-ai-preview-row {
+    display: flex;
+    gap: 16px;
+    width: 100%;
+    align-items: flex-start;
+}
+
+.pfp-ai-preview-bubble {
+    flex: 1;
+    min-width: 0;
+    background: #f3f4f6;
+    border-radius: 16px;
+    border-top-left-radius: 4px;
+    padding: 16px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #1f2937;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
+.pfp-family-budget-row {
+    display: grid;
+    grid-template-columns: minmax(100px, 180px) 1fr auto;
+    align-items: center;
+    gap: 10px;
+}
+
+.pfp-family-budget-row__label {
+    font-size: 11px;
+    color: #64748b;
+    line-height: 1.1;
+    min-width: 0;
+}
+
+.pfp-family-budget-row__bar {
+    width: 100%;
+    height: 12px;
+    background: rgba(148, 163, 184, 0.22);
+    border-radius: 999px;
+    overflow: hidden;
+    min-width: 0;
+}
+
+.pfp-family-budget-row__amount {
+    font-size: 12px;
+    color: #334155;
+    font-weight: 700;
+    min-width: 88px;
+    text-align: right;
+}
+
+@media (max-width: 767px) {
+    .pfp-family-budget-row {
+        grid-template-columns: 1fr auto;
+        grid-template-rows: auto auto;
+        gap: 6px 10px;
+    }
+
+    .pfp-family-budget-row__label {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    .pfp-family-budget-row__amount {
+        grid-column: 2;
+        grid-row: 1;
+        min-width: 0;
+    }
+
+    .pfp-family-budget-row__bar {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+}
+
+/* ——— PFP AI chat modal ——— */
+.pfp-ai-chat-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1200;
+    padding: 16px;
+    box-sizing: border-box;
+}
+
+@media (max-width: 767px) {
+    .pfp-ai-chat-overlay {
+        padding: 0;
+        align-items: stretch;
+    }
+}
+
+.pfp-ai-chat-panel {
+    width: min(760px, 100%);
+    height: min(560px, 90vh);
+    background: #fff;
+    border-radius: 24px;
+    box-shadow: 0 24px 80px rgba(15, 23, 42, 0.35);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+}
+
+@media (max-width: 767px) {
+    .pfp-ai-chat-panel {
+        width: 100%;
+        height: 100dvh;
+        max-height: 100dvh;
+        border-radius: 0;
+    }
+}
+
+.pfp-ai-chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+@media (max-width: 767px) {
+    .pfp-ai-chat-messages {
+        padding: 12px;
+    }
+}
+
+.pfp-ai-chat-bubble {
+    max-width: 80%;
+}
+
+@media (max-width: 767px) {
+    .pfp-ai-chat-bubble {
+        max-width: 92%;
+    }
+}
+
+.html-report-viewer {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+}

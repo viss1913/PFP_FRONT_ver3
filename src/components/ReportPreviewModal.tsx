@@ -482,35 +482,14 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
     if (!isOpen) return null;
 
     return (
-        <div
-            onClick={onClose}
-            style={{
-                position: 'fixed',
-                inset: 0,
-                zIndex: 5000,
-                background: 'rgba(0,0,0,0.65)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '10px',
-            }}
-        >
+        <div onClick={onClose} className="report-preview-overlay">
             <div
                 onClick={(event) => event.stopPropagation()}
-                style={{
-                    width: 'min(1920px, 98vw)',
-                    height: '96vh',
-                    maxHeight: '96vh',
-                    background: '#fff',
-                    borderRadius: '16px',
-                    overflow: 'hidden',
-                    display: 'grid',
-                    gridTemplateRows: '72px 1fr 72px',
-                    boxShadow: '0 30px 80px rgba(0,0,0,0.35)',
-                }}
+                className="report-preview-panel"
+                style={{ height: '96vh', maxHeight: '96vh' }}
             >
-                <div style={{ borderBottom: '1px solid #eee', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ minWidth: 0 }}>
+                <div className="report-preview-header">
+                    <div className="report-preview-header__title">
                         <div style={{ fontSize: '18px', fontWeight: 700 }}>{modalTitle}</div>
                         {generatedAtLabel && (
                             <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
@@ -531,7 +510,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                             </div>
                         )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <div className="report-preview-toolbar">
                         <button
                             type="button"
                             onClick={handleSendPdfEmail}
@@ -606,8 +585,8 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                     </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 22vw) 1fr', minHeight: 0 }}>
-                    <aside style={{ borderRight: '1px solid #eee', padding: '14px', overflowY: 'auto', minWidth: 0 }}>
+                <div className="report-preview-body">
+                    <aside className="report-preview-toc">
                         <div style={{ fontSize: '12px', fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.04em', marginBottom: '10px' }}>ОГЛАВЛЕНИЕ</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             {reportState.toc.map((item, index) => (
@@ -633,8 +612,8 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                         </div>
                     </aside>
 
-                    <main style={{ background: '#f9fafb', padding: '14px', minHeight: 0 }}>
-                        <div style={{ height: '100%', borderRadius: '14px', border: '1px solid #e5e7eb', overflow: 'hidden', background: '#fff', position: 'relative' }}>
+                    <main className="report-preview-main">
+                        <div className="report-preview-viewer">
                             {(reportState.metaLoading || reportState.pdfLoading) && (
                                 <div
                                     style={{
@@ -702,6 +681,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                                 <iframe
                                     title={activeTocItem ? `report-page-${activeTocItem.id}` : 'report-pdf'}
                                     src={pdfIframeSrc}
+                                    className="report-preview-iframe"
                                     style={{ width: '100%', height: '100%', border: 'none' }}
                                 />
                             )}
@@ -716,7 +696,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                     </main>
                 </div>
 
-                <div style={{ borderTop: '1px solid #eee', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div className="report-preview-footer">
                     <button
                         onClick={() => setActiveIndex((prev) => Math.max(prev - 1, 0))}
                         disabled={!canGoBack || reportState.metaLoading || reportState.pdfLoading}
@@ -735,7 +715,7 @@ const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({ isOpen, clientI
                         <ChevronLeft size={16} />
                         Назад
                     </button>
-                    <div style={{ color: '#6b7280', fontSize: '14px' }}>
+                    <div className="report-preview-footer__status">
                         {reportState.toc.length === 0 && pdfBlobUrl
                             ? 'Оглавление пустое — показан весь PDF'
                             : activeTocItem

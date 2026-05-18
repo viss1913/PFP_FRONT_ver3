@@ -7,6 +7,7 @@ import { getGoalImage, GOAL_GALLERY_ITEMS } from '../utils/GoalImages';
 import { PortfolioDistribution } from './PortfolioDistribution';
 import { formatMonthsToDate } from '../utils/dateUtils';
 import AddGoalModal from './AddGoalModal';
+import { wrapReportHtmlForMobile } from '../utils/reportHtmlSrcdoc';
 
 // Specialized Recalculate Forms
 import PensionForm from './recalculate-forms/PensionForm';
@@ -623,7 +624,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#F9FAFB', fontFamily: "'Inter', sans-serif" }}>
       {/* Кнопка "Назад" */}
-      <div style={{ padding: '24px 32px 0' }}>
+      <div className="pfp-result-back">
         <button
           onClick={onRestart}
           style={{
@@ -648,7 +649,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
 
 
       {/* Основной контент */}
-      <div style={{ maxWidth: '1120px', margin: '0 auto', padding: '40px' }}>
+      <div className="pfp-result-shell">
         {/* Сетка целей */}
         <main>
           <section style={{
@@ -659,7 +660,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
             marginBottom: '24px'
           }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '24px' }}>
-              <div style={{ display: 'flex', gap: '16px' }}>
+              <div className="pfp-ai-preview-row">
                 <div style={{ flexShrink: 0 }}>
                   <div style={{
                     width: '48px',
@@ -672,15 +673,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                     <img src={avatarImage} alt="AI" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                 </div>
-                <div style={{
-                  background: '#F3F4F6',
-                  borderRadius: '16px',
-                  borderTopLeftRadius: '4px',
-                  padding: '16px',
-                  fontSize: '14px',
-                  lineHeight: '1.5',
-                  color: '#1F2937'
-                }}>
+                <div className="pfp-ai-preview-bubble">
                   {aiPreviewText || 'AI анализирует финансовый план клиента. Нажмите, чтобы открыть чат.'}
                 </div>
               </div>
@@ -764,27 +757,9 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                 {budgetBars.map((bar) => {
                   const widthPercent = Math.max(3, Math.round((bar.value / budgetMax) * 100));
                   return (
-                    <div
-                      key={bar.key}
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: '180px 1fr auto',
-                        alignItems: 'center',
-                        gap: '10px'
-                      }}
-                    >
-                      <div style={{ fontSize: '11px', color: '#64748b', lineHeight: 1.1 }}>
-                        {bar.label}
-                      </div>
-                      <div
-                        style={{
-                          width: '100%',
-                          height: '12px',
-                          background: 'rgba(148,163,184,0.22)',
-                          borderRadius: '999px',
-                          overflow: 'hidden'
-                        }}
-                      >
+                    <div key={bar.key} className="pfp-family-budget-row">
+                      <div className="pfp-family-budget-row__label">{bar.label}</div>
+                      <div className="pfp-family-budget-row__bar">
                         <div
                           style={{
                             width: `${widthPercent}%`,
@@ -796,9 +771,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                           }}
                         />
                       </div>
-                      <div style={{ fontSize: '12px', color: '#334155', fontWeight: 700, minWidth: '88px', textAlign: 'right' }}>
-                        {formatCurrency(bar.value)}
-                      </div>
+                      <div className="pfp-family-budget-row__amount">{formatCurrency(bar.value)}</div>
                     </div>
                   );
                 })}
@@ -1476,7 +1449,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
               Закрыть
             </button>
           </div>
-          <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
+          <div className="html-report-viewer">
             {htmlReportOpening && !htmlReportSrcDoc && (
               <div
                 style={{
@@ -1520,7 +1493,8 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
             {htmlReportSrcDoc != null && (
               <iframe
                 title="HTML-отчёт"
-                srcDoc={htmlReportSrcDoc}
+                className="report-preview-iframe"
+                srcDoc={wrapReportHtmlForMobile(htmlReportSrcDoc)}
                 style={{
                   flex: 1,
                   width: '100%',

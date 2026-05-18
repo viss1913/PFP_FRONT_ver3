@@ -40,14 +40,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             overflow: 'hidden'
         }}>
             {/* Messages Area */}
-            <div style={{
-                flex: 1,
-                overflowY: 'auto',
-                padding: '24px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '16px'
-            }}>
+            <div className="pfp-ai-chat-messages">
                 {messages.length === 0 && (
                     <div style={{
                         textAlign: 'center',
@@ -62,12 +55,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 {messages.map((msg) => (
                     <div
                         key={msg.id}
+                        className="pfp-ai-chat-bubble"
                         style={{
                             alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                            maxWidth: '80%',
                             display: 'flex',
                             flexDirection: 'column',
-                            alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start'
+                            alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start',
                         }}
                     >
                         <div style={{

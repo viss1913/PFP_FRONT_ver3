@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { agentLkApi } from '../api/agentLkApi';
+import { wrapReportHtmlForMobile } from '../utils/reportHtmlSrcdoc';
 
 type TocItem = {
     id?: string | number;
@@ -109,20 +110,10 @@ const HtmlReportPreviewPage: React.FC = () => {
     };
 
     return (
-        <div style={{ minHeight: '100vh', background: '#f3f4f6', padding: '16px' }}>
-            <div style={{
-                width: 'min(1920px, 98vw)',
-                height: '94vh',
-                margin: '0 auto',
-                background: '#fff',
-                borderRadius: '16px',
-                overflow: 'hidden',
-                display: 'grid',
-                gridTemplateRows: '72px 1fr 72px',
-                boxShadow: '0 30px 80px rgba(0,0,0,0.25)',
-            }}>
-                <div style={{ borderBottom: '1px solid #eee', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
+        <div className="report-preview-root">
+            <div className="report-preview-panel">
+                <div className="report-preview-header">
+                    <div className="report-preview-header__title">
                         <div style={{ fontSize: '18px', fontWeight: 700 }}>HTML-превью отчета</div>
                         {formatGeneratedAt(generatedAt) && (
                             <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
@@ -130,7 +121,7 @@ const HtmlReportPreviewPage: React.FC = () => {
                             </div>
                         )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div className="report-preview-toolbar">
                         <button
                             type="button"
                             onClick={() => setShowAllPages((prev) => !prev)}
@@ -155,8 +146,8 @@ const HtmlReportPreviewPage: React.FC = () => {
                     </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 22vw) 1fr', minHeight: 0 }}>
-                    <aside style={{ borderRight: '1px solid #eee', padding: '14px', overflowY: 'auto', minWidth: 0 }}>
+                <div className="report-preview-body">
+                    <aside className="report-preview-toc">
                         <div style={{ fontSize: '12px', fontWeight: 700, color: '#9CA3AF', letterSpacing: '0.04em', marginBottom: '10px' }}>ОГЛАВЛЕНИЕ</div>
                         {toc.length === 0 ? (
                             <div style={{ fontSize: '13px', color: '#6b7280' }}>Оглавление не пришло, листай по страницам.</div>
@@ -198,8 +189,8 @@ const HtmlReportPreviewPage: React.FC = () => {
                         )}
                     </aside>
 
-                    <main style={{ background: '#f9fafb', padding: '14px', minHeight: 0 }}>
-                        <div style={{ height: '100%', borderRadius: '14px', border: '1px solid #e5e7eb', overflow: 'hidden', background: '#fff', position: 'relative' }}>
+                    <main className="report-preview-main">
+                        <div className="report-preview-viewer">
                             {loading && (
                                 <div style={{ position: 'absolute', inset: 0, zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', background: 'rgba(255,255,255,0.92)', color: '#4b5563' }}>
                                     <Loader2 className="animate-spin" size={40} color="var(--primary, #c2185b)" strokeWidth={2.2} />
@@ -212,7 +203,7 @@ const HtmlReportPreviewPage: React.FC = () => {
                                 </div>
                             )}
                             {!loading && !error && showAllPages && pageList.length > 0 && (
-                                <div style={{ height: '100%', overflowY: 'auto', padding: '16px', background: '#f3f4f6' }}>
+                                <div className="report-preview-viewer-scroll">
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                                         {pageList.map((pageHtml, index) => (
                                             <div key={index} id={`html-report-page-${index}`} style={{ border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden', background: '#fff' }}>
@@ -221,7 +212,8 @@ const HtmlReportPreviewPage: React.FC = () => {
                                                 </div>
                                                 <iframe
                                                     title={`html-report-page-${index + 1}`}
-                                                    srcDoc={pageHtml}
+                                                    srcDoc={wrapReportHtmlForMobile(pageHtml)}
+                                                    className="report-preview-iframe"
                                                     onLoad={(e) => {
                                                         const frame = e.currentTarget;
                                                         measureIframeHeight(frame, index);
@@ -245,7 +237,8 @@ const HtmlReportPreviewPage: React.FC = () => {
                             {!loading && !error && !showAllPages && activeHtml && (
                                 <iframe
                                     title={activeToc?.title || `html-report-page-${activeIndex + 1}`}
-                                    srcDoc={activeHtml}
+                                    srcDoc={wrapReportHtmlForMobile(activeHtml)}
+                                    className="report-preview-iframe"
                                     onLoad={(e) => {
                                         const frame = e.currentTarget;
                                         measureIframeHeight(frame);
@@ -266,7 +259,7 @@ const HtmlReportPreviewPage: React.FC = () => {
                     </main>
                 </div>
 
-                <div style={{ borderTop: '1px solid #eee', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div className="report-preview-footer">
                     <button
                         onClick={() => setActiveIndex((prev) => Math.max(prev - 1, 0))}
                         disabled={showAllPages || !canGoBack || loading}
@@ -285,7 +278,7 @@ const HtmlReportPreviewPage: React.FC = () => {
                         <ChevronLeft size={16} />
                         Назад
                     </button>
-                    <div style={{ color: '#6b7280', fontSize: '14px' }}>
+                    <div className="report-preview-footer__status">
                         {showAllPages
                             ? 'Показаны все страницы отчета'
                             : (activeToc ? `Раздел: ${activeToc.title || '—'}` : `Страница ${activeIndex + 1} из ${Math.max(1, pageList.length)}`)}

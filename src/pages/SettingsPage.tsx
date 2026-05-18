@@ -3129,28 +3129,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         <div style={{ minHeight: '100vh', background: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
             <Header activePage="settings" onNavigate={onNavigate} />
 
-            <main
-                style={{
-                    flex: 1,
-                    padding: '32px',
-                    maxWidth: '1200px',
-                    margin: '0 auto',
-                    width: '100%',
-                    boxSizing: 'border-box',
-                }}
-            >
+            <main className="lk-page-main" style={{ maxWidth: '1200px' }}>
                 {/* Tabs */}
-                <div
-                    style={{
-                        background: '#fff',
-                        borderRadius: '20px',
-                        padding: '8px',
-                        display: 'inline-flex',
-                        gap: '6px',
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
-                        marginBottom: '24px',
-                    }}
-                >
+                <div className="lk-settings-tabs">
                     {tabs.map((tab) => (
                         <button
                             key={tab}
@@ -4173,17 +4154,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                     {pdfError}
                                 </div>
                             )}
-                            <div style={{ display: 'flex', gap: '28px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                                <nav
-                                    style={{
-                                        flexShrink: 0,
-                                        minWidth: '200px',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '6px',
-                                    }}
-                                    aria-label="Разделы отчёта"
-                                >
+                            <div className="pdf-report-layout">
+                                <nav className="pdf-report-layout__nav" aria-label="Разделы отчёта">
                                     {reportTemplateItems.map((item) => (
                                         <button
                                             key={item.id}
@@ -4206,7 +4178,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                         </button>
                                     ))}
                                 </nav>
-                                <div style={{ flex: 1, minWidth: 'min(100%, 320px)' }}>
+                                <div className="pdf-report-layout__content">
                                     {activeReportTemplate?.id === PDF_COVER_TEMPLATE_ID && (
                                         <>
                                             {pdfLoading ? (
