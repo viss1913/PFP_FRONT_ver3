@@ -1,9 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { User, ChevronDown, Menu, X } from 'lucide-react';
+import { User, ChevronDown, Menu, X, Pencil } from 'lucide-react';
 import {
     isFinamOnboardingDismissed,
     useAgentProfileOptional,
 } from '../context/AgentProfileContext';
+import { formatAgentDisplayName } from '../utils/agentDisplayName';
+import AgentProfileModal from './AgentProfileModal';
+import LkLogo from './LkLogo';
 
 type NavPage = 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings';
 
@@ -25,12 +28,21 @@ const NAV_ITEMS: { page: NavPage; label: string }[] = [
 
 const Header: React.FC<HeaderProps> = ({ activePage = 'crm', onNavigate, onLogout }) => {
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
     const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
     const profileMenuRef = useRef<HTMLDivElement | null>(null);
     const agentProfile = useAgentProfileOptional();
+    const profile = agentProfile?.profile;
     const showFinamBanner =
         agentProfile?.isLimitedAccess === true &&
-        isFinamOnboardingDismissed(agentProfile.profile?.agentId);
+        isFinamOnboardingDismissed(profile?.agentId);
+
+    const displayName = formatAgentDisplayName(profile ?? null);
+    const email = profile?.email?.trim() ?? '';
+    const finamId =
+        profile?.effective_partner_agent_id?.trim() ||
+        profile?.partner_agent_id?.trim() ||
+        '';
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -58,12 +70,18 @@ const Header: React.FC<HeaderProps> = ({ activePage = 'crm', onNavigate, onLogou
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         localStorage.removeItem('uuid');
+        setIsProfileMenuOpen(false);
         setIsMobileNavOpen(false);
         if (onLogout) {
             onLogout();
             return;
         }
         window.location.reload();
+    };
+
+    const openProfileModal = () => {
+        setIsProfileMenuOpen(false);
+        setIsProfileModalOpen(true);
     };
 
     const navLinkClass = (page: NavPage) =>
@@ -107,9 +125,7 @@ const Header: React.FC<HeaderProps> = ({ activePage = 'crm', onNavigate, onLogou
                     >
                         {isMobileNavOpen ? <X size={22} /> : <Menu size={22} />}
                     </button>
-                    <div className="lk-header__logo">
-                        <span style={{ color: '#D946EF' }}>LO</span>go
-                    </div>
+                    <LkLogo />
                 </div>
 
                 <nav className="lk-header__nav-desktop" aria-label="Основная навигация">
@@ -131,7 +147,18 @@ const Header: React.FC<HeaderProps> = ({ activePage = 'crm', onNavigate, onLogou
                         className="lk-header__profile-btn"
                         onClick={() => setIsProfileMenuOpen((prev) => !prev)}
                         aria-label="Профиль"
+                        aria-expanded={isProfileMenuOpen}
                     >
+                        <div className="lk-header__profile-text">
+                            <span className="lk-header__profile-name" title={displayName}>
+                                {displayName}
+                            </span>
+                            {email ? (
+                                <span className="lk-header__profile-email" title={email}>
+                                    {email}
+                                </span>
+                            ) : null}
+                        </div>
                         <div className="lk-header__profile-avatar">
                             <User size={18} />
                         </div>
@@ -139,35 +166,28 @@ const Header: React.FC<HeaderProps> = ({ activePage = 'crm', onNavigate, onLogou
                     </button>
 
                     {isProfileMenuOpen && (
-                        <div
-                            style={{
-                                position: 'absolute',
-                                top: 'calc(100% + 10px)',
-                                right: 0,
-                                width: '180px',
-                                background: '#fff',
-                                border: '1px solid #e9e9e9',
-                                borderRadius: '12px',
-                                boxShadow: '0 16px 36px rgba(15, 23, 42, 0.12)',
-                                padding: '8px',
-                                zIndex: 150,
-                            }}
-                        >
+                        <div className="lk-header__profile-menu">
+                            <div className="lk-header__profile-menu-info">
+                                <div className="lk-header__profile-menu-name">{displayName}</div>
+                                {email ? <div className="lk-header__profile-menu-email">{email}</div> : null}
+                                {finamId ? (
+                                    <div className="lk-header__profile-menu-meta">
+                                        Finam ID: {finamId}
+                                    </div>
+                                ) : null}
+                            </div>
                             <button
                                 type="button"
+                                className="lk-header__profile-menu-item"
+                                onClick={openProfileModal}
+                            >
+                                <Pencil size={16} />
+                                Редактировать профиль
+                            </button>
+                            <button
+                                type="button"
+                                className="lk-header__profile-menu-item lk-header__profile-menu-item--danger"
                                 onClick={handleLogout}
-                                style={{
-                                    width: '100%',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    background: '#fff5f5',
-                                    color: '#dc2626',
-                                    padding: '10px 12px',
-                                    fontSize: '14px',
-                                    fontWeight: 600,
-                                    cursor: 'pointer',
-                                    textAlign: 'left',
-                                }}
                             >
                                 Выйти из кабинета
                             </button>
@@ -188,9 +208,7 @@ const Header: React.FC<HeaderProps> = ({ activePage = 'crm', onNavigate, onLogou
                 aria-hidden={!isMobileNavOpen}
             >
                 <div className="lk-header__drawer-head">
-                    <span style={{ fontWeight: 700, fontSize: '18px' }}>
-                        <span style={{ color: '#D946EF' }}>LO</span>go
-                    </span>
+                    <LkLogo />
                     <button
                         type="button"
                         className="lk-header__drawer-close"
@@ -200,6 +218,15 @@ const Header: React.FC<HeaderProps> = ({ activePage = 'crm', onNavigate, onLogou
                         <X size={20} />
                     </button>
                 </div>
+                {profile && (
+                    <div className="lk-header__drawer-profile">
+                        <div className="lk-header__drawer-profile-name">{displayName}</div>
+                        {email ? <div className="lk-header__drawer-profile-email">{email}</div> : null}
+                        <button type="button" className="lk-header__drawer-profile-edit" onClick={openProfileModal}>
+                            Редактировать профиль
+                        </button>
+                    </div>
+                )}
                 {NAV_ITEMS.map(({ page, label }) => (
                     <a
                         key={page}
@@ -211,6 +238,8 @@ const Header: React.FC<HeaderProps> = ({ activePage = 'crm', onNavigate, onLogou
                     </a>
                 ))}
             </nav>
+
+            <AgentProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />
         </>
     );
 };

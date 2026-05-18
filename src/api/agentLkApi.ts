@@ -25,6 +25,48 @@ export interface PartnerIdWizardResponse extends AgentMeProfileFields {
     action?: PartnerIdWizardAction;
 }
 
+/** GET/PATCH /pfp/agents/{id} — полный профиль агента */
+export interface AgentProfileRecord {
+    id: number;
+    uuid?: string;
+    first_name?: string | null;
+    last_name?: string | null;
+    middle_name?: string | null;
+    email?: string;
+    phone?: string | null;
+    passport_series?: string | null;
+    passport_number?: string | null;
+    birth_date?: string | null;
+    gender?: 'male' | 'female' | null;
+    signature_image_url?: string | null;
+    position_title?: string | null;
+    region?: string | null;
+    city?: string | null;
+}
+
+export type AgentProfileUpdatePayload = Partial<
+    Pick<
+        AgentProfileRecord,
+        | 'first_name'
+        | 'last_name'
+        | 'middle_name'
+        | 'phone'
+        | 'passport_series'
+        | 'passport_number'
+        | 'birth_date'
+        | 'gender'
+        | 'position_title'
+        | 'region'
+        | 'city'
+    >
+>;
+
+export interface AgentSignatureUploadResponse {
+    url?: string;
+    signature_image_url?: string;
+    agent?: AgentProfileRecord;
+}
+
 const getHeaders = () => {
     const token = localStorage.getItem('token');
     return {
@@ -2023,6 +2065,36 @@ export const agentLkApi = {
             `${API_BASE}/agents/me/subagent-invite/send-email`,
             payload,
             { headers: getHeaders() },
+        );
+        return response.data;
+    },
+
+    getAgent: async (id: number): Promise<AgentProfileRecord> => {
+        const response = await axios.get<AgentProfileRecord>(`${API_BASE}/agents/${id}`, {
+            headers: getHeaders(),
+        });
+        return response.data;
+    },
+
+    updateAgent: async (id: number, payload: AgentProfileUpdatePayload): Promise<AgentProfileRecord> => {
+        const response = await axios.patch<AgentProfileRecord>(`${API_BASE}/agents/${id}`, payload, {
+            headers: getHeaders(),
+        });
+        return response.data;
+    },
+
+    uploadAgentSignature: async (id: number, file: File): Promise<AgentSignatureUploadResponse> => {
+        const formData = new FormData();
+        formData.append('image', file);
+        const response = await axios.post<AgentSignatureUploadResponse>(
+            `${API_BASE}/agents/${id}/signature-upload`,
+            formData,
+            {
+                headers: {
+                    ...getHeaders(),
+                    'Content-Type': 'multipart/form-data',
+                },
+            },
         );
         return response.data;
     },
