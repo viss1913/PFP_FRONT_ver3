@@ -33,7 +33,7 @@ export interface AgentMeProfileFields {
     last_name?: string | null;
     partner_agent_id?: string | null;
     effective_partner_agent_id?: string | null;
-    partner_agent_id_mode?: 'own' | 'parent_inherited' | null;
+    partner_agent_id_mode?: 'own' | 'parent_inherited' | 'platform_default' | null;
     inherit_parent_partner_agent_id?: boolean;
     partner_agent_id_label?: string;
     partner_agent_id_required?: boolean;
@@ -83,6 +83,22 @@ export interface VerificationCodeSentResponse {
     expires_in_minutes?: number;
 }
 
+export interface FamilyOfficeSelfRegisterStep1Request {
+    email: string;
+    first_name: string;
+    last_name: string;
+    phone: string;
+    gender: 'male' | 'female';
+    project_key: string;
+    middle_name?: string;
+    utm_source?: string;
+    utm_medium?: string;
+    utm_campaign?: string;
+    utm_content?: string;
+    utm_term?: string;
+    utm_partner_finam?: string;
+}
+
 export interface ParsePartnerAgentRequest {
     project_key: string;
     partner_agent_id?: string;
@@ -105,6 +121,27 @@ export function getRegisterAgentErrorMessage(error: unknown): string {
         if (msg) return msg;
     }
     return 'Не удалось отправить код подтверждения';
+}
+
+export function getRegisterFamilyOfficeErrorMessage(error: unknown): string {
+    if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        const data = error.response?.data as { message?: string } | undefined;
+        const msg = typeof data?.message === 'string' ? data.message : undefined;
+        if (status === 400) return msg || 'Проверьте данные анкеты';
+        if (status === 502) return msg || 'Не удалось отправить код на почту. Попробуйте позже';
+        if (msg) return msg;
+    }
+    return 'Не удалось отправить код подтверждения';
+}
+
+export function getVerifyFamilyOfficeRegistrationErrorMessage(error: unknown): string {
+    if (axios.isAxiosError(error)) {
+        const data = error.response?.data as { message?: string } | undefined;
+        const msg = typeof data?.message === 'string' ? data.message : undefined;
+        if (msg) return msg;
+    }
+    return 'Неверный или просроченный код';
 }
 
 export function getVerifyAgentRegistrationErrorMessage(error: unknown): string {
@@ -181,6 +218,28 @@ export const authApi = {
     ): Promise<AgentRegisterVerifyResponse> => {
         const response = await axios.post<AgentRegisterVerifyResponse>(
             `${AUTH_BASE}/verify-agent-registration`,
+            { email, code, password },
+        );
+        return response.data;
+    },
+
+    registerFamilyOffice: async (
+        body: FamilyOfficeSelfRegisterStep1Request,
+    ): Promise<VerificationCodeSentResponse> => {
+        const response = await axios.post<VerificationCodeSentResponse>(
+            `${AUTH_BASE}/register-family-office`,
+            body,
+        );
+        return response.data;
+    },
+
+    verifyFamilyOfficeRegistration: async (
+        email: string,
+        code: string,
+        password: string,
+    ): Promise<AgentRegisterVerifyResponse> => {
+        const response = await axios.post<AgentRegisterVerifyResponse>(
+            `${AUTH_BASE}/verify-family-office-registration`,
             { email, code, password },
         );
         return response.data;

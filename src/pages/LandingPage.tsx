@@ -24,6 +24,9 @@ import LandingFooter from '../components/landing/LandingFooter';
 import CookieConsent from '../components/landing/CookieConsent';
 import LandingStickyCta from '../components/landing/LandingStickyCta';
 import LandingLeadModal from '../components/landing/LandingLeadModal';
+import FamilyOfficeSelfRegisterModal, {
+    type FoRegisterOpenSource,
+} from '../components/landing/FamilyOfficeSelfRegisterModal';
 
 interface LandingPageProps {
     onLogin: (intent?: 'client' | 'consultant') => void;
@@ -35,11 +38,30 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onPrivacy }) => {
     const { theme, setTheme } = useLandingTheme();
     const [cookieOpen, setCookieOpen] = useState(() => !localStorage.getItem('cookie_consent'));
     const [leadModal, setLeadModal] = useState<LeadType | null>(null);
+    const [foRegisterOpen, setFoRegisterOpen] = useState(false);
+    const [foRegisterSource, setFoRegisterSource] = useState<FoRegisterOpenSource>('manual');
+
+    const openFoRegister = useCallback((source: string) => {
+        const mapped: FoRegisterOpenSource =
+            source === 'hero' || source === 'sticky' || source === 'final'
+                ? source
+                : 'manual';
+        setFoRegisterSource(mapped);
+        setFoRegisterOpen(true);
+    }, []);
 
     useEffect(() => {
         initLandingAnalytics();
         trackLandingEvent('landing_view', getTrackingContext(lang, variant));
     }, [lang, variant]);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('open_fo') === '1') {
+            setFoRegisterSource('deeplink');
+            setFoRegisterOpen(true);
+        }
+    }, []);
 
     const handleLangChange = useCallback(
         (next: typeof lang) => {
@@ -61,6 +83,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onPrivacy }) => {
             variant={variant}
             onLogin={onLogin}
             onOpenLeadForm={setLeadModal}
+            onOpenFoRegister={openFoRegister}
         >
             <div
                 className={`landing-page landing-page--${theme}${cookieOpen ? ' landing-cookie-open' : ''}`}
@@ -99,6 +122,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onPrivacy }) => {
                     variant={variant}
                     type={leadModal}
                     onClose={() => setLeadModal(null)}
+                />
+                <FamilyOfficeSelfRegisterModal
+                    isOpen={foRegisterOpen}
+                    onClose={() => setFoRegisterOpen(false)}
+                    lang={lang}
+                    variant={variant}
+                    openSource={foRegisterSource}
                 />
             </div>
         </LandingActionsProvider>

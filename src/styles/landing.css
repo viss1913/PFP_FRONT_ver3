@@ -1816,3 +1816,108 @@ button.landing-btn {
         margin-right: 4px;
     }
 }
+
+/* FO self-register modal — broker cards */
+.landing-fo-register-overlay {
+    z-index: 1200;
+}
+
+.landing-fo-register-modal {
+    max-width: 560px;
+}
+
+.landing-fo-broker-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.landing-fo-broker-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    width: 100%;
+    padding: 14px 16px;
+    text-align: left;
+    border-radius: 14px;
+    border: 1px solid var(--border-color, #e5e7eb);
+    background: #fff;
+    cursor: pointer;
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease,
+        background 0.15s ease;
+}
+
+.landing-fo-broker-card:hover:not(:disabled) {
+    border-color: rgba(180, 83, 9, 0.45);
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+}
+
+.landing-fo-broker-card--selected {
+    border-color: #b45309;
+    background: linear-gradient(135deg, rgba(255, 199, 80, 0.12), rgba(255, 255, 255, 1));
+    box-shadow: 0 0 0 1px rgba(180, 83, 9, 0.25);
+}
+
+.landing-fo-broker-card--disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    background: #f9fafb;
+}
+
+.landing-fo-broker-card__badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted, #6b7280);
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #e5e7eb;
+}
+
+.landing-fo-broker-card__label {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-main, #111827);
+    padding-right: 56px;
+}
+
+.landing-fo-broker-card__subtitle {
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--text-muted, #6b7280);
+}
+
+.landing-fo-register-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 16px;
+    padding: 0;
+    border: none;
+    background: none;
+    font-size: 13px;
+    color: var(--text-muted, #6b7280);
+    cursor: pointer;
+}
+
+.landing-fo-register-back:hover {
+    color: var(--text-main, #111827);
+}
+
+.landing-fo-register-secondary-btn {
+    margin-top: 10px;
+    background: transparent !important;
+    color: var(--text-muted, #6b7280) !important;
+    border: 1px solid var(--border-color, #e5e7eb) !important;
+    box-shadow: none !important;
+}
+

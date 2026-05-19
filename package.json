@@ -8,7 +8,14 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "generate:landing-stats-image": "node scripts/generate-landing-stats-image.mjs"
+    "generate:landing-stats-image": "node scripts/generate-landing-stats-image.mjs",
+    "audit": "npm audit --audit-level=high",
+    "audit:dist": "node scripts/audit-dist.mjs",
+    "audit:bucket": "node scripts/audit-bucket-dryrun.mjs",
+    "security:check": "npm run audit && npm run build && npm run audit:dist && npm run audit:bucket",
+    "test:yandex-s3": "node scripts/test-yandex-s3.mjs",
+    "upload:yandex": "node scripts/upload-to-yandex-bucket.mjs",
+    "deploy:yandex": "npm run build && npm run upload:yandex"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.2",
