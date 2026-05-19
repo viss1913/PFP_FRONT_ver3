@@ -232,3 +232,56 @@
     opacity: 0.6;
     cursor: not-allowed;
 }
+
+/* Primary CTA во всех fo-invite модалках (регистрация FO, субагент, CRM-invite) */
+.fo-invite-modal button.fo-invite-modal__submit,
+.fo-invite-modal .fo-invite-actions .btn-primary {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    padding: 14px 24px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    font-family: inherit;
+    line-height: 1.25;
+    cursor: pointer;
+    color: #fff;
+    background: linear-gradient(135deg, #e8b84a 0%, #b45309 100%);
+    box-shadow:
+        0 8px 22px rgba(180, 83, 9, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease,
+        opacity 0.15s ease;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.fo-invite-modal .fo-invite-actions .btn-primary {
+    margin-top: 0;
+    flex: 1.6;
+    width: auto;
+}
+
+.fo-invite-modal button.fo-invite-modal__submit:hover:not(:disabled),
+.fo-invite-modal .fo-invite-actions .btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow:
+        0 10px 28px rgba(180, 83, 9, 0.36),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.fo-invite-modal button.fo-invite-modal__submit:active:not(:disabled),
+.fo-invite-modal .fo-invite-actions .btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.fo-invite-modal button.fo-invite-modal__submit:disabled,
+.fo-invite-modal .fo-invite-actions .btn-primary:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+    transform: none;
+}

@@ -1921,3 +1921,8 @@ button.landing-btn {
     box-shadow: none !important;
 }
 
+/* Лендинг: fo-invite модалка поверх тёмного фона — CTA не сбрасывать браузером */
+.landing-page .fo-invite-overlay .fo-invite-modal button.fo-invite-modal__submit {
+    box-sizing: border-box;
+}
+
