@@ -73,6 +73,7 @@ export interface AgentRegisterStep1Request {
     utm_campaign?: string;
     utm_content?: string;
     utm_term?: string;
+    /** В invite URL есть, в body register-agent бэк пока не принимает — см. AgentRegisterStep1Request */
     utm_partner_finam?: string;
 }
 

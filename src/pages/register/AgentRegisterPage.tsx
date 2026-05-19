@@ -51,7 +51,8 @@ function buildRegisterBody(
     if (attribution.utm_campaign) body.utm_campaign = attribution.utm_campaign;
     if (attribution.utm_content) body.utm_content = attribution.utm_content;
     if (attribution.utm_term) body.utm_term = attribution.utm_term;
-    if (attribution.utm_partner_finam) body.utm_partner_finam = attribution.utm_partner_finam;
+    // utm_partner_finam только в URL invite-link; бэк пока не принимает в body (Joi).
+    // Атрибуция Finam куратора должна подставляться на бэке по ref.
     const ownFinamId = form.partner_agent_id.trim();
     if (ownFinamId) body.partner_agent_id = ownFinamId;
     return body;
