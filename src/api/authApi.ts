@@ -59,6 +59,29 @@ export interface AuthMeResponse extends AgentMeProfileFields {
 
 export type AgentRegisterVerifyResponse = AgentAuthResponse & AgentMeProfileFields;
 
+export interface AgentRegisterStep1Request {
+    email: string;
+    project_key: string;
+    first_name?: string;
+    last_name?: string;
+    phone?: string;
+    partner_agent_id?: string;
+    partner_ref_url?: string;
+    ref?: string;
+    utm_source?: string;
+    utm_medium?: string;
+    utm_campaign?: string;
+    utm_content?: string;
+    utm_term?: string;
+    utm_partner_finam?: string;
+}
+
+export interface VerificationCodeSentResponse {
+    message?: string;
+    email?: string;
+    expires_in_minutes?: number;
+}
+
 export interface ParsePartnerAgentRequest {
     project_key: string;
     partner_agent_id?: string;
@@ -68,6 +91,28 @@ export interface ParsePartnerAgentRequest {
 export interface ParsePartnerAgentResponse {
     partner_agent_id: string;
     label?: string;
+}
+
+export function getRegisterAgentErrorMessage(error: unknown): string {
+    if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        const data = error.response?.data as { message?: string } | undefined;
+        const msg = typeof data?.message === 'string' ? data.message : undefined;
+        if (status === 409) return msg || 'Такой Finam ID уже занят в проекте';
+        if (status === 400) return msg || 'Проверьте данные или ссылку приглашения';
+        if (status === 502) return msg || 'Не удалось отправить код на почту. Попробуйте позже';
+        if (msg) return msg;
+    }
+    return 'Не удалось отправить код подтверждения';
+}
+
+export function getVerifyAgentRegistrationErrorMessage(error: unknown): string {
+    if (axios.isAxiosError(error)) {
+        const data = error.response?.data as { message?: string } | undefined;
+        const msg = typeof data?.message === 'string' ? data.message : undefined;
+        if (msg) return msg;
+    }
+    return 'Неверный или просроченный код';
 }
 
 export function getActivateInviteErrorMessage(error: unknown): string {
@@ -114,6 +159,16 @@ export const authApi = {
         const response = await axios.post<AgentAuthResponse>(
             `${AUTH_BASE}/activate-agent-invite`,
             { token, password },
+        );
+        return response.data;
+    },
+
+    registerAgent: async (
+        body: AgentRegisterStep1Request,
+    ): Promise<VerificationCodeSentResponse> => {
+        const response = await axios.post<VerificationCodeSentResponse>(
+            `${AUTH_BASE}/register-agent`,
+            body,
         );
         return response.data;
     },

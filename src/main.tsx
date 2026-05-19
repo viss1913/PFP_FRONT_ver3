@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import InviteActivatePage from './pages/invite/InviteActivatePage.tsx'
+import AgentRegisterPage from './pages/register/AgentRegisterPage.tsx'
 import { AgentProfileProvider } from './context/AgentProfileContext.tsx'
 import { resolvePublicRoute } from './routing/publicRoutes.ts'
 import './index.css'
@@ -11,7 +12,13 @@ function Root() {
     const publicRoute = resolvePublicRoute(window.location.pathname)
     return (
         <AgentProfileProvider>
-            {publicRoute === 'invite-activate' ? <InviteActivatePage /> : <App />}
+            {publicRoute === 'invite-activate' ? (
+                <InviteActivatePage />
+            ) : publicRoute === 'agent-register' ? (
+                <AgentRegisterPage />
+            ) : (
+                <App />
+            )}
         </AgentProfileProvider>
     )
 }
