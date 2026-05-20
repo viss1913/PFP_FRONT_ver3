@@ -280,8 +280,8 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                 const isRent = g.goal_type_id === 8;
                 const isFinReserve = g.goal_type_id === 7;
                 const isInvestment = g.goal_type_id === 3;
+                const isInheritance = g.goal_type_id === 11; // INHERITANCE
                 const isPension = g.goal_type_id === 1; // PENSION
-                // INHERITANCE (11): target_amount + term_months в общей ветке else ниже
                 const isPassiveIncome = g.goal_type_id === 2; // PASSIVE_INCOME
 
                 // Only for FIN_RESERVE (id=7) and RENT (id=8), use initial_capital from goal itself
@@ -290,9 +290,9 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     ? (g.initial_capital || effectiveCashInitial)
                     : isFinReserve
                         ? (g.initial_capital || 0)
-                        : isInvestment
+                        : isInvestment || isInheritance
                             ? (g.initial_capital || 0)
-                            : undefined; // Для RENT берем CASH, для INVEST берем из цели
+                            : undefined; // Для RENT берем CASH, для INVEST/INHERITANCE — из цели
 
                 // monthly_replenishment передаем только для Investment (id=3) и FIN_RESERVE (id=7)
                 // Для остальных целей (PASSIVE_INCOME, PENSION, RENT и др.) не передаем
@@ -328,10 +328,15 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     }
                 } else {
                     // Для остальных целей
-                    payload.target_amount = isRent ? (g.initial_capital || effectiveCashInitial) : (isFinReserve ? (g.initial_capital || 0) : (g.insurance_limit || g.target_amount || 0));
+                    payload.target_amount = isInheritance
+                        ? 0
+                        : isRent
+                            ? (g.initial_capital || effectiveCashInitial)
+                            : isFinReserve
+                                ? (g.initial_capital || 0)
+                                : (g.insurance_limit || g.target_amount || 0);
                     payload.term_months = isRent ? 12 : (isFinReserve ? 12 : (g.term_months || 120));
-                    if (isInvestment) {
-                        // Для INVESTMENT initial_capital берем из цели
+                    if (isInvestment || isInheritance) {
                         payload.initial_capital = g.initial_capital || 0;
                     }
                 }

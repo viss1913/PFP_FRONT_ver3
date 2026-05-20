@@ -138,6 +138,11 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
             newGoal.desired_monthly_income = safeDesiredIncome;
             newGoal.term_months = safeTermMonths;
             newGoal.inflation_rate = 4.8;
+        } else if (typeId === GOAL_TYPE_INHERITANCE) {
+            newGoal.initial_capital = safeInitialCapital;
+            newGoal.target_amount = 0;
+            newGoal.term_months = safeTermMonths;
+            newGoal.inflation_rate = 5.6;
         } else if (typeId === 8 || typeId === 3 || typeId === 7) { // 3. Рента (RENT), Сохранить и приумножить (INVESTMENT) или Ликвидный резерв (RESERVE)
             newGoal.initial_capital = safeInitialCapital;
             newGoal.monthly_replenishment = (typeId === 3 || typeId === 7) ? safeDesiredIncome : 0; // Для ID 3 и 7 используем поле desiredIncome как поле пополнения
@@ -188,7 +193,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
     const isReserve = selectedGalleryItem?.typeId === 7;
     const isEducationGoal = Boolean(selectedGalleryItem?.childFirstName);
     const isInheritance = selectedGalleryItem?.typeId === GOAL_TYPE_INHERITANCE;
-    const isStandard = !isPension && !isPassive && !isRent && !isInvest && !isReserve;
+    const isStandard = !isPension && !isPassive && !isRent && !isInvest && !isReserve && !isInheritance;
 
     const clientAge = data.age ?? 0;
     const hidePensionForAge = clientAge > 60;
@@ -336,7 +341,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                         <span className="selected-goal-mini-card__title">{g.name}</span>
                                         <span className="selected-goal-mini-card__sum">{formatCurrency(
                                             (g.goal_type_id === 1 || g.goal_type_id === 2) ? (g.desired_monthly_income || 0) :
-                                                (g.goal_type_id === 8) ? (g.initial_capital || 0) :
+                                                (g.goal_type_id === 8 || g.goal_type_id === GOAL_TYPE_INHERITANCE) ? (g.initial_capital || 0) :
                                                     (g.target_amount || 0)
                                         )}</span>
                                     </div>
@@ -540,6 +545,68 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
 
                         {/* DYNAMIC FORMS BASED ON TYPE */}
 
+                        {/* Наследство: капитал + срок (как инвестиции, без пополнения) */}
+                        {isInheritance && (
+                            <>
+                                <div style={{ marginBottom: '24px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
+                                        <label style={{ fontWeight: '600', fontSize: '16px', color: '#374151' }}>Капитал в наследство</label>
+                                        <input
+                                            type="text"
+                                            value={formatNumber(initialCapital)}
+                                            onChange={(e) => handleNumberInput(e.target.value, setInitialCapital)}
+                                            style={{
+                                                fontWeight: '800', fontSize: '20px', color: '#E91E63',
+                                                border: '1px solid #E5E7EB', borderRadius: '8px',
+                                                padding: '4px 8px', width: '180px', textAlign: 'right'
+                                            }}
+                                        />
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min={initialCapitalRange.min}
+                                        max={initialCapitalRange.max}
+                                        step={initialCapitalRange.step}
+                                        value={initialCapital}
+                                        onChange={(e) => setInitialCapital(Number(e.target.value))}
+                                        style={rangeFillStyle(initialCapital, initialCapitalRange.min, initialCapitalRange.max)}
+                                    />
+                                </div>
+                                <div style={{ marginBottom: '40px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
+                                        <label style={{ fontWeight: '600', fontSize: '16px', color: '#374151' }}>Срок (лет)</label>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <input
+                                                type="text"
+                                                value={formatNumber(Math.floor(termMonths / 12))}
+                                                onChange={(e) =>
+                                                    handleNumberInput(e.target.value, (n) => setTermMonths(n * 12))
+                                                }
+                                                style={{
+                                                    fontWeight: '800', fontSize: '20px', color: '#E91E63',
+                                                    border: '1px solid #E5E7EB', borderRadius: '8px',
+                                                    padding: '4px 8px', width: '80px', textAlign: 'right'
+                                                }}
+                                            />
+                                            <span style={{ fontWeight: '800', fontSize: '20px', color: '#334155' }}>лет</span>
+                                        </div>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min={termRange.min}
+                                        max={termRange.max}
+                                        step={termRange.step}
+                                        value={termMonths / 12}
+                                        onChange={(e) => setTermMonths(Number(e.target.value) * 12)}
+                                        style={rangeFillStyle(termMonths / 12, termRange.min, termRange.max)}
+                                    />
+                                    <div style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '8px', textAlign: 'right' }}>
+                                        {termMonths} месяцев
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
                         {/* 1. Standard Targets (Amount & Term) */}
                         {isStandard && (
                             <>
@@ -583,9 +650,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                 )}
                                 <div style={{ marginBottom: '32px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
-                                        <label style={{ fontWeight: '600', fontSize: '16px', color: '#374151' }}>
-                                            {isInheritance ? 'Капитал в наследство' : 'Стоимость цели'}
-                                        </label>
+                                        <label style={{ fontWeight: '600', fontSize: '16px', color: '#374151' }}>Стоимость цели</label>
                                         <input
                                             type="text"
                                             value={formatNumber(targetAmount)}

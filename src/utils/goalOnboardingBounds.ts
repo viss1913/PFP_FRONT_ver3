@@ -103,7 +103,7 @@ export const getGoalModalConfig = (params: {
         },
         initialCapital: {
             min: 0,
-            max: goalTypeId === 8 ? 100_000_000 : goalTypeId === 7 ? reserveInitialMax : 10_000_000,
+            max: goalTypeId === 8 ? 100_000_000 : goalTypeId === 7 ? reserveInitialMax : goalTypeId === 11 ? 40_000_000 : 10_000_000,
             step: goalTypeId === 8 ? 500_000 : goalTypeId === 7 ? reserveInitialStep : 100_000,
         },
     };
@@ -138,7 +138,7 @@ export const getGoalModalConfig = (params: {
         ),
         initialCapital: clamp(
             roundToStep(
-                goalTypeId === 7 ? Math.max(net * 3, 0) : goalTypeId === 8 ? Math.max(net * 120, 5_000_000) : Math.max(net * 24, 5_000_000),
+                goalTypeId === 7 ? Math.max(net * 3, 0) : goalTypeId === 8 ? Math.max(net * 120, 5_000_000) : goalTypeId === 11 ? Math.max(net * 36, 6_000_000) : Math.max(net * 24, 5_000_000),
                 bounds.initialCapital.step
             ),
             bounds.initialCapital.min,
