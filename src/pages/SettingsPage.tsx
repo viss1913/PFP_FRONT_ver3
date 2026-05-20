@@ -45,6 +45,7 @@ import {
     type ComonRiskProfile,
     type ResolutCatalogItem,
     type ResolutQuotePType,
+    type ProductLineCreate,
 } from '../api/agentLkApi';
 import {
     PORTFOLIO_RISK_PROFILE_ORDER,
@@ -634,6 +635,169 @@ function getDefaultProductCreateLine(): {
         min_amount: '0',
         max_amount: '1000000000000',
         yield_percent: '10',
+    };
+}
+
+/** Строка матрицы ИСЖ в форме (значения в инпутах — строки). */
+type IszhMatrixLineForm = {
+    risk_name: string;
+    min_term_months: string;
+    max_term_months: string;
+    min_amount: string;
+    max_amount: string;
+    age_from: string;
+    age_to: string;
+    payment_ratio: string;
+    yield_percent: string;
+};
+
+function isIszhProductType(code: string): boolean {
+    return String(code ?? '')
+        .trim()
+        .toUpperCase() === 'ISZH';
+}
+
+function getDefaultProductCreateIszhLine(): IszhMatrixLineForm {
+    return {
+        risk_name: 'Дожитие',
+        min_term_months: '0',
+        max_term_months: '0',
+        min_amount: '0',
+        max_amount: '1000000000000',
+        age_from: '',
+        age_to: '',
+        payment_ratio: '',
+        yield_percent: '10',
+    };
+}
+
+function isSurvivalRiskName(name: string): boolean {
+    const n = name.trim().toLowerCase();
+    return n.includes('дожит') || n.includes('survival');
+}
+
+function extractProductApiErrorMessage(e: unknown): string | null {
+    const ax = e as { response?: { data?: { message?: string; error?: string } } };
+    const d = ax?.response?.data;
+    if (d && typeof d === 'object') {
+        if (typeof d.message === 'string' && d.message.trim()) return d.message.trim();
+        const errStr = (d as { error?: unknown }).error;
+        if (typeof errStr === 'string' && errStr.trim()) return errStr.trim();
+    }
+    if (e instanceof Error && e.message) return e.message;
+    return null;
+}
+
+/** Клиентская проверка перед POST/PUT для ИСЖ (непустой lines). */
+function validateIszhMatrixBeforeSubmit(rows: IszhMatrixLineForm[]): string | null {
+    if (rows.length === 0) {
+        return 'Добавьте хотя бы одну строку матрицы рисков.';
+    }
+    for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        if (!r.risk_name.trim()) {
+            return `Строка ${i + 1}: укажите название риска.`;
+        }
+        if (r.payment_ratio.trim() !== '') {
+            const pr = Number(r.payment_ratio);
+            if (Number.isNaN(pr) || pr < 0) {
+                return `Строка ${i + 1}: коэффициент платежа должен быть числом ≥ 0.`;
+            }
+        }
+    }
+    const survivalRow = rows.find((r) => isSurvivalRiskName(r.risk_name));
+    if (!survivalRow) {
+        return 'В матрице должна быть строка риска «Дожитие» (или survival в названии) с годовой доходностью % — без неё продукт не сохранится.';
+    }
+    if (survivalRow.yield_percent.trim() === '' || Number.isNaN(Number(survivalRow.yield_percent))) {
+        return 'Для строки «Дожитие» обязательно укажите годовую доходность (%).';
+    }
+    return null;
+}
+
+function mapIszhFormRowsToApiLines(rows: IszhMatrixLineForm[]): ProductLineCreate[] {
+    return rows.map((r) => {
+        const line: ProductLineCreate = {
+            min_term_months: Number(r.min_term_months) || 0,
+            max_term_months: Number(r.max_term_months) || 0,
+            min_amount: Number(r.min_amount) || 0,
+            max_amount: Number(r.max_amount) || 0,
+            risk_name: r.risk_name.trim(),
+        };
+        if (r.age_from.trim() !== '') {
+            const a = Number(r.age_from);
+            if (!Number.isNaN(a)) line.age_from = a;
+        }
+        if (r.age_to.trim() !== '') {
+            const a = Number(r.age_to);
+            if (!Number.isNaN(a)) line.age_to = a;
+        }
+        if (r.payment_ratio.trim() !== '') {
+            const pr = Number(r.payment_ratio);
+            if (!Number.isNaN(pr)) line.payment_ratio = pr;
+        }
+        const y = r.yield_percent.trim();
+        if (y === '') {
+            line.yield_percent = null;
+        } else {
+            const yn = Number(y);
+            line.yield_percent = Number.isNaN(yn) ? null : yn;
+        }
+        return line;
+    });
+}
+
+function apiLineToIszhFormRow(line: Record<string, unknown>): IszhMatrixLineForm {
+    const numStr = (v: unknown): string => {
+        if (v === null || v === undefined || v === '') return '';
+        if (typeof v === 'number' && !Number.isNaN(v)) return String(v);
+        if (typeof v === 'string') return v;
+        return '';
+    };
+    const risk =
+        typeof line.risk_name === 'string'
+            ? line.risk_name
+            : typeof line.riskName === 'string'
+              ? line.riskName
+              : '';
+    const minT =
+        typeof line.min_term_months === 'number'
+            ? line.min_term_months
+            : typeof line.term_from_months === 'number'
+              ? line.term_from_months
+              : '';
+    const maxT =
+        typeof line.max_term_months === 'number'
+            ? line.max_term_months
+            : typeof line.term_to_months === 'number'
+              ? line.term_to_months
+              : '';
+    const minA =
+        typeof line.min_amount === 'number'
+            ? line.min_amount
+            : typeof line.amount_from === 'number'
+              ? line.amount_from
+              : '';
+    const maxA =
+        typeof line.max_amount === 'number'
+            ? line.max_amount
+            : typeof line.amount_to === 'number'
+              ? line.amount_to
+              : '';
+    const yp = line.yield_percent;
+    let yieldStr = '';
+    if (typeof yp === 'number' && !Number.isNaN(yp)) yieldStr = String(yp);
+    else if (yp !== null && yp !== undefined && yp !== '') yieldStr = String(yp);
+    return {
+        risk_name: risk,
+        min_term_months: minT === '' ? '' : String(minT),
+        max_term_months: maxT === '' ? '' : String(maxT),
+        min_amount: minA === '' ? '' : String(minA),
+        max_amount: maxA === '' ? '' : String(maxA),
+        age_from: numStr(line.age_from),
+        age_to: numStr(line.age_to),
+        payment_ratio: numStr(line.payment_ratio),
+        yield_percent: yieldStr,
     };
 }
 
@@ -1454,6 +1618,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         resolut_quote_p_type: 'unset',
     });
     const [productCreateLines, setProductCreateLines] = useState(() => [getDefaultProductCreateLine()]);
+    const [productCreateIszhLines, setProductCreateIszhLines] = useState(() => [getDefaultProductCreateIszhLine()]);
     const [isSavingProduct, setIsSavingProduct] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<AgentProduct | null>(null);
     const [isProductDetailsOpen, setIsProductDetailsOpen] = useState(false);
@@ -1466,6 +1631,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         max_amount: number | '';
         yield_percent: number | '';
     }[]>([]);
+    const [editableIszhLines, setEditableIszhLines] = useState<IszhMatrixLineForm[]>([]);
 
     const [resolutCatalogItems, setResolutCatalogItems] = useState<ResolutCatalogItem[] | null>(null);
     const [resolutCatalogLoading, setResolutCatalogLoading] = useState(false);
@@ -1895,6 +2061,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             resolut_quote_p_type: 'unset',
         });
         setProductCreateLines([getDefaultProductCreateLine()]);
+        setProductCreateIszhLines([getDefaultProductCreateIszhLine()]);
     };
 
     const openCreatePortfolio = () => {
@@ -2213,17 +2380,32 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         e.preventDefault();
         if (!productForm.name.trim() || !productForm.product_type.trim()) return;
 
+        const pt = productForm.product_type.trim();
+        const isIszh = isIszhProductType(pt);
+
+        if (isIszh) {
+            const vErr = validateIszhMatrixBeforeSubmit(productCreateIszhLines);
+            if (vErr) {
+                setError(vErr);
+                return;
+            }
+        }
+
+        const lines: ProductLineCreate[] = isIszh
+            ? mapIszhFormRowsToApiLines(productCreateIszhLines)
+            : productCreateLines.map((line) => ({
+                  min_term_months: Number(line.min_term_months) || 0,
+                  max_term_months: Number(line.max_term_months) || 0,
+                  min_amount: Number(line.min_amount) || 0,
+                  max_amount: Number(line.max_amount) || 0,
+                  yield_percent: Number(line.yield_percent) || 0,
+              }));
+
         const payload: ProductCreatePayload = {
             name: productForm.name.trim(),
-            product_type: productForm.product_type.trim(),
+            product_type: pt,
             currency: productForm.currency.trim() || 'RUB',
-            lines: productCreateLines.map((line) => ({
-                min_term_months: Number(line.min_term_months) || 0,
-                max_term_months: Number(line.max_term_months) || 0,
-                min_amount: Number(line.min_amount) || 0,
-                max_amount: Number(line.max_amount) || 0,
-                yield_percent: Number(line.yield_percent) || 0,
-            })),
+            lines,
             ...buildResolutProductPayloadPart(
                 isResolutAvProject,
                 productForm.resolut_pfp_code,
@@ -2232,6 +2414,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         };
 
         try {
+            setError(null);
             setIsSavingProduct(true);
             const created = await agentLkApi.createProduct(payload);
             setProducts((prev) => (prev ? [created, ...prev] : [created]));
@@ -2239,7 +2422,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             resetProductForm();
         } catch (e) {
             console.error('Failed to create product:', e);
-            setError('Не удалось создать продукт. Проверьте данные и авторизацию.');
+            const apiMsg = extractProductApiErrorMessage(e);
+            setError(apiMsg ?? 'Не удалось создать продукт. Проверьте данные и авторизацию.');
         } finally {
             setIsSavingProduct(false);
         }
@@ -5756,9 +5940,19 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                         </label>
                                         <select
                                             value={productForm.product_type}
-                                            onChange={(e) =>
-                                                setProductForm((prev) => ({ ...prev, product_type: e.target.value }))
-                                            }
+                                            onChange={(e) => {
+                                                const v = e.target.value;
+                                                const prevWas = isIszhProductType(productForm.product_type);
+                                                const nextIs = isIszhProductType(v);
+                                                setProductForm((prev) => ({ ...prev, product_type: v }));
+                                                if (prevWas !== nextIs) {
+                                                    if (nextIs) {
+                                                        setProductCreateIszhLines([getDefaultProductCreateIszhLine()]);
+                                                    } else {
+                                                        setProductCreateLines([getDefaultProductCreateLine()]);
+                                                    }
+                                                }
+                                            }}
                                             style={{
                                                 width: '100%',
                                                 padding: '8px 10px',
@@ -5937,10 +6131,369 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                         border: '1px dashed #e5e7eb',
                                     }}
                                 >
-                                    <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>
-                                        Линии доходности (можно несколько строк)
-                                    </div>
-                                    <table
+                                    {isIszhProductType(productForm.product_type) ? (
+                                        <>
+                                            <div
+                                                style={{
+                                                    fontSize: '12px',
+                                                    fontWeight: 600,
+                                                    color: '#374151',
+                                                    marginBottom: '6px',
+                                                }}
+                                            >
+                                                Матрица рисков (ИСЖ)
+                                            </div>
+                                            <p
+                                                style={{
+                                                    fontSize: '11px',
+                                                    color: '#6b7280',
+                                                    margin: '0 0 10px',
+                                                    lineHeight: 1.45,
+                                                }}
+                                            >
+                                                Добавьте строку с риском «Дожитие» и годовой доходностью % — без неё продукт не
+                                                сохранится (при заполненных lines) и расчёт наследства не сможет взять доходность.
+                                                Для остальных рисков доходность можно оставить пустой. Коэффициент платежа (если
+                                                задан) — число ≥ 0.
+                                            </p>
+                                            <p
+                                                style={{
+                                                    fontSize: '11px',
+                                                    color: '#6b7280',
+                                                    margin: '0 0 10px',
+                                                    lineHeight: 1.45,
+                                                }}
+                                            >
+                                                Возраст в матрице при расчёте сопоставляется с датой рождения клиента и датой начала
+                                                цели; здесь дату рождения не вводим.
+                                            </p>
+                                            <div style={{ overflowX: 'auto' }}>
+                                                <table
+                                                    style={{
+                                                        width: '100%',
+                                                        borderCollapse: 'collapse',
+                                                        fontSize: '11px',
+                                                        marginBottom: '8px',
+                                                    }}
+                                                >
+                                                    <thead>
+                                                        <tr style={{ textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>
+                                                            <th style={{ padding: '4px 6px 6px 0', color: '#6b7280', fontWeight: 500 }}>
+                                                                Риск
+                                                            </th>
+                                                            <th style={{ padding: '4px 6px 6px 0', color: '#6b7280', fontWeight: 500 }}>
+                                                                Срок от (мес)
+                                                            </th>
+                                                            <th style={{ padding: '4px 6px 6px 0', color: '#6b7280', fontWeight: 500 }}>
+                                                                Срок до
+                                                            </th>
+                                                            <th style={{ padding: '4px 6px 6px 0', color: '#6b7280', fontWeight: 500 }}>
+                                                                Сумма от
+                                                            </th>
+                                                            <th style={{ padding: '4px 6px 6px 0', color: '#6b7280', fontWeight: 500 }}>
+                                                                Сумма до
+                                                            </th>
+                                                            <th style={{ padding: '4px 6px 6px 0', color: '#6b7280', fontWeight: 500 }}>
+                                                                Возраст от (лет)
+                                                            </th>
+                                                            <th style={{ padding: '4px 6px 6px 0', color: '#6b7280', fontWeight: 500 }}>
+                                                                Возраст до
+                                                            </th>
+                                                            <th style={{ padding: '4px 6px 6px 0', color: '#6b7280', fontWeight: 500 }}>
+                                                                Коэф. платежа
+                                                            </th>
+                                                            <th style={{ padding: '4px 6px 6px 0', color: '#6b7280', fontWeight: 500 }}>
+                                                                % годовых
+                                                            </th>
+                                                            <th style={{ width: 36 }} />
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {productCreateIszhLines.map((line, idx) => (
+                                                            <tr key={idx} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                                                                <td style={{ padding: '4px 6px 4px 0', verticalAlign: 'middle' }}>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={line.risk_name}
+                                                                        onChange={(e) =>
+                                                                            setProductCreateIszhLines((prev) =>
+                                                                                prev.map((l, i) =>
+                                                                                    i === idx ? { ...l, risk_name: e.target.value } : l,
+                                                                                ),
+                                                                            )
+                                                                        }
+                                                                        style={{
+                                                                            width: '100%',
+                                                                            minWidth: 96,
+                                                                            padding: '6px 8px',
+                                                                            borderRadius: '8px',
+                                                                            border: '1px solid #e5e7eb',
+                                                                            fontSize: '12px',
+                                                                        }}
+                                                                    />
+                                                                </td>
+                                                                <td style={{ padding: '4px 6px 4px 0', verticalAlign: 'middle' }}>
+                                                                    <input
+                                                                        type="number"
+                                                                        min={0}
+                                                                        value={line.min_term_months}
+                                                                        onChange={(e) =>
+                                                                            setProductCreateIszhLines((prev) =>
+                                                                                prev.map((l, i) =>
+                                                                                    i === idx
+                                                                                        ? { ...l, min_term_months: e.target.value }
+                                                                                        : l,
+                                                                                ),
+                                                                            )
+                                                                        }
+                                                                        style={{
+                                                                            width: '100%',
+                                                                            minWidth: 56,
+                                                                            padding: '6px 8px',
+                                                                            borderRadius: '8px',
+                                                                            border: '1px solid #e5e7eb',
+                                                                            fontSize: '12px',
+                                                                        }}
+                                                                    />
+                                                                </td>
+                                                                <td style={{ padding: '4px 6px 4px 0', verticalAlign: 'middle' }}>
+                                                                    <input
+                                                                        type="number"
+                                                                        min={0}
+                                                                        value={line.max_term_months}
+                                                                        onChange={(e) =>
+                                                                            setProductCreateIszhLines((prev) =>
+                                                                                prev.map((l, i) =>
+                                                                                    i === idx
+                                                                                        ? { ...l, max_term_months: e.target.value }
+                                                                                        : l,
+                                                                                ),
+                                                                            )
+                                                                        }
+                                                                        style={{
+                                                                            width: '100%',
+                                                                            minWidth: 56,
+                                                                            padding: '6px 8px',
+                                                                            borderRadius: '8px',
+                                                                            border: '1px solid #e5e7eb',
+                                                                            fontSize: '12px',
+                                                                        }}
+                                                                    />
+                                                                </td>
+                                                                <td style={{ padding: '4px 6px 4px 0', verticalAlign: 'middle' }}>
+                                                                    <input
+                                                                        type="number"
+                                                                        min={0}
+                                                                        value={line.min_amount}
+                                                                        onChange={(e) =>
+                                                                            setProductCreateIszhLines((prev) =>
+                                                                                prev.map((l, i) =>
+                                                                                    i === idx ? { ...l, min_amount: e.target.value } : l,
+                                                                                ),
+                                                                            )
+                                                                        }
+                                                                        style={{
+                                                                            width: '100%',
+                                                                            minWidth: 64,
+                                                                            padding: '6px 8px',
+                                                                            borderRadius: '8px',
+                                                                            border: '1px solid #e5e7eb',
+                                                                            fontSize: '12px',
+                                                                        }}
+                                                                    />
+                                                                </td>
+                                                                <td style={{ padding: '4px 6px 4px 0', verticalAlign: 'middle' }}>
+                                                                    <input
+                                                                        type="number"
+                                                                        min={0}
+                                                                        value={line.max_amount}
+                                                                        onChange={(e) =>
+                                                                            setProductCreateIszhLines((prev) =>
+                                                                                prev.map((l, i) =>
+                                                                                    i === idx ? { ...l, max_amount: e.target.value } : l,
+                                                                                ),
+                                                                            )
+                                                                        }
+                                                                        style={{
+                                                                            width: '100%',
+                                                                            minWidth: 64,
+                                                                            padding: '6px 8px',
+                                                                            borderRadius: '8px',
+                                                                            border: '1px solid #e5e7eb',
+                                                                            fontSize: '12px',
+                                                                        }}
+                                                                    />
+                                                                </td>
+                                                                <td style={{ padding: '4px 6px 4px 0', verticalAlign: 'middle' }}>
+                                                                    <input
+                                                                        type="number"
+                                                                        min={0}
+                                                                        value={line.age_from}
+                                                                        onChange={(e) =>
+                                                                            setProductCreateIszhLines((prev) =>
+                                                                                prev.map((l, i) =>
+                                                                                    i === idx ? { ...l, age_from: e.target.value } : l,
+                                                                                ),
+                                                                            )
+                                                                        }
+                                                                        style={{
+                                                                            width: '100%',
+                                                                            minWidth: 52,
+                                                                            padding: '6px 8px',
+                                                                            borderRadius: '8px',
+                                                                            border: '1px solid #e5e7eb',
+                                                                            fontSize: '12px',
+                                                                        }}
+                                                                    />
+                                                                </td>
+                                                                <td style={{ padding: '4px 6px 4px 0', verticalAlign: 'middle' }}>
+                                                                    <input
+                                                                        type="number"
+                                                                        min={0}
+                                                                        value={line.age_to}
+                                                                        onChange={(e) =>
+                                                                            setProductCreateIszhLines((prev) =>
+                                                                                prev.map((l, i) =>
+                                                                                    i === idx ? { ...l, age_to: e.target.value } : l,
+                                                                                ),
+                                                                            )
+                                                                        }
+                                                                        style={{
+                                                                            width: '100%',
+                                                                            minWidth: 52,
+                                                                            padding: '6px 8px',
+                                                                            borderRadius: '8px',
+                                                                            border: '1px solid #e5e7eb',
+                                                                            fontSize: '12px',
+                                                                        }}
+                                                                    />
+                                                                </td>
+                                                                <td style={{ padding: '4px 6px 4px 0', verticalAlign: 'middle' }}>
+                                                                    <input
+                                                                        type="number"
+                                                                        min={0}
+                                                                        step="0.0001"
+                                                                        value={line.payment_ratio}
+                                                                        onChange={(e) =>
+                                                                            setProductCreateIszhLines((prev) =>
+                                                                                prev.map((l, i) =>
+                                                                                    i === idx
+                                                                                        ? { ...l, payment_ratio: e.target.value }
+                                                                                        : l,
+                                                                                ),
+                                                                            )
+                                                                        }
+                                                                        style={{
+                                                                            width: '100%',
+                                                                            minWidth: 56,
+                                                                            padding: '6px 8px',
+                                                                            borderRadius: '8px',
+                                                                            border: '1px solid #e5e7eb',
+                                                                            fontSize: '12px',
+                                                                        }}
+                                                                    />
+                                                                </td>
+                                                                <td style={{ padding: '4px 6px 4px 0', verticalAlign: 'middle' }}>
+                                                                    <input
+                                                                        type="number"
+                                                                        min={0}
+                                                                        step="0.1"
+                                                                        value={line.yield_percent}
+                                                                        onChange={(e) =>
+                                                                            setProductCreateIszhLines((prev) =>
+                                                                                prev.map((l, i) =>
+                                                                                    i === idx
+                                                                                        ? { ...l, yield_percent: e.target.value }
+                                                                                        : l,
+                                                                                ),
+                                                                            )
+                                                                        }
+                                                                        style={{
+                                                                            width: '100%',
+                                                                            minWidth: 56,
+                                                                            padding: '6px 8px',
+                                                                            borderRadius: '8px',
+                                                                            border: '1px solid #e5e7eb',
+                                                                            fontSize: '12px',
+                                                                        }}
+                                                                    />
+                                                                </td>
+                                                                <td style={{ padding: '4px 0', textAlign: 'center', verticalAlign: 'middle' }}>
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled={productCreateIszhLines.length <= 1 || isSavingProduct}
+                                                                        title={
+                                                                            productCreateIszhLines.length <= 1
+                                                                                ? 'Нужна хотя бы одна строка'
+                                                                                : 'Удалить строку'
+                                                                        }
+                                                                        onClick={() =>
+                                                                            setProductCreateIszhLines((prev) =>
+                                                                                prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx),
+                                                                            )
+                                                                        }
+                                                                        style={{
+                                                                            border: 'none',
+                                                                            background: 'transparent',
+                                                                            color:
+                                                                                productCreateIszhLines.length <= 1
+                                                                                    ? '#d1d5db'
+                                                                                    : '#ef4444',
+                                                                            cursor:
+                                                                                productCreateIszhLines.length <= 1 || isSavingProduct
+                                                                                    ? 'not-allowed'
+                                                                                    : 'pointer',
+                                                                            fontSize: '16px',
+                                                                            lineHeight: 1,
+                                                                            padding: '2px 4px',
+                                                                        }}
+                                                                    >
+                                                                        ×
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                disabled={isSavingProduct}
+                                                onClick={() =>
+                                                    setProductCreateIszhLines((prev) => [
+                                                        ...prev,
+                                                        {
+                                                            risk_name: '',
+                                                            min_term_months: '0',
+                                                            max_term_months: '0',
+                                                            min_amount: '0',
+                                                            max_amount: '1000000000000',
+                                                            age_from: '',
+                                                            age_to: '',
+                                                            payment_ratio: '',
+                                                            yield_percent: '',
+                                                        },
+                                                    ])
+                                                }
+                                                style={{
+                                                    padding: '6px 10px',
+                                                    borderRadius: '999px',
+                                                    border: '1px dashed #e5e7eb',
+                                                    background: '#fff',
+                                                    fontSize: '12px',
+                                                    cursor: isSavingProduct ? 'wait' : 'pointer',
+                                                    color: '#374151',
+                                                }}
+                                            >
+                                                + Строку риска
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>
+                                                Линии доходности (можно несколько строк)
+                                            </div>
+                                            <table
                                         style={{
                                             width: '100%',
                                             borderCollapse: 'collapse',
@@ -6117,7 +6670,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                             ))}
                                         </tbody>
                                     </table>
-                                    <button
+                                            <button
                                         type="button"
                                         disabled={isSavingProduct}
                                         onClick={() =>
@@ -6135,6 +6688,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                     >
                                         + Добавить линию
                                     </button>
+                                        </>
+                                    )}
+
                                 </div>
 
                                 <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
@@ -6217,54 +6773,66 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                         <button
                                             type="button"
                                             onClick={() => {
-                                                const src: any[] =
-                                                    ((selectedProduct as any).lines as any[]) ||
-                                                    ((selectedProduct as any).yields as any[]) ||
-                                                    [];
-                                                setEditableLines(
-                                                    src.map((line) => ({
-                                                        min_term_months:
-                                                            typeof line.min_term_months === 'number'
-                                                                ? line.min_term_months
-                                                                : typeof line.term_from_months === 'number'
-                                                                ? line.term_from_months
-                                                                : '',
-                                                        max_term_months:
-                                                            typeof line.max_term_months === 'number'
-                                                                ? line.max_term_months
-                                                                : typeof line.term_to_months === 'number'
-                                                                ? line.term_to_months
-                                                                : '',
-                                                        min_amount:
-                                                            typeof line.min_amount === 'number'
-                                                                ? line.min_amount
-                                                                : typeof line.amount_from === 'number'
-                                                                ? line.amount_from
-                                                                : '',
-                                                        max_amount:
-                                                            typeof line.max_amount === 'number'
-                                                                ? line.max_amount
-                                                                : typeof line.amount_to === 'number'
-                                                                ? line.amount_to
-                                                                : '',
-                                                        yield_percent:
-                                                            typeof line.yield_percent === 'number'
-                                                                ? line.yield_percent
-                                                                : '',
-                                                    })),
-                                                );
-                                                if (src.length === 0) {
-                                                    setEditableLines([
-                                                        {
-                                                            min_term_months: '',
-                                                            max_term_months: '',
-                                                            min_amount: '',
-                                                            max_amount: '',
-                                                            yield_percent: '',
-                                                        },
-                                                    ]);
-                                                }
                                                 const sp = selectedProduct as any;
+                                                const pt = String(sp.product_type || sp.type || '');
+                                                const isIszh = isIszhProductType(pt);
+                                                const src: any[] =
+                                                    (sp.lines as any[]) || (sp.yields as any[]) || [];
+                                                if (isIszh) {
+                                                    setEditableIszhLines(
+                                                        src.length > 0
+                                                            ? src.map((line) =>
+                                                                  apiLineToIszhFormRow(line as Record<string, unknown>),
+                                                              )
+                                                            : [getDefaultProductCreateIszhLine()],
+                                                    );
+                                                    setEditableLines([]);
+                                                } else {
+                                                    setEditableLines(
+                                                        src.map((line) => ({
+                                                            min_term_months:
+                                                                typeof line.min_term_months === 'number'
+                                                                    ? line.min_term_months
+                                                                    : typeof line.term_from_months === 'number'
+                                                                      ? line.term_from_months
+                                                                      : '',
+                                                            max_term_months:
+                                                                typeof line.max_term_months === 'number'
+                                                                    ? line.max_term_months
+                                                                    : typeof line.term_to_months === 'number'
+                                                                      ? line.term_to_months
+                                                                      : '',
+                                                            min_amount:
+                                                                typeof line.min_amount === 'number'
+                                                                    ? line.min_amount
+                                                                    : typeof line.amount_from === 'number'
+                                                                      ? line.amount_from
+                                                                      : '',
+                                                            max_amount:
+                                                                typeof line.max_amount === 'number'
+                                                                    ? line.max_amount
+                                                                    : typeof line.amount_to === 'number'
+                                                                      ? line.amount_to
+                                                                      : '',
+                                                            yield_percent:
+                                                                typeof line.yield_percent === 'number'
+                                                                    ? line.yield_percent
+                                                                    : '',
+                                                        })),
+                                                    );
+                                                    if (src.length === 0) {
+                                                        setEditableLines([
+                                                            {
+                                                                min_term_months: '',
+                                                                max_term_months: '',
+                                                                min_amount: '',
+                                                                max_amount: '',
+                                                                yield_percent: '',
+                                                            },
+                                                        ]);
+                                                    }
+                                                    setEditableIszhLines([]);
+                                                }
                                                 const rc = sp.resolut_pfp_code;
                                                 setEditResolutPfpCode(
                                                     rc != null && String(rc).trim() !== '' ? String(rc).slice(0, 64) : '',
@@ -6370,60 +6938,161 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                             borderTop: '1px solid #e5e7eb',
                                         }}
                                     >
-                                        <div style={{ fontWeight: 600, marginBottom: '6px' }}>Линии доходности</div>
-                                        {!isEditingProduct && (
-                                            <table
-                                                style={{
-                                                    width: '100%',
-                                                    borderCollapse: 'collapse',
-                                                    fontSize: '12px',
-                                                }}
-                                            >
-                                                <thead>
-                                                    <tr
+                                        <div style={{ fontWeight: 600, marginBottom: '6px' }}>
+                                            {isIszhProductType(
+                                                String(
+                                                    (selectedProduct as any).product_type ||
+                                                        (selectedProduct as any).type ||
+                                                        '',
+                                                ),
+                                            )
+                                                ? 'Матрица рисков (ИСЖ)'
+                                                : 'Линии доходности'}
+                                        </div>
+                                        {!isEditingProduct &&
+                                            (isIszhProductType(
+                                                String(
+                                                    (selectedProduct as any).product_type ||
+                                                        (selectedProduct as any).type ||
+                                                        '',
+                                                ),
+                                            ) ? (
+                                                <div style={{ overflowX: 'auto' }}>
+                                                    <table
                                                         style={{
-                                                            textAlign: 'left',
-                                                            borderBottom: '1px solid #e5e7eb',
+                                                            width: '100%',
+                                                            borderCollapse: 'collapse',
+                                                            fontSize: '12px',
                                                         }}
                                                     >
-                                                        <th style={{ padding: '4px 2px', color: '#6b7280' }}>Срок от</th>
-                                                        <th style={{ padding: '4px 2px', color: '#6b7280' }}>Срок до</th>
-                                                        <th style={{ padding: '4px 2px', color: '#6b7280' }}>
-                                                            Сумма от
-                                                        </th>
-                                                        <th style={{ padding: '4px 2px', color: '#6b7280' }}>
-                                                            Сумма до
-                                                        </th>
-                                                        <th style={{ padding: '4px 2px', color: '#6b7280' }}>
-                                                            % годовых
-                                                        </th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {(((selectedProduct as any).lines as any[]) ||
-                                                        ((selectedProduct as any).yields as any[]) ||
-                                                        [])?.map((line, idx) => (
-                                                        <tr key={idx} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                                                            <td style={{ padding: '4px 2px' }}>
-                                                                {line.min_term_months ?? line.term_from_months ?? '—'}
-                                                            </td>
-                                                            <td style={{ padding: '4px 2px' }}>
-                                                                {line.max_term_months ?? line.term_to_months ?? '—'}
-                                                            </td>
-                                                            <td style={{ padding: '4px 2px' }}>
-                                                                {line.min_amount ?? line.amount_from ?? '—'}
-                                                            </td>
-                                                            <td style={{ padding: '4px 2px' }}>
-                                                                {line.max_amount ?? line.amount_to ?? '—'}
-                                                            </td>
-                                                            <td style={{ padding: '4px 2px' }}>
-                                                                {line.yield_percent ?? '—'}
-                                                            </td>
+                                                        <thead>
+                                                            <tr
+                                                                style={{
+                                                                    textAlign: 'left',
+                                                                    borderBottom: '1px solid #e5e7eb',
+                                                                }}
+                                                            >
+                                                                <th style={{ padding: '4px 2px', color: '#6b7280' }}>Риск</th>
+                                                                <th style={{ padding: '4px 2px', color: '#6b7280' }}>
+                                                                    Срок от
+                                                                </th>
+                                                                <th style={{ padding: '4px 2px', color: '#6b7280' }}>
+                                                                    Срок до
+                                                                </th>
+                                                                <th style={{ padding: '4px 2px', color: '#6b7280' }}>
+                                                                    Сумма от
+                                                                </th>
+                                                                <th style={{ padding: '4px 2px', color: '#6b7280' }}>
+                                                                    Сумма до
+                                                                </th>
+                                                                <th style={{ padding: '4px 2px', color: '#6b7280' }}>
+                                                                    Возраст от
+                                                                </th>
+                                                                <th style={{ padding: '4px 2px', color: '#6b7280' }}>
+                                                                    Возраст до
+                                                                </th>
+                                                                <th style={{ padding: '4px 2px', color: '#6b7280' }}>
+                                                                    Коэф. платежа
+                                                                </th>
+                                                                <th style={{ padding: '4px 2px', color: '#6b7280' }}>
+                                                                    % годовых
+                                                                </th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {(
+                                                                ((selectedProduct as any).lines as any[]) ||
+                                                                ((selectedProduct as any).yields as any[]) ||
+                                                                []
+                                                            )?.map((line, idx) => (
+                                                                <tr key={idx} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                                                                    <td style={{ padding: '4px 2px' }}>
+                                                                        {line.risk_name ?? line.riskName ?? '—'}
+                                                                    </td>
+                                                                    <td style={{ padding: '4px 2px' }}>
+                                                                        {line.min_term_months ?? line.term_from_months ?? '—'}
+                                                                    </td>
+                                                                    <td style={{ padding: '4px 2px' }}>
+                                                                        {line.max_term_months ?? line.term_to_months ?? '—'}
+                                                                    </td>
+                                                                    <td style={{ padding: '4px 2px' }}>
+                                                                        {line.min_amount ?? line.amount_from ?? '—'}
+                                                                    </td>
+                                                                    <td style={{ padding: '4px 2px' }}>
+                                                                        {line.max_amount ?? line.amount_to ?? '—'}
+                                                                    </td>
+                                                                    <td style={{ padding: '4px 2px' }}>
+                                                                        {line.age_from ?? '—'}
+                                                                    </td>
+                                                                    <td style={{ padding: '4px 2px' }}>
+                                                                        {line.age_to ?? '—'}
+                                                                    </td>
+                                                                    <td style={{ padding: '4px 2px' }}>
+                                                                        {line.payment_ratio ?? '—'}
+                                                                    </td>
+                                                                    <td style={{ padding: '4px 2px' }}>
+                                                                        {line.yield_percent ?? '—'}
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            ) : (
+                                                <table
+                                                    style={{
+                                                        width: '100%',
+                                                        borderCollapse: 'collapse',
+                                                        fontSize: '12px',
+                                                    }}
+                                                >
+                                                    <thead>
+                                                        <tr
+                                                            style={{
+                                                                textAlign: 'left',
+                                                                borderBottom: '1px solid #e5e7eb',
+                                                            }}
+                                                        >
+                                                            <th style={{ padding: '4px 2px', color: '#6b7280' }}>Срок от</th>
+                                                            <th style={{ padding: '4px 2px', color: '#6b7280' }}>Срок до</th>
+                                                            <th style={{ padding: '4px 2px', color: '#6b7280' }}>
+                                                                Сумма от
+                                                            </th>
+                                                            <th style={{ padding: '4px 2px', color: '#6b7280' }}>
+                                                                Сумма до
+                                                            </th>
+                                                            <th style={{ padding: '4px 2px', color: '#6b7280' }}>
+                                                                % годовых
+                                                            </th>
                                                         </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        )}
+                                                    </thead>
+                                                    <tbody>
+                                                        {(
+                                                            ((selectedProduct as any).lines as any[]) ||
+                                                            ((selectedProduct as any).yields as any[]) ||
+                                                            []
+                                                        )?.map((line, idx) => (
+                                                            <tr key={idx} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                                                                <td style={{ padding: '4px 2px' }}>
+                                                                    {line.min_term_months ?? line.term_from_months ?? '—'}
+                                                                </td>
+                                                                <td style={{ padding: '4px 2px' }}>
+                                                                    {line.max_term_months ?? line.term_to_months ?? '—'}
+                                                                </td>
+                                                                <td style={{ padding: '4px 2px' }}>
+                                                                    {line.min_amount ?? line.amount_from ?? '—'}
+                                                                </td>
+                                                                <td style={{ padding: '4px 2px' }}>
+                                                                    {line.max_amount ?? line.amount_to ?? '—'}
+                                                                </td>
+                                                                <td style={{ padding: '4px 2px' }}>
+                                                                    {line.yield_percent ?? '—'}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            ))}
 
                                         {isEditingProduct && (
                                             <div>
@@ -6562,6 +7231,352 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                         </div>
                                                     </div>
                                                 )}
+                                                {isIszhProductType(
+                                                    String(
+                                                        (selectedProduct as any).product_type ||
+                                                            (selectedProduct as any).type ||
+                                                            '',
+                                                    ),
+                                                ) ? (
+                                                    <>
+                                                        <p
+                                                            style={{
+                                                                fontSize: '11px',
+                                                                color: '#6b7280',
+                                                                margin: '0 0 8px',
+                                                                lineHeight: 1.45,
+                                                            }}
+                                                        >
+                                                            Строка «Дожитие» с годовой доходностью % обязательна. Для прочих рисков
+                                                            доходность можно оставить пустой.
+                                                        </p>
+                                                        <div style={{ overflowX: 'auto' }}>
+                                                            <table
+                                                                style={{
+                                                                    width: '100%',
+                                                                    borderCollapse: 'collapse',
+                                                                    fontSize: '11px',
+                                                                    marginBottom: '8px',
+                                                                }}
+                                                            >
+                                                                <thead>
+                                                                    <tr
+                                                                        style={{
+                                                                            textAlign: 'left',
+                                                                            borderBottom: '1px solid #e5e7eb',
+                                                                        }}
+                                                                    >
+                                                                        <th style={{ padding: '4px 2px', color: '#6b7280' }}>
+                                                                            Риск
+                                                                        </th>
+                                                                        <th style={{ padding: '4px 2px', color: '#6b7280' }}>
+                                                                            Срок от
+                                                                        </th>
+                                                                        <th style={{ padding: '4px 2px', color: '#6b7280' }}>
+                                                                            Срок до
+                                                                        </th>
+                                                                        <th style={{ padding: '4px 2px', color: '#6b7280' }}>
+                                                                            Сумма от
+                                                                        </th>
+                                                                        <th style={{ padding: '4px 2px', color: '#6b7280' }}>
+                                                                            Сумма до
+                                                                        </th>
+                                                                        <th style={{ padding: '4px 2px', color: '#6b7280' }}>
+                                                                            Возраст от
+                                                                        </th>
+                                                                        <th style={{ padding: '4px 2px', color: '#6b7280' }}>
+                                                                            Возраст до
+                                                                        </th>
+                                                                        <th style={{ padding: '4px 2px', color: '#6b7280' }}>
+                                                                            Коэф. платежа
+                                                                        </th>
+                                                                        <th style={{ padding: '4px 2px', color: '#6b7280' }}>
+                                                                            % годовых
+                                                                        </th>
+                                                                        <th style={{ width: 40 }} />
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {editableIszhLines.map((line, idx) => (
+                                                                        <tr key={idx} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                                                                            <td style={{ padding: '4px 2px' }}>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    value={line.risk_name}
+                                                                                    onChange={(e) =>
+                                                                                        setEditableIszhLines((prev) =>
+                                                                                            prev.map((l, i) =>
+                                                                                                i === idx
+                                                                                                    ? { ...l, risk_name: e.target.value }
+                                                                                                    : l,
+                                                                                            ),
+                                                                                        )
+                                                                                    }
+                                                                                    style={{
+                                                                                        width: '100%',
+                                                                                        minWidth: 88,
+                                                                                        padding: '4px 6px',
+                                                                                        borderRadius: '6px',
+                                                                                        border: '1px solid #e5e7eb',
+                                                                                        fontSize: '12px',
+                                                                                    }}
+                                                                                />
+                                                                            </td>
+                                                                            <td style={{ padding: '4px 2px' }}>
+                                                                                <input
+                                                                                    type="number"
+                                                                                    value={line.min_term_months}
+                                                                                    onChange={(e) =>
+                                                                                        setEditableIszhLines((prev) =>
+                                                                                            prev.map((l, i) =>
+                                                                                                i === idx
+                                                                                                    ? {
+                                                                                                          ...l,
+                                                                                                          min_term_months: e.target.value,
+                                                                                                      }
+                                                                                                    : l,
+                                                                                            ),
+                                                                                        )
+                                                                                    }
+                                                                                    style={{
+                                                                                        width: '100%',
+                                                                                        padding: '4px 6px',
+                                                                                        borderRadius: '6px',
+                                                                                        border: '1px solid #e5e7eb',
+                                                                                        fontSize: '12px',
+                                                                                    }}
+                                                                                />
+                                                                            </td>
+                                                                            <td style={{ padding: '4px 2px' }}>
+                                                                                <input
+                                                                                    type="number"
+                                                                                    value={line.max_term_months}
+                                                                                    onChange={(e) =>
+                                                                                        setEditableIszhLines((prev) =>
+                                                                                            prev.map((l, i) =>
+                                                                                                i === idx
+                                                                                                    ? {
+                                                                                                          ...l,
+                                                                                                          max_term_months: e.target.value,
+                                                                                                      }
+                                                                                                    : l,
+                                                                                            ),
+                                                                                        )
+                                                                                    }
+                                                                                    style={{
+                                                                                        width: '100%',
+                                                                                        padding: '4px 6px',
+                                                                                        borderRadius: '6px',
+                                                                                        border: '1px solid #e5e7eb',
+                                                                                        fontSize: '12px',
+                                                                                    }}
+                                                                                />
+                                                                            </td>
+                                                                            <td style={{ padding: '4px 2px' }}>
+                                                                                <input
+                                                                                    type="number"
+                                                                                    value={line.min_amount}
+                                                                                    onChange={(e) =>
+                                                                                        setEditableIszhLines((prev) =>
+                                                                                            prev.map((l, i) =>
+                                                                                                i === idx
+                                                                                                    ? { ...l, min_amount: e.target.value }
+                                                                                                    : l,
+                                                                                            ),
+                                                                                        )
+                                                                                    }
+                                                                                    style={{
+                                                                                        width: '100%',
+                                                                                        padding: '4px 6px',
+                                                                                        borderRadius: '6px',
+                                                                                        border: '1px solid #e5e7eb',
+                                                                                        fontSize: '12px',
+                                                                                    }}
+                                                                                />
+                                                                            </td>
+                                                                            <td style={{ padding: '4px 2px' }}>
+                                                                                <input
+                                                                                    type="number"
+                                                                                    value={line.max_amount}
+                                                                                    onChange={(e) =>
+                                                                                        setEditableIszhLines((prev) =>
+                                                                                            prev.map((l, i) =>
+                                                                                                i === idx
+                                                                                                    ? { ...l, max_amount: e.target.value }
+                                                                                                    : l,
+                                                                                            ),
+                                                                                        )
+                                                                                    }
+                                                                                    style={{
+                                                                                        width: '100%',
+                                                                                        padding: '4px 6px',
+                                                                                        borderRadius: '6px',
+                                                                                        border: '1px solid #e5e7eb',
+                                                                                        fontSize: '12px',
+                                                                                    }}
+                                                                                />
+                                                                            </td>
+                                                                            <td style={{ padding: '4px 2px' }}>
+                                                                                <input
+                                                                                    type="number"
+                                                                                    value={line.age_from}
+                                                                                    onChange={(e) =>
+                                                                                        setEditableIszhLines((prev) =>
+                                                                                            prev.map((l, i) =>
+                                                                                                i === idx
+                                                                                                    ? { ...l, age_from: e.target.value }
+                                                                                                    : l,
+                                                                                            ),
+                                                                                        )
+                                                                                    }
+                                                                                    style={{
+                                                                                        width: '100%',
+                                                                                        padding: '4px 6px',
+                                                                                        borderRadius: '6px',
+                                                                                        border: '1px solid #e5e7eb',
+                                                                                        fontSize: '12px',
+                                                                                    }}
+                                                                                />
+                                                                            </td>
+                                                                            <td style={{ padding: '4px 2px' }}>
+                                                                                <input
+                                                                                    type="number"
+                                                                                    value={line.age_to}
+                                                                                    onChange={(e) =>
+                                                                                        setEditableIszhLines((prev) =>
+                                                                                            prev.map((l, i) =>
+                                                                                                i === idx
+                                                                                                    ? { ...l, age_to: e.target.value }
+                                                                                                    : l,
+                                                                                            ),
+                                                                                        )
+                                                                                    }
+                                                                                    style={{
+                                                                                        width: '100%',
+                                                                                        padding: '4px 6px',
+                                                                                        borderRadius: '6px',
+                                                                                        border: '1px solid #e5e7eb',
+                                                                                        fontSize: '12px',
+                                                                                    }}
+                                                                                />
+                                                                            </td>
+                                                                            <td style={{ padding: '4px 2px' }}>
+                                                                                <input
+                                                                                    type="number"
+                                                                                    step="0.0001"
+                                                                                    value={line.payment_ratio}
+                                                                                    onChange={(e) =>
+                                                                                        setEditableIszhLines((prev) =>
+                                                                                            prev.map((l, i) =>
+                                                                                                i === idx
+                                                                                                    ? {
+                                                                                                          ...l,
+                                                                                                          payment_ratio: e.target.value,
+                                                                                                      }
+                                                                                                    : l,
+                                                                                            ),
+                                                                                        )
+                                                                                    }
+                                                                                    style={{
+                                                                                        width: '100%',
+                                                                                        padding: '4px 6px',
+                                                                                        borderRadius: '6px',
+                                                                                        border: '1px solid #e5e7eb',
+                                                                                        fontSize: '12px',
+                                                                                    }}
+                                                                                />
+                                                                            </td>
+                                                                            <td style={{ padding: '4px 2px' }}>
+                                                                                <input
+                                                                                    type="number"
+                                                                                    step="0.1"
+                                                                                    value={line.yield_percent}
+                                                                                    onChange={(e) =>
+                                                                                        setEditableIszhLines((prev) =>
+                                                                                            prev.map((l, i) =>
+                                                                                                i === idx
+                                                                                                    ? {
+                                                                                                          ...l,
+                                                                                                          yield_percent: e.target.value,
+                                                                                                      }
+                                                                                                    : l,
+                                                                                            ),
+                                                                                        )
+                                                                                    }
+                                                                                    style={{
+                                                                                        width: '100%',
+                                                                                        padding: '4px 6px',
+                                                                                        borderRadius: '6px',
+                                                                                        border: '1px solid #e5e7eb',
+                                                                                        fontSize: '12px',
+                                                                                    }}
+                                                                                />
+                                                                            </td>
+                                                                            <td style={{ padding: '4px 2px', textAlign: 'center' }}>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    disabled={editableIszhLines.length <= 1}
+                                                                                    onClick={() =>
+                                                                                        setEditableIszhLines((prev) =>
+                                                                                            prev.length <= 1
+                                                                                                ? prev
+                                                                                                : prev.filter((_, i) => i !== idx),
+                                                                                        )
+                                                                                    }
+                                                                                    style={{
+                                                                                        border: 'none',
+                                                                                        background: 'transparent',
+                                                                                        color:
+                                                                                            editableIszhLines.length <= 1
+                                                                                                ? '#d1d5db'
+                                                                                                : '#ef4444',
+                                                                                        cursor:
+                                                                                            editableIszhLines.length <= 1
+                                                                                                ? 'not-allowed'
+                                                                                                : 'pointer',
+                                                                                        fontSize: '14px',
+                                                                                    }}
+                                                                                >
+                                                                                    ×
+                                                                                </button>
+                                                                            </td>
+                                                                        </tr>
+                                                                    ))}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setEditableIszhLines((prev) => [
+                                                                    ...prev,
+                                                                    {
+                                                                        risk_name: '',
+                                                                        min_term_months: '0',
+                                                                        max_term_months: '0',
+                                                                        min_amount: '0',
+                                                                        max_amount: '1000000000000',
+                                                                        age_from: '',
+                                                                        age_to: '',
+                                                                        payment_ratio: '',
+                                                                        yield_percent: '',
+                                                                    },
+                                                                ])
+                                                            }
+                                                            style={{
+                                                                padding: '6px 10px',
+                                                                borderRadius: '999px',
+                                                                border: '1px dashed #e5e7eb',
+                                                                background: '#f9fafb',
+                                                                fontSize: '12px',
+                                                                cursor: 'pointer',
+                                                            }}
+                                                        >
+                                                            + Строку риска
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <>
                                                 <table
                                                     style={{
                                                         width: '100%',
@@ -6694,6 +7709,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                 >
                                                     Добавить линию
                                                 </button>
+                                                    </>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -6742,11 +7759,19 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                 onClick={async () => {
                                                     if (!selectedProduct) return;
                                                     const base: any = selectedProduct as any;
-                                                    const payload: ProductCreatePayload = {
-                                                        name: base.name,
-                                                        product_type: base.product_type || base.type,
-                                                        currency: base.currency || 'RUB',
-                                                        lines: editableLines
+                                                    const pt = String(base.product_type || base.type || '');
+                                                    const isIszh = isIszhProductType(pt);
+
+                                                    let lines: ProductLineCreate[];
+                                                    if (isIszh) {
+                                                        const vErr = validateIszhMatrixBeforeSubmit(editableIszhLines);
+                                                        if (vErr) {
+                                                            setError(vErr);
+                                                            return;
+                                                        }
+                                                        lines = mapIszhFormRowsToApiLines(editableIszhLines);
+                                                    } else {
+                                                        lines = editableLines
                                                             .filter(
                                                                 (l) =>
                                                                     l.min_term_months !== '' &&
@@ -6763,18 +7788,21 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                                         ? l.max_term_months
                                                                         : 0,
                                                                 min_amount:
-                                                                    typeof l.min_amount === 'number'
-                                                                        ? l.min_amount
-                                                                        : 0,
+                                                                    typeof l.min_amount === 'number' ? l.min_amount : 0,
                                                                 max_amount:
-                                                                    typeof l.max_amount === 'number'
-                                                                        ? l.max_amount
-                                                                        : 0,
+                                                                    typeof l.max_amount === 'number' ? l.max_amount : 0,
                                                                 yield_percent:
                                                                     typeof l.yield_percent === 'number'
                                                                         ? l.yield_percent
                                                                         : 0,
-                                                            })),
+                                                            }));
+                                                    }
+
+                                                    const payload: ProductCreatePayload = {
+                                                        name: base.name,
+                                                        product_type: base.product_type || base.type,
+                                                        currency: base.currency || 'RUB',
+                                                        lines,
                                                         ...buildResolutProductPayloadPart(
                                                             isResolutAvProject,
                                                             editResolutPfpCode,
@@ -6783,6 +7811,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                     };
 
                                                     try {
+                                                        setError(null);
                                                         setIsLoadingProductDetails(true);
                                                         const updated = await agentLkApi.updateProduct(
                                                             selectedProduct.id,
@@ -6799,8 +7828,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                         setIsEditingProduct(false);
                                                     } catch (e) {
                                                         console.error('Failed to update product:', e);
+                                                        const apiMsg = extractProductApiErrorMessage(e);
                                                         setError(
-                                                            'Не удалось сохранить продукт. Возможно, это системный продукт и его нельзя менять.',
+                                                            apiMsg ??
+                                                                'Не удалось сохранить продукт. Возможно, это системный продукт и его нельзя менять.',
                                                         );
                                                     } finally {
                                                         setIsLoadingProductDetails(false);

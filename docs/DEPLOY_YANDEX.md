@@ -44,6 +44,7 @@ BUCKET_NAME=family-office.bank-future.com
 - **Чтение объектов** — для всех (публичная статика).
 - **Запись** — только сервисный аккаунт (ключи в `.env`).
 - Website hosting: главная и ошибка = `index.html` (SPA).
+- Для вложенных path (`/sber`, `/invite/activate`, `/register`) после `npm run build` скрипт `scripts/copy-spa-fallbacks.mjs` кладёт `index.html` в соответствующие папки в `dist/` — иначе CDN может отдавать 404 без загрузки React.
 
 ## Отчёт проверки (2026-05-19)
 

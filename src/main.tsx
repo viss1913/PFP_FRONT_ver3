@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import InviteActivatePage from './pages/invite/InviteActivatePage.tsx'
 import AgentRegisterPage from './pages/register/AgentRegisterPage.tsx'
+import SberLandingPage from './pages/sber/SberLandingPage.tsx'
 import { AgentProfileProvider } from './context/AgentProfileContext.tsx'
 import { resolvePublicRoute } from './routing/publicRoutes.ts'
 import './index.css'
@@ -17,6 +18,8 @@ function Root() {
                 <InviteActivatePage />
             ) : publicRoute === 'agent-register' ? (
                 <AgentRegisterPage />
+            ) : publicRoute === 'sber-landing' ? (
+                <SberLandingPage />
             ) : (
                 <App />
             )}

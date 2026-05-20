@@ -17,7 +17,7 @@ const UTM_KEYS = [
     'utm_term',
 ] as const;
 
-const DEFAULT_UTM: Pick<
+const DEFAULT_LANDING_UTM: Pick<
     FamilyOfficeSelfRegisterAttribution,
     'utm_medium' | 'utm_campaign' | 'utm_source'
 > = {
@@ -25,6 +25,25 @@ const DEFAULT_UTM: Pick<
     utm_campaign: 'open_family_office',
     utm_source: 'landing',
 };
+
+const DEFAULT_SBER_UTM: Pick<
+    FamilyOfficeSelfRegisterAttribution,
+    'utm_medium' | 'utm_campaign' | 'utm_source'
+> = {
+    utm_source: 'sber',
+    utm_medium: 'partner_landing',
+    utm_campaign: 'family_office_sber',
+};
+
+function getDefaultUtm(): Pick<
+    FamilyOfficeSelfRegisterAttribution,
+    'utm_medium' | 'utm_campaign' | 'utm_source'
+> {
+    if (typeof window === 'undefined') return DEFAULT_LANDING_UTM;
+    const path = window.location.pathname.replace(/\/+$/, '') || '/';
+    if (path === '/sber') return DEFAULT_SBER_UTM;
+    return DEFAULT_LANDING_UTM;
+}
 
 function readParam(params: URLSearchParams, key: string): string | undefined {
     const value = params.get(key)?.trim();
@@ -38,12 +57,13 @@ export function captureFamilyOfficeSelfRegisterAttributionFromUrl(
     const params = new URLSearchParams(search);
     const stored = loadFamilyOfficeSelfRegisterAttribution();
 
+    const defaults = getDefaultUtm();
     const next: FamilyOfficeSelfRegisterAttribution = {
         project_key: readParam(params, 'project_key') ?? stored?.project_key ?? projectKey,
-        utm_source: readParam(params, 'utm_source') ?? stored?.utm_source ?? DEFAULT_UTM.utm_source,
-        utm_medium: readParam(params, 'utm_medium') ?? stored?.utm_medium ?? DEFAULT_UTM.utm_medium,
+        utm_source: readParam(params, 'utm_source') ?? stored?.utm_source ?? defaults.utm_source,
+        utm_medium: readParam(params, 'utm_medium') ?? stored?.utm_medium ?? defaults.utm_medium,
         utm_campaign:
-            readParam(params, 'utm_campaign') ?? stored?.utm_campaign ?? DEFAULT_UTM.utm_campaign,
+            readParam(params, 'utm_campaign') ?? stored?.utm_campaign ?? defaults.utm_campaign,
     };
 
     for (const key of UTM_KEYS) {
@@ -74,7 +94,7 @@ export function getFamilyOfficeSelfRegisterAttribution(
     return (
         loadFamilyOfficeSelfRegisterAttribution() ?? {
             project_key: projectKey,
-            ...DEFAULT_UTM,
+            ...getDefaultUtm(),
         }
     );
 }

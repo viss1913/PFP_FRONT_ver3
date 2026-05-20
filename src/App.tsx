@@ -68,6 +68,7 @@ function getInitialPage(): Page {
     if (params.get('page') === 'privacy') return 'privacy'
     if (params.get('page') === 'landing') return 'landing'
     if (localStorage.getItem('token')) return 'list'
+    if (params.get('page') === 'login') return 'login'
     return 'landing'
 }
 
@@ -101,6 +102,8 @@ function App() {
             setCurrentPage('privacy');
         } else if (params.get('page') === 'landing') {
             setCurrentPage('landing');
+        } else if (params.get('page') === 'login') {
+            setCurrentPage(localStorage.getItem('token') ? 'list' : 'login');
         }
     }, []);
 

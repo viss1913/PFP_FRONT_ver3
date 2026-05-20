@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 420" fill="none">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0a1f14"/>
+      <stop offset="100%" stop-color="#050a06"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#21A038" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#21A038" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="560" height="420" fill="url(#sky)"/>
+  <ellipse cx="280" cy="80" rx="120" ry="60" fill="url(#glow)"/>
+  <path d="M80 320 L280 120 L480 320 Z" fill="#1a3d2e" stroke="#21A038" stroke-width="2" opacity="0.9"/>
+  <rect x="160" y="220" width="240" height="120" fill="#0d2818" stroke="rgba(33,160,56,0.4)" stroke-width="2"/>
+  <rect x="200" y="260" width="50" height="80" fill="#21A038" opacity="0.3"/>
+  <rect x="310" y="250" width="60" height="50" fill="#21A038" opacity="0.2"/>
+  <text x="280" y="400" text-anchor="middle" fill="#4cd964" font-family="system-ui,sans-serif" font-size="14" opacity="0.6">Hero visual placeholder</text>
+</svg>

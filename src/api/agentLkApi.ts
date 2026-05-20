@@ -167,12 +167,23 @@ export interface ProductType {
     order_index?: number;
 }
 
+/**
+ * Строка `lines` для POST/PUT продукта: линии доходности или матрица рисков ИСЖ.
+ * Бэкенд принимает min_* / max_* или алиасы term_from_months, term_to_months, amount_from, amount_to.
+ */
 export interface ProductLineCreate {
     min_term_months: number;
     max_term_months: number;
     min_amount: number;
     max_amount: number;
-    yield_percent: number;
+    /** Для не-ISZH — число; для ИСЖ на «не дожитии» можно null/не передавать. */
+    yield_percent?: number | null;
+    /** Матрица ИСЖ: название риска для отчёта/UI. */
+    risk_name?: string;
+    age_from?: number | null;
+    age_to?: number | null;
+    /** Коэффициент/доля для отображения (не доходность), если задан — число ≥ 0. */
+    payment_ratio?: number | null;
 }
 
 /** Периодичность взноса для котировки Резолют (см. бэк / НСЖ). */

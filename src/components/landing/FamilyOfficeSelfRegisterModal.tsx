@@ -13,6 +13,7 @@ import {
     getDefaultFamilyOfficeBrokerOption,
     type FamilyOfficeBrokerOption,
 } from '../../config/familyOfficeBrokerOptions';
+import { SBER_FO_PROJECT_KEY } from '../../config/sberFamilyOffice';
 import { useAgentProfileOptional } from '../../context/AgentProfileContext';
 import type { LandingLang } from '../../content/landingCopy';
 import type { LandingVariant } from '../../content/landingAssets';
@@ -20,6 +21,7 @@ import { getTrackingContext, trackLandingEvent } from '../../utils/landingAnalyt
 import {
     captureFamilyOfficeSelfRegisterAttributionFromUrl,
     getFamilyOfficeSelfRegisterAttribution,
+    loadFamilyOfficeSelfRegisterAttribution,
 } from '../../utils/familyOfficeSelfRegisterAttribution';
 import {
     formatRussianPhoneInput,
@@ -89,7 +91,15 @@ const FamilyOfficeSelfRegisterModal: React.FC<FamilyOfficeSelfRegisterModalProps
     );
 
     const resetWizard = useCallback(() => {
-        setStep('broker');
+        const fallbackPk =
+            getDefaultFamilyOfficeBrokerOption().project_key ??
+            FAMILY_OFFICE_BROKER_OPTIONS.find((o) => o.project_key)?.project_key ??
+            '';
+        captureFamilyOfficeSelfRegisterAttributionFromUrl(window.location.search, fallbackPk);
+        const capturedPk = loadFamilyOfficeSelfRegisterAttribution()?.project_key;
+        const startOnForm = capturedPk === SBER_FO_PROJECT_KEY;
+
+        setStep(startOnForm ? 'form' : 'broker');
         setSelectedBrokerId(DEFAULT_FO_BROKER_OPTION_ID);
         setPendingEmail('');
         setExpiresMinutes(null);
@@ -141,10 +151,14 @@ const FamilyOfficeSelfRegisterModal: React.FC<FamilyOfficeSelfRegisterModalProps
     };
 
     const buildRegisterBody = (): FamilyOfficeSelfRegisterStep1Request | null => {
-        const broker = FAMILY_OFFICE_BROKER_OPTIONS.find((o) => o.id === selectedBrokerId);
-        if (!broker?.project_key) return null;
+        const storedPk = loadFamilyOfficeSelfRegisterAttribution()?.project_key;
+        const attributionKey =
+            storedPk === SBER_FO_PROJECT_KEY
+                ? SBER_FO_PROJECT_KEY
+                : FAMILY_OFFICE_BROKER_OPTIONS.find((o) => o.id === selectedBrokerId)?.project_key;
+        if (!attributionKey) return null;
 
-        const attribution = getFamilyOfficeSelfRegisterAttribution(broker.project_key);
+        const attribution = getFamilyOfficeSelfRegisterAttribution(attributionKey);
         const body: FamilyOfficeSelfRegisterStep1Request = {
             email: email.trim(),
             first_name: firstName.trim(),
@@ -185,8 +199,14 @@ const FamilyOfficeSelfRegisterModal: React.FC<FamilyOfficeSelfRegisterModalProps
 
         const body = buildRegisterBody();
         if (!body) {
-            setError('Выберите пакет партнёров');
-            setStep('broker');
+            const sberChannel =
+                loadFamilyOfficeSelfRegisterAttribution()?.project_key === SBER_FO_PROJECT_KEY;
+            setError(
+                sberChannel
+                    ? 'Не удалось подготовить регистрацию. Обновите страницу и попробуйте снова.'
+                    : 'Выберите пакет партнёров',
+            );
+            if (!sberChannel) setStep('broker');
             return;
         }
 
@@ -246,6 +266,10 @@ const FamilyOfficeSelfRegisterModal: React.FC<FamilyOfficeSelfRegisterModalProps
     const showForm = step === 'form' || (step === 'submitting' && !pendingEmail);
     const showVerify = step === 'verify' || (step === 'submitting' && Boolean(pendingEmail));
 
+    const foAttributionPk = loadFamilyOfficeSelfRegisterAttribution()?.project_key;
+    const isSberFoDirectReg = foAttributionPk === SBER_FO_PROJECT_KEY;
+    const formPackageLabel = isSberFoDirectReg ? 'Family Office' : selectedBroker.label;
+
     const title = showVerify
         ? 'Подтверждение email'
         : step === 'broker'
@@ -256,7 +280,7 @@ const FamilyOfficeSelfRegisterModal: React.FC<FamilyOfficeSelfRegisterModalProps
         ? `Код отправлен на ${pendingEmail}${expiresMinutes ? ` · действует ~${expiresMinutes} мин` : ''}`
         : step === 'broker'
           ? 'Выберите базовый пакет партнёров для вашего офиса'
-          : `${selectedBroker.label} — заполните анкету`;
+          : `${formPackageLabel} — заполните анкету`;
 
     return (
         <AnimatePresence>
@@ -364,17 +388,19 @@ const FamilyOfficeSelfRegisterModal: React.FC<FamilyOfficeSelfRegisterModalProps
 
                         {showForm && (
                             <form onSubmit={handleRegisterSubmit}>
-                                <button
-                                    type="button"
-                                    className="landing-fo-register-back"
-                                    onClick={() => {
-                                        setError(null);
-                                        setStep('broker');
-                                    }}
-                                >
-                                    <ChevronLeft size={16} aria-hidden />
-                                    Назад к выбору пакета
-                                </button>
+                                {!isSberFoDirectReg && (
+                                    <button
+                                        type="button"
+                                        className="landing-fo-register-back"
+                                        onClick={() => {
+                                            setError(null);
+                                            setStep('broker');
+                                        }}
+                                    >
+                                        <ChevronLeft size={16} aria-hidden />
+                                        Назад к выбору пакета
+                                    </button>
+                                )}
 
                                 <div className="fo-invite-modal__grid-2">
                                     <motion.div className="fo-invite-group">
