@@ -221,7 +221,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                     name: 'Защита Жизни',
                     target_amount: data.lifeInsuranceLimit,
                     // Default values for Life Insurance request
-                    term_months: 180, // 15 years default
+                    term_months: 60, // 5 years default
                     risk_profile: 'CONSERVATIVE',
                     inflation_rate: 0 // Usually 0 for insurance sum? Or 10? API default is likely handled.
                 });
@@ -281,6 +281,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                 const isFinReserve = g.goal_type_id === 7;
                 const isInvestment = g.goal_type_id === 3;
                 const isPension = g.goal_type_id === 1; // PENSION
+                // INHERITANCE (11): target_amount + term_months в общей ветке else ниже
                 const isPassiveIncome = g.goal_type_id === 2; // PASSIVE_INCOME
 
                 // Only for FIN_RESERVE (id=7) and RENT (id=8), use initial_capital from goal itself

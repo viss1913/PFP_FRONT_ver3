@@ -19,6 +19,7 @@ import ipoteka from '../assets/goals/pervyy_vznos_na_ipoteku.webp';
 import pereezd from '../assets/goals/pereezd.webp';
 import business from '../assets/goals/svoybiznes.webp';
 import other from '../assets/goals/drugoe.webp';
+import inheritanceImg from '../../assets/INHERITANCE.webp';
 
 // Goal Type IDs
 export const GOAL_TYPE_PENSION = 1;
@@ -28,12 +29,14 @@ export const GOAL_TYPE_OTHER = 4; // Major Purchase / Real Estate / Other
 export const GOAL_TYPE_LIFE = 5;
 export const GOAL_TYPE_FIN_RESERVE = 7;
 export const GOAL_TYPE_RENT = 8;
+export const GOAL_TYPE_INHERITANCE = 11;
 
 // Config for Grid Display
 // Each item represents a card in the gallery
 export const GOAL_GALLERY_ITEMS = [
     { id: 'pension', typeId: GOAL_TYPE_PENSION, title: 'Достойная пенсия', image: gospensiya, description: 'На старость' },
     { id: 'passive', typeId: GOAL_TYPE_PASSIVE_INCOME, title: 'Пассивный доход', image: passivnyy, description: 'Жить на проценты' },
+    { id: 'inheritance', typeId: GOAL_TYPE_INHERITANCE, title: 'Наследство', image: inheritanceImg, description: 'Капитал наследникам' },
     { id: 'rent', typeId: GOAL_TYPE_RENT, title: 'Получение ежемесячного дохода', image: rent, description: 'Рента' },
 
     // Logic for "Other" mappings
@@ -104,6 +107,7 @@ export const getGoalImage = (goalName: string, typeId: number, gallerySourceId?:
     if (typeId === GOAL_TYPE_PASSIVE_INCOME) return passivnyy;
     if (typeId === GOAL_TYPE_RENT) return rent;
     if (typeId === GOAL_TYPE_INVESTMENT) return invest;
+    if (typeId === GOAL_TYPE_INHERITANCE) return inheritanceImg;
     if (typeId === GOAL_TYPE_OTHER) return other;
 
     // Default fallback

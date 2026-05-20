@@ -433,6 +433,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
         ];
         break;
       case 3: // INVESTMENT
+      case 11: // INHERITANCE
         displaySlots = [
           { label: 'Итоговый капитал', value: fmt(summary.projected_capital_at_end) },
           { label: 'Текущий капитал', value: fmt(summary.initial_capital) },
@@ -1247,7 +1248,8 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                   switch (typeId) {
                     case 1: return <PensionForm {...props} />;
                     case 2: return <PassiveIncomeForm {...props} />;
-                    case 3: return <InvestmentForm {...props} />;
+                    case 3:
+                    case 11: return <InvestmentForm {...props} />;
                     case 4: return <PurchaseForm {...props} />;
                     case 5: return <LifeInsuranceForm {...props} />;
                     case 7: return <FinReserveForm {...props} />;
