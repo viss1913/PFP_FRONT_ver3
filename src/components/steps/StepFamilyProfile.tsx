@@ -355,7 +355,7 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
         family.children.every((c) => (c.first_name || '').trim().length > 0);
     const isValid = Boolean(family.marital_status) && everyChildHasName;
     const isMarried = family.marital_status === 'married' || family.marital_status === 'civil_union';
-    const spouseIncomeLabel = data.gender === 'male' ? 'Доход супруги' : 'Доход супруга';
+    const spouseIncomeLabel = data.gender === 'male' ? 'Доход супруги (в месяц)' : 'Доход супруга (в месяц)';
 
     const handleSendNda = async () => {
         setNdaError(null);
@@ -932,7 +932,7 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                     <div style={{ display: 'grid', gap: 10 }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: 14, alignItems: 'center' }}>
                             <div style={{ color: '#334155', fontWeight: 500, paddingLeft: 4 }}>
-                                Доход клиента (по 2-НДФЛ)
+                                Доход клиента (по 2-НДФЛ) (в месяц)
                             </div>
                             <div style={{ position: 'relative' }}>
                                 <input
