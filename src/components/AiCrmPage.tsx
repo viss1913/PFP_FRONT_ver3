@@ -1,9 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { MessageCircle } from 'lucide-react';
 import Header from './Header';
 import ClientList from './ClientList';
+import CrmClientsDashboard from './CrmClientsDashboard';
 import CrmViewSwitcher, { type CrmViewMode } from './CrmViewSwitcher';
 import SubagentNetworkView from './SubagentNetworkView';
+import { crmApi } from '../api/crmApi';
+import type { CrmBriefingResponse } from '../types/crm';
 import avatarImage from '../assets/avatar_full.png';
+import { useAgentProfileOptional } from '../context/AgentProfileContext';
+import { formatAgentDisplayName } from '../utils/agentDisplayName';
 
 import type { Client } from '../types/client';
 import { ChatWindow } from './ai/ChatWindow';
@@ -39,7 +45,20 @@ interface AiCrmPageProps {
     onNavigate: (page: NavPage) => void;
 }
 
+function getGreetingName(displayName: string): string {
+    const first = displayName.trim().split(/\s+/)[0];
+    return first || 'коллега';
+}
+
+function getTimeGreeting(): string {
+    const h = new Date().getHours();
+    if (h >= 5 && h < 12) return 'Доброе утро';
+    if (h >= 12 && h < 18) return 'Добрый день';
+    return 'Добрый вечер';
+}
+
 const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNavigate }) => {
+    const agentProfile = useAgentProfileOptional();
     const [messages, setMessages] = useState<AiMessage[]>([]);
     const [isTyping, setIsTyping] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
@@ -50,6 +69,7 @@ const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNa
     const [viewMode, setViewMode] = useState<CrmViewMode>(() => readStoredViewMode());
     const [dashboard, setDashboard] = useState<SubagentDashboardResponse | null>(null);
     const [dashboardLoading, setDashboardLoading] = useState(false);
+    const [crmBriefing, setCrmBriefing] = useState<CrmBriefingResponse | null>(null);
 
     const loadDashboard = useCallback(async () => {
         setDashboardLoading(true);
@@ -108,6 +128,21 @@ const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNa
     }, [viewMode, networkAvailable, dashboard, dashboardLoading, loadDashboard]);
 
     useEffect(() => {
+        let cancelled = false;
+        crmApi
+            .getCrmBriefing()
+            .then((data) => {
+                if (!cancelled) setCrmBriefing(data);
+            })
+            .catch((error) => {
+                console.error('Failed to load CRM briefing:', error);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    useEffect(() => {
         const loadAssistant = async () => {
             try {
                 const assistants = await aiService.getAssistants();
@@ -143,14 +178,35 @@ const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNa
         loadAssistant();
     }, []);
 
-    const summaryText = useMemo(() => {
+    const agentFirstName = useMemo(() => {
+        const displayName = formatAgentDisplayName(agentProfile?.profile ?? null);
+        return getGreetingName(displayName);
+    }, [agentProfile?.profile]);
+
+    const bannerText = useMemo(() => {
+        const greeting = `${getTimeGreeting()}, ${agentFirstName}!`;
+        if (crmBriefing?.briefing?.trim()) {
+            const attention = crmBriefing.clients_attention_count ?? 0;
+            const briefing = crmBriefing.briefing.trim();
+            const limit = 280;
+            const snippet = briefing.length > limit ? `${briefing.slice(0, limit).trimEnd()}…` : briefing;
+            if (attention > 0 && !/требуют внимания|клиент/i.test(briefing)) {
+                const nLabel =
+                    attention === 1
+                        ? '1 клиент требует внимания.'
+                        : `${attention} клиента требуют внимания.`;
+                return `${greeting} ${nLabel} ${snippet}`;
+            }
+            return `${greeting} ${snippet}`;
+        }
         const lastAssistantMessage = [...messages].reverse().find((m) => m.role === 'assistant');
-        const base =
-            lastAssistantMessage?.content ||
-            'Ваш ИИ‑ассистент готовит сводку по клиентам и подскажет, с кем лучше поработать сегодня.';
+        const fallback =
+            'На сегодня нет критических событий. Рекомендую проверить обновления финансовых планов и предстоящие продления полисов.';
+        const base = lastAssistantMessage?.content?.trim() || fallback;
         const limit = 220;
-        return base.length > limit ? `${base.slice(0, limit).trimEnd()}…` : base;
-    }, [messages]);
+        const snippet = base.length > limit ? `${base.slice(0, limit).trimEnd()}…` : base;
+        return `${greeting} ${snippet}`;
+    }, [messages, agentFirstName, crmBriefing]);
 
     const handleViewModeChange = (mode: CrmViewMode) => {
         setViewMode(mode);
@@ -226,67 +282,29 @@ const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNa
             <Header activePage="crm" onNavigate={onNavigate} />
 
                 <main className="lk-page-main">
-                    <div
-                        onClick={() => setIsChatOpen(true)}
-                        style={{
-                            marginBottom: '24px',
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: '16px',
-                            padding: '18px 24px',
-                            borderRadius: '24px',
-                            background: 'linear-gradient(135deg, #fdf4ff, #eff6ff)',
-                            boxShadow: '0 10px 30px rgba(0,0,0,0.04)',
-                            cursor: 'pointer',
-                        }}
-                    >
-                        {assistantAvatar}
-                        <div style={{ flex: 1 }}>
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    marginBottom: '4px',
-                                }}
-                            >
-                                <span style={{ fontWeight: 600, fontSize: '15px', color: '#111' }}>
-                                    AI CRM ассистент
-                                </span>
-                                <span
-                                    style={{
-                                        fontSize: '11px',
-                                        padding: '2px 8px',
-                                        borderRadius: '999px',
-                                        background: '#dcfce7',
-                                        color: '#16a34a',
-                                        fontWeight: 600,
-                                        textTransform: 'uppercase',
-                                    }}
-                                >
-                                    Online
-                                </span>
-                            </div>
-                            <p style={{ margin: 0, fontSize: '14px', color: '#4b5563' }}>{summaryText}</p>
-                            <button
-                                type="button"
-                                style={{
-                                    marginTop: '8px',
-                                    padding: '6px 0',
-                                    background: 'none',
-                                    border: 'none',
-                                    color: '#D946EF',
-                                    fontSize: '13px',
-                                    fontWeight: 600,
-                                    cursor: 'pointer',
-                                    textDecoration: 'underline',
-                                    textDecorationStyle: 'dotted',
-                                }}
-                            >
-                                Открыть чат с ассистентом
-                            </button>
+                    <div className="crm-ai-banner" onClick={() => setIsChatOpen(true)} role="button" tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsChatOpen(true); }}>
+                        <div className="crm-ai-banner__avatar-wrap">
+                            {assistantAvatar}
+                            <span className="crm-ai-banner__online">Online</span>
                         </div>
+                        <div className="crm-ai-banner__body">
+                            <p className="crm-ai-banner__text">{bannerText}</p>
+                        </div>
+                        <button
+                            type="button"
+                            className="crm-ai-banner__cta"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setIsChatOpen(true);
+                            }}
+                        >
+                            <MessageCircle size={18} />
+                            Написать ассистенту
+                        </button>
                     </div>
+
+                    {(viewMode === 'clients' || !networkAvailable) && <CrmClientsDashboard />}
 
                     <div className="lk-card">
                         {networkProbeDone && networkAvailable && (
@@ -298,6 +316,7 @@ const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNa
                                 onSelectClient={onSelectClient}
                                 onNewClient={onNewClient}
                                 embedded
+                                lightSearch
                             />
                         ) : dashboard ? (
                             <SubagentNetworkView dashboard={dashboard} loading={dashboardLoading} />

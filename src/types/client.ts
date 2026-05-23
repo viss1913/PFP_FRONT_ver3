@@ -114,6 +114,10 @@ export interface Client {
     goals_summary?: any; // Contains the full calculation result
     created_at?: string;
     updated_at?: string;
+    /** последний пересчёт / first-run из goals_summary; null без плана */
+    last_rebalance_at?: string | null;
+    /** есть непустой goals_summary */
+    has_plan?: boolean;
     /** дата последнего ПФП (расчёта) */
     last_pfp_at?: string;
 
