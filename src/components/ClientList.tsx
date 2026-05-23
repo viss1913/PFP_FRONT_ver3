@@ -216,7 +216,7 @@ const ClientList: React.FC<ClientListProps> = ({
                                             e.stopPropagation();
                                             cycleRebalanceSort();
                                         }}
-                                        title="Сортировка по дате последнего пересчёта"
+                                        title="Сортировка по last_rebalance_at (последний пересчёт ПФП)"
                                     >
                                         След. ребалансировка
                                         {rebalanceSort === 'asc' ? ' ↑' : rebalanceSort === 'desc' ? ' ↓' : ''}

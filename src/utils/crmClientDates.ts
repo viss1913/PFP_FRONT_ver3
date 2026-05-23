@@ -10,9 +10,9 @@ export interface DueBadge {
     tone: DueBadgeTone;
 }
 
-/** Дата последнего пересчёта ПФП (не clients.updated_at). */
+/** Дата последнего пересчёта ПФП — только `last_rebalance_at` с бэка (не updated_at / last_pfp_at). */
 export function getLastRebalanceDate(client: Client): Date | null {
-    const raw = client.last_rebalance_at ?? client.last_pfp_at;
+    const raw = client.last_rebalance_at;
     if (!raw) return null;
     const d = new Date(raw);
     return Number.isNaN(d.getTime()) ? null : d;
@@ -23,29 +23,40 @@ function addDays(base: Date, days: number): Date {
     return Number.isNaN(scheduled.getTime()) ? new Date(NaN) : scheduled;
 }
 
-/** Ровно +1 календарный год от baseDate (продление полиса СЖ). */
-export function addOneCalendarYear(base: Date): Date {
-    const scheduled = new Date(base);
-    scheduled.setFullYear(scheduled.getFullYear() + 1);
-    return scheduled;
+function getCreatedDate(client: Client): Date | null {
+    if (!client.created_at) return null;
+    const d = new Date(client.created_at);
+    return Number.isNaN(d.getTime()) ? null : d;
 }
 
-/** След. ребалансировка: last_rebalance_at + 180 дней. */
+/**
+ * Следующая годовщина от даты создания (продление СЖ раз в год).
+ * Если годовщина в этом году ещё впереди — она; если уже прошла — та же дата в этом году (бейдж «просрочено»).
+ */
+function getNextAnnualAnniversaryFromCreated(created: Date, from: Date = new Date()): Date {
+    const anniversary = new Date(created);
+    anniversary.setFullYear(from.getFullYear());
+    const anniversaryDay = startOfDay(anniversary);
+    const today = startOfDay(from);
+    if (anniversaryDay.getTime() >= today.getTime()) {
+        return anniversaryDay;
+    }
+    return anniversaryDay;
+}
+
+/** След. ребалансировка: last_rebalance_at + 180 дней (нет даты — нет плана / не было пересчёта). */
 export function getNextRebalanceDate(client: Client): Date | null {
-    if (client.has_plan === false) return null;
     const base = getLastRebalanceDate(client);
     if (!base) return null;
     const scheduled = addDays(base, REBALANCE_DAYS);
     return Number.isNaN(scheduled.getTime()) ? null : scheduled;
 }
 
-/** Продление полиса СЖ: last_rebalance_at + 1 календарный год. */
+/** Продление полиса СЖ: ежегодно в день годовщины `created_at`. */
 export function getLifeInsuranceRenewalDate(client: Client): Date | null {
-    if (client.has_plan === false) return null;
-    const base = getLastRebalanceDate(client);
-    if (!base) return null;
-    const scheduled = addOneCalendarYear(base);
-    return Number.isNaN(scheduled.getTime()) ? null : scheduled;
+    const created = getCreatedDate(client);
+    if (!created) return null;
+    return getNextAnnualAnniversaryFromCreated(created);
 }
 
 function startOfDay(d: Date): Date {
