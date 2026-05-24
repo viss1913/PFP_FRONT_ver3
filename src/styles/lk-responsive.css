@@ -538,8 +538,8 @@ body.lk-nav-open {
 
 .crm-summary-dashboard__grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(172px, 1fr));
+    gap: 14px;
 }
 
 .crm-summary-dashboard__grid--skeleton .crm-summary-card--skeleton {
@@ -561,32 +561,125 @@ body.lk-nav-open {
 }
 
 .crm-summary-card {
-    padding: 14px 16px;
-    border-radius: 12px;
+    position: relative;
+    padding: 16px 18px 16px 20px;
+    border-radius: 14px;
     background: #fff;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    border: 1px solid #e8ecf1;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+    overflow: hidden;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.crm-summary-card:hover {
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+    transform: translateY(-1px);
+}
+
+.crm-summary-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    border-radius: 14px 0 0 14px;
+}
+
+.crm-summary-card--clients {
+    background: linear-gradient(145deg, #fdf4ff 0%, #ffffff 55%);
+    border-color: #f3e8ff;
+}
+
+.crm-summary-card--clients::before {
+    background: linear-gradient(180deg, #d946ef, #a855f7);
+}
+
+.crm-summary-card--capital-0 {
+    background: linear-gradient(145deg, #eff6ff 0%, #ffffff 55%);
+    border-color: #dbeafe;
+}
+
+.crm-summary-card--capital-0::before {
+    background: linear-gradient(180deg, #3b82f6, #2563eb);
+}
+
+.crm-summary-card--capital-1 {
+    background: linear-gradient(145deg, #fffbeb 0%, #ffffff 55%);
+    border-color: #fde68a;
+}
+
+.crm-summary-card--capital-1::before {
+    background: linear-gradient(180deg, #f59e0b, #d97706);
+}
+
+.crm-summary-card--capital-2 {
+    background: linear-gradient(145deg, #ecfdf5 0%, #ffffff 55%);
+    border-color: #a7f3d0;
+}
+
+.crm-summary-card--capital-2::before {
+    background: linear-gradient(180deg, #10b981, #059669);
+}
+
+.crm-summary-card--capital-3 {
+    background: linear-gradient(145deg, #f0fdfa 0%, #ffffff 55%);
+    border-color: #99f6e4;
+}
+
+.crm-summary-card--capital-3::before {
+    background: linear-gradient(180deg, #14b8a6, #0d9488);
+}
+
+.crm-summary-card--capital-4 {
+    background: linear-gradient(145deg, #fff1f2 0%, #ffffff 55%);
+    border-color: #fecdd3;
+}
+
+.crm-summary-card--capital-4::before {
+    background: linear-gradient(180deg, #f43f5e, #e11d48);
+}
+
+.crm-summary-card--insurance {
+    background: linear-gradient(145deg, #f5f3ff 0%, #ffffff 55%);
+    border-color: #ddd6fe;
+}
+
+.crm-summary-card--insurance::before {
+    background: linear-gradient(180deg, #7c3aed, #5b21b6);
 }
 
 .crm-summary-card__label {
     font-size: 12px;
-    color: #6b7280;
-    margin-bottom: 6px;
-    line-height: 1.3;
+    font-weight: 500;
+    color: #64748b;
+    margin-bottom: 8px;
+    line-height: 1.35;
+    letter-spacing: 0.01em;
 }
 
 .crm-summary-card__value {
     font-weight: 700;
-    font-size: 18px;
-    color: #111827;
-    line-height: 1.2;
+    font-size: 20px;
+    color: #0f172a;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+}
+
+.crm-summary-card--clients .crm-summary-card__value {
+    color: #6b214c;
 }
 
 .crm-summary-card__sub {
-    font-size: 12px;
-    color: #16a34a;
-    margin-top: 4px;
-    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    margin-top: 8px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #15803d;
+    background: #dcfce7;
 }
 
 .crm-summary-dashboard__footnote {

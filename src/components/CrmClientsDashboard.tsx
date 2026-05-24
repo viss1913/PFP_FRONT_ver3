@@ -3,6 +3,24 @@ import { crmApi } from '../api/crmApi';
 import type { CrmAgentDashboardResponse } from '../types/crm';
 import { formatMoneyRub } from '../utils/formatMoney';
 
+type SummaryCardVariant = 'clients' | 'capital-0' | 'capital-1' | 'capital-2' | 'capital-3' | 'capital-4' | 'insurance';
+
+interface SummaryCardItem {
+    key: string;
+    label: string;
+    value: string;
+    sub?: string;
+    variant: SummaryCardVariant;
+}
+
+const CAPITAL_VARIANTS: SummaryCardVariant[] = [
+    'capital-0',
+    'capital-1',
+    'capital-2',
+    'capital-3',
+    'capital-4',
+];
+
 function formatAsOf(iso: string): string {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return '';
@@ -43,9 +61,9 @@ const CrmClientsDashboard: React.FC = () => {
         };
     }, []);
 
-    const cards = useMemo(() => {
+    const cards = useMemo((): SummaryCardItem[] => {
         if (!data) return [];
-        const items: Array<{ key: string; label: string; value: string; sub?: string }> = [
+        const items: SummaryCardItem[] = [
             {
                 key: 'clients',
                 label: 'Всего клиентов',
@@ -54,31 +72,26 @@ const CrmClientsDashboard: React.FC = () => {
                     (data.clients_new_this_month ?? 0) > 0
                         ? `+${data.clients_new_this_month} за месяц`
                         : undefined,
+                variant: 'clients',
             },
         ];
 
-        if ((data.clients_rebalanced_this_month ?? 0) > 0) {
-            items.push({
-                key: 'rebalanced',
-                label: 'Пересчёт ПФП в месяце',
-                value: String(data.clients_rebalanced_this_month),
-            });
-        }
-
-        for (const row of data.capital_by_product ?? []) {
+        (data.capital_by_product ?? []).forEach((row, index) => {
             const key = row.product_id != null ? `product-${row.product_id}` : `product-${row.name}`;
             items.push({
                 key,
                 label: row.name || 'Продукт',
                 value: formatMoneyRub(row.amount_rub),
+                variant: CAPITAL_VARIANTS[index % CAPITAL_VARIANTS.length],
             });
-        }
+        });
 
         items.push({
             key: 'insurance',
             label: 'Премии страхования',
             value: formatMoneyRub(data.insurance_premiums_rub),
             sub: 'годовые премии НСЖ',
+            variant: 'insurance',
         });
 
         return items;
@@ -111,7 +124,10 @@ const CrmClientsDashboard: React.FC = () => {
             <h2 className="crm-summary-dashboard__title">Краткий дашборд</h2>
             <div className="crm-summary-dashboard__grid">
                 {cards.map((card) => (
-                    <div key={card.key} className="crm-summary-card">
+                    <div
+                        key={card.key}
+                        className={`crm-summary-card crm-summary-card--${card.variant}`}
+                    >
                         <div className="crm-summary-card__label">{card.label}</div>
                         <div className="crm-summary-card__value">{card.value}</div>
                         {card.sub ? <div className="crm-summary-card__sub">{card.sub}</div> : null}
