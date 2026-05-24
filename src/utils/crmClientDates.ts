@@ -29,19 +29,38 @@ function getCreatedDate(client: Client): Date | null {
     return Number.isNaN(d.getTime()) ? null : d;
 }
 
+function startOfDay(d: Date): Date {
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x;
+}
+
+function addOneCalendarYear(base: Date): Date {
+    const scheduled = new Date(base);
+    scheduled.setFullYear(scheduled.getFullYear() + 1);
+    return scheduled;
+}
+
 /**
- * Следующая годовщина от даты создания (продление СЖ раз в год).
- * Если годовщина в этом году ещё впереди — она; если уже прошла — та же дата в этом году (бейдж «просрочено»).
+ * Следующее продление СЖ: годовщина created_at раз в год.
+ * Первое продление — не раньше чем через год после создания карточки.
+ * Показываем ближайшую будущую дату (без «просрочено», если годовщина в этом году уже прошла, а полис свежий).
  */
-function getNextAnnualAnniversaryFromCreated(created: Date, from: Date = new Date()): Date {
-    const anniversary = new Date(created);
-    anniversary.setFullYear(from.getFullYear());
-    const anniversaryDay = startOfDay(anniversary);
+function getNextLifeInsuranceRenewalFromCreated(created: Date, from: Date = new Date()): Date {
     const today = startOfDay(from);
-    if (anniversaryDay.getTime() >= today.getTime()) {
-        return anniversaryDay;
+    const createdDay = startOfDay(created);
+    const firstRenewal = startOfDay(addOneCalendarYear(createdDay));
+
+    let next = new Date(createdDay);
+    next.setFullYear(today.getFullYear());
+    next = startOfDay(next);
+
+    while (next.getTime() < today.getTime() || next.getTime() < firstRenewal.getTime()) {
+        next.setFullYear(next.getFullYear() + 1);
+        next = startOfDay(next);
     }
-    return anniversaryDay;
+
+    return next;
 }
 
 /** След. ребалансировка: last_rebalance_at + 180 дней (нет даты — нет плана / не было пересчёта). */
@@ -52,17 +71,12 @@ export function getNextRebalanceDate(client: Client): Date | null {
     return Number.isNaN(scheduled.getTime()) ? null : scheduled;
 }
 
-/** Продление полиса СЖ: ежегодно в день годовщины `created_at`. */
+/** Продление полиса СЖ: ежегодно в день годовщины `created_at`, ближайшая будущая дата. */
 export function getLifeInsuranceRenewalDate(client: Client): Date | null {
     const created = getCreatedDate(client);
     if (!created) return null;
-    return getNextAnnualAnniversaryFromCreated(created);
-}
-
-function startOfDay(d: Date): Date {
-    const x = new Date(d);
-    x.setHours(0, 0, 0, 0);
-    return x;
+    const next = getNextLifeInsuranceRenewalFromCreated(created);
+    return Number.isNaN(next.getTime()) ? null : next;
 }
 
 /** Дней до target (отрицательное = просрочено). */
