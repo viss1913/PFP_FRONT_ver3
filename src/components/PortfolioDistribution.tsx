@@ -17,16 +17,12 @@ interface PortfolioDistributionProps {
 }
 
 const COLORS = [
-    '#E91E63', // Pink
-    '#9C27B0', // Purple
-    '#673AB7', // Deep Purple
-    '#3F51B5', // Indigo
-    '#2196F3', // Blue
-    '#03A9F4', // Light Blue
-    '#00BCD4', // Cyan
-    '#009688', // Teal
-    '#4CAF50', // Green
-    '#8BC34A', // Light Green
+    '#0f766e',
+    '#0d9488',
+    '#14b8a6',
+    '#38bdf8',
+    '#64748b',
+    '#94a3b8',
 ];
 
 const DonutChart: React.FC<{ items: AllocationItem[], title: string, total: number }> = ({ items, title, total }) => {
@@ -51,7 +47,8 @@ const DonutChart: React.FC<{ items: AllocationItem[], title: string, total: numb
             background: '#FFFFFF',
             borderRadius: '24px',
             padding: '24px',
-            boxShadow: '0px 4px 6px -1px rgba(0, 0, 0, 0.05)',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 10px 24px rgba(15, 23, 42, 0.04)',
             flex: 1,
             display: 'flex',
             flexDirection: 'column'
@@ -65,7 +62,7 @@ const DonutChart: React.FC<{ items: AllocationItem[], title: string, total: numb
                     width: '160px',
                     height: '160px',
                     borderRadius: '50%',
-                    background: items.length > 0 ? gradientString : '#E5E7EB',
+                    background: items.length > 0 ? gradientString : '#E2E8F0',
                     position: 'relative',
                     flexShrink: 0
                 }}>
@@ -84,7 +81,7 @@ const DonutChart: React.FC<{ items: AllocationItem[], title: string, total: numb
                         justifyContent: 'center',
                         flexDirection: 'column'
                     }}>
-                        <div style={{ fontSize: '12px', color: '#6B7280' }}>Всего</div>
+                        <div style={{ fontSize: '12px', color: '#64748B' }}>Всего</div>
                         <div style={{ fontSize: '14px', fontWeight: '700', color: '#111827' }}>
                             {new Intl.NumberFormat('ru-RU', { compactDisplay: 'short', notation: 'compact', maximumFractionDigits: 1 }).format(total)}
                         </div>
@@ -95,14 +92,14 @@ const DonutChart: React.FC<{ items: AllocationItem[], title: string, total: numb
                 {/* Legend/Table */}
                 <div className="portfolio-distribution__legend">
                     {gradientSegments.map((item, index) => (
-                        <div key={index} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '14px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div key={index} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '14px', gap: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                                 <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: item.color }}></div>
-                                <span style={{ color: '#374151' }}>{item.name}</span>
+                                <span style={{ color: '#334155', wordBreak: 'break-word' }}>{item.name}</span>
                             </div>
-                            <div style={{ display: 'flex', gap: '12px' }}>
+                            <div style={{ display: 'flex', gap: '12px', flexShrink: 0 }}>
                                 <span style={{ fontWeight: '600', color: '#111827', minWidth: '80px', textAlign: 'right' }}>{formatCurrency(item.amount)}</span>
-                                <span style={{ color: '#6B7280', width: '40px', textAlign: 'right' }}>{item.percentage.toFixed(0)}%</span>
+                                <span style={{ color: '#64748B', width: '40px', textAlign: 'right' }}>{item.percentage.toFixed(0)}%</span>
                             </div>
                         </div>
                     ))}
@@ -137,7 +134,7 @@ export const PortfolioDistribution: React.FC<PortfolioDistributionProps> = ({ as
     // User complained about not seeing it, so let's render something to debug or inform.
     if (!hasAssets && !hasCashFlow) {
         return (
-            <div style={{ padding: '24px', textAlign: 'center', color: '#6B7280', background: '#FFFFFF', borderRadius: '24px', marginBottom: '40px' }}>
+            <div style={{ padding: '24px', textAlign: 'center', color: '#64748B', background: '#FFFFFF', borderRadius: '24px', border: '1px solid #e2e8f0', marginBottom: '40px' }}>
                 Нет данных для визуализации портфеля
             </div>
         );
@@ -146,19 +143,20 @@ export const PortfolioDistribution: React.FC<PortfolioDistributionProps> = ({ as
     return (
         <div style={{ marginBottom: '40px' }}>
             <div style={{
-                background: 'linear-gradient(108.52deg, #0F172A 0%, #1E293B 100%)',
+                background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
                 borderRadius: '20px',
                 padding: '16px 20px',
-                color: '#fff',
+                border: '1px solid #e2e8f0',
+                color: '#0f172a',
                 marginBottom: '20px',
-                boxShadow: '0px 4px 6px -1px rgba(15, 23, 42, 0.2)'
+                boxShadow: '0 10px 24px rgba(15, 23, 42, 0.05)'
             }}>
-                <div style={{ fontSize: '12px', opacity: 0.8, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     Прогноз доходности портфеля
                 </div>
-                <div style={{ fontSize: '26px', fontWeight: 800, lineHeight: 1 }}>
+                <div style={{ fontSize: '26px', fontWeight: 800, lineHeight: 1, color: '#0f766e' }}>
                     {effectiveYield > 0 ? `${effectiveYield.toFixed(1)}%` : '—'}
-                    <span style={{ fontSize: '13px', fontWeight: 500, opacity: 0.75, marginLeft: '6px' }}>годовых</span>
+                    <span style={{ fontSize: '13px', fontWeight: 500, color: '#64748b', marginLeft: '6px' }}>годовых</span>
                 </div>
             </div>
 

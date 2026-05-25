@@ -65,6 +65,7 @@ function getInitialPage(): Page {
     const params = new URLSearchParams(window.location.search)
     if (params.get('page') === 'preview') return 'report-preview'
     if (params.get('page') === 'html-report-preview') return 'html-report-preview'
+    if (params.get('page') === 'test' || params.get('page') === 'result-demo') return 'test'
     if (params.get('page') === 'privacy') return 'privacy'
     if (params.get('page') === 'landing') return 'landing'
     if (localStorage.getItem('token')) return 'list'
@@ -98,6 +99,8 @@ function App() {
             setCurrentPage('report-preview');
         } else if (params.get('page') === 'html-report-preview') {
             setCurrentPage('html-report-preview');
+        } else if (params.get('page') === 'test' || params.get('page') === 'result-demo') {
+            setCurrentPage('test');
         } else if (params.get('page') === 'privacy') {
             setCurrentPage('privacy');
         } else if (params.get('page') === 'landing') {
@@ -462,7 +465,15 @@ function App() {
                 </div>
             )}
 
-            {currentPage === 'test' && <ResultPageTest />}
+            {currentPage === 'test' && (
+                <div style={{ minHeight: '100vh', background: '#f8f9fa' }}>
+                    <Header
+                        activePage="pfp"
+                        onNavigate={handleNavigate}
+                    />
+                    <ResultPageTest />
+                </div>
+            )}
             </LkFinamGate>
         </div>
     )

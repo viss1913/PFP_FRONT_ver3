@@ -379,6 +379,19 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
     }).format(value) + '₽';
   };
 
+  const formatCompactCurrency = (value: number) => {
+    const normalized = Number(value || 0);
+    if (Math.abs(normalized) < 1_000_000) {
+      return formatCurrency(normalized);
+    }
+
+    return `${new Intl.NumberFormat('ru-RU', {
+      notation: 'compact',
+      compactDisplay: 'short',
+      maximumFractionDigits: 1,
+    }).format(normalized)} ₽`;
+  };
+
   const clientAvgIncome = Number(client?.avg_monthly_income || 0);
   const spouseAvgIncome = Number(
     client?.spouse_avg_monthly_income
@@ -400,14 +413,60 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   );
 
   const budgetBars = [
-    { key: 'income', label: 'Доходы семьи', value: familyIncomeTotal, color: '#3B82F6' },
-    { key: 'obligations', label: 'Обязательные расходы', value: monthlyObligations, color: '#8B5CF6' },
-    { key: 'goals', label: 'Пополнение целей', value: monthlyGoalsReplenishment, color: '#0EA5E9' },
+    { key: 'income', label: 'Доходы семьи', value: familyIncomeTotal, color: '#0f766e' },
+    { key: 'obligations', label: 'Обязательные расходы', value: monthlyObligations, color: '#475569' },
+    { key: 'goals', label: 'Пополнение целей', value: monthlyGoalsReplenishment, color: '#7c3aed' },
   ];
   const budgetMax = Math.max(1, ...budgetBars.map((b) => b.value), Math.abs(freeMoney));
   const riskProfileExplanation = calcRoot?.risk_profile_explanation || null;
   const keyFactors = Array.isArray(riskProfileExplanation?.key_factors) ? riskProfileExplanation.key_factors : [];
   const recommendations = Array.isArray(riskProfileExplanation?.recommendations) ? riskProfileExplanation.recommendations : [];
+  const totalCapital = Number(calcRoot?.summary?.total_capital || 0);
+  const totalGoalsCount = Number(calcRoot?.summary?.goals_count || calculatedGoals.length || 0);
+  const totalInitialCapital = Number(consolidatedPortfolio?.total_initial_capital || 0);
+  const totalStateBenefit = Number(calcRoot?.summary?.total_state_benefit || 0);
+  const totalVisibleBenefits = totalStateBenefit + taxTotalDeduction + taxTotalCofinancing;
+  const riskSummaryText =
+    riskProfileExplanation?.summary ||
+    'Пояснение по риск-профилю пока не пришло, но экран уже готов показать рекомендации из расчёта.';
+  const overviewCards = [
+    {
+      key: 'capital',
+      label: 'Итоговый капитал',
+      value: formatCompactCurrency(totalCapital),
+      caption: 'по текущему расчёту',
+    },
+    {
+      key: 'goals',
+      label: 'Целей в плане',
+      value: new Intl.NumberFormat('ru-RU').format(totalGoalsCount),
+      caption: 'активных сценариев',
+    },
+    {
+      key: 'initial',
+      label: 'Стартовый капитал',
+      value: formatCompactCurrency(totalInitialCapital),
+      caption: 'первичный взнос',
+    },
+    {
+      key: 'monthly',
+      label: 'Пополнение в месяц',
+      value: formatCurrency(monthlyGoalsReplenishment),
+      caption: 'по всем целям',
+    },
+    {
+      key: 'yield',
+      label: 'Доходность портфеля',
+      value: portfolioYieldPercent > 0 ? `${portfolioYieldPercent.toFixed(1)}%` : '—',
+      caption: 'прогноз годовых',
+    },
+    {
+      key: 'benefits',
+      label: 'Льготы и господдержка',
+      value: totalVisibleBenefits > 0 ? formatCompactCurrency(totalVisibleBenefits) : '—',
+      caption: 'вычеты и benefits',
+    },
+  ];
 
   // Мапим результаты расчетов на карточки
   const goalCards: GoalResult[] = (calculatedGoals as any[]).map((goalResult: any, _index: number) => {
@@ -653,182 +712,146 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
       <div className="pfp-result-shell">
         {/* Сетка целей */}
         <main>
-          <section style={{
-            background: '#FFFFFF',
-            borderRadius: '24px',
-            padding: '24px',
-            boxShadow: '0px 4px 6px -1px rgba(0, 0, 0, 0.05), 0px 2px 4px -1px rgba(0, 0, 0, 0.03)',
-            marginBottom: '24px'
-          }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '24px' }}>
-              <div className="pfp-ai-preview-row">
-                <div style={{ flexShrink: 0 }}>
-                  <div style={{
-                    width: '48px',
-                    height: '48px',
-                    borderRadius: '12px',
-                    overflow: 'hidden',
-                    background: '#E5E7EB',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                  }}>
-                    <img src={avatarImage} alt="AI" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
+          <section className="pfp-overview">
+            <div className="pfp-overview__layout">
+              <div className="pfp-overview__hero">
+                <div>
+                  <div className="pfp-overview__eyebrow">Сводка плана</div>
+                  <h1 className="pfp-overview__title">Финансовый план собран</h1>
+                  <p className="pfp-overview__description">
+                    Ключевые показатели плана, нагрузка на бюджет семьи и подсказки по риск-профилю в одном месте.
+                  </p>
                 </div>
-                <div className="pfp-ai-preview-bubble">
-                  {aiPreviewText || 'AI анализирует финансовый план клиента. Нажмите, чтобы открыть чат.'}
-                </div>
-              </div>
 
-              {/* Chat Input */}
-              <div style={{ position: 'relative' }}>
-                <input
-                  type="text"
-                  readOnly
-                  placeholder="Напишите ваш вопрос..."
-                  onClick={() => onOpenAiChat?.()}
-                  onFocus={(e) => {
-                    e.preventDefault();
-                    onOpenAiChat?.();
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: '12px 48px 12px 16px',
-                    borderRadius: '12px',
-                    border: '1px solid #E5E7EB',
-                    fontSize: '14px',
-                    outline: 'none',
-                    transition: 'border-color 0.2s',
-                    background: '#FAFAFA',
-                    cursor: 'text'
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => onOpenAiChat?.()}
-                  style={{
-                    position: 'absolute',
-                    right: '8px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    color: '#C2185B',
-                    cursor: 'pointer',
-                    padding: '4px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  <Send size={18} />
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => onOpenAiChat?.()}
-              style={{
-                width: '100%',
-                padding: '12px',
-                backgroundColor: '#C2185B',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '100px',
-                fontSize: '14px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'background 0.2s',
-              }}
-            >
-              {aiStatusText || 'Задать вопрос'}
-            </button>
-
-            <div style={{
-              marginTop: '16px',
-              background: 'linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(241,245,249,0.82) 100%)',
-              border: '1px solid rgba(148, 163, 184, 0.28)',
-              borderRadius: '16px',
-              padding: '14px'
-            }}>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '10px' }}>
-                Бюджет семьи в месяц
-              </div>
-              <div style={{ display: 'grid', gap: '10px', marginBottom: '10px' }}>
-                {budgetBars.map((bar) => {
-                  const widthPercent = Math.max(3, Math.round((bar.value / budgetMax) * 100));
-                  return (
-                    <div key={bar.key} className="pfp-family-budget-row">
-                      <div className="pfp-family-budget-row__label">{bar.label}</div>
-                      <div className="pfp-family-budget-row__bar">
-                        <div
-                          style={{
-                            width: `${widthPercent}%`,
-                            minWidth: '10px',
-                            height: '100%',
-                            background: bar.color,
-                            borderRadius: '999px',
-                            opacity: 0.95
-                          }}
-                        />
+                <div className="pfp-overview__assistant">
+                  <div className="pfp-ai-preview-row">
+                    <div style={{ flexShrink: 0 }}>
+                      <div className="pfp-overview__assistant-avatar">
+                        <img src={avatarImage} alt="AI" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       </div>
-                      <div className="pfp-family-budget-row__amount">{formatCurrency(bar.value)}</div>
                     </div>
-                  );
-                })}
+                    <div className="pfp-ai-preview-bubble">
+                      {aiPreviewText || 'AI анализирует финансовый план клиента. Нажмите, чтобы открыть чат.'}
+                    </div>
+                  </div>
+
+                  <div className="pfp-overview__composer">
+                    <input
+                      type="text"
+                      readOnly
+                      placeholder="Напишите ваш вопрос..."
+                      onClick={() => onOpenAiChat?.()}
+                      onFocus={(e) => {
+                        e.preventDefault();
+                        onOpenAiChat?.();
+                      }}
+                      className="pfp-overview__composer-input"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => onOpenAiChat?.()}
+                      className="pfp-overview__composer-send"
+                    >
+                      <Send size={18} />
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="pfp-action-btn pfp-action-btn--secondary"
+                    onClick={() => onOpenAiChat?.()}
+                  >
+                    {aiStatusText || 'Открыть AI-разбор'}
+                  </button>
+                </div>
               </div>
 
-              <div style={{ marginTop: '4px', paddingTop: '6px', borderTop: '1px dashed rgba(148,163,184,0.38)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#475569' }}>
-                <span>Свободные деньги</span>
-                <b style={{ color: freeMoney < 0 ? '#DC2626' : '#0F766E' }}>{formatCurrency(freeMoney)}</b>
+              <div className="pfp-overview__metrics">
+                {overviewCards.map((card) => (
+                  <article
+                    key={card.key}
+                    className={`pfp-kpi-card${card.key === 'capital' ? ' pfp-kpi-card--accent' : ''}`}
+                  >
+                    <div className="pfp-kpi-card__label">{card.label}</div>
+                    <div className="pfp-kpi-card__value">{card.value}</div>
+                    <div className="pfp-kpi-card__caption">{card.caption}</div>
+                  </article>
+                ))}
               </div>
             </div>
 
-            {riskProfileExplanation && (
-              <div style={{
-                marginTop: '16px',
-                background: '#fff',
-                border: '1px solid #E2E8F0',
-                borderRadius: '16px',
-                padding: '14px'
-              }}>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '10px' }}>
-                  {riskProfileExplanation.title || 'Риск-профиль клиента'}
+            <div className="pfp-overview__panels">
+              <div className="pfp-overview__panel">
+                <div className="pfp-overview__panel-title">Бюджет семьи в месяц</div>
+                <div className="pfp-overview__panel-text">
+                  Показываем, сколько денег уходит в обязательные расходы и сколько комфортно направляется в цели.
                 </div>
-                <div style={{ display: 'grid', gap: '10px' }}>
-                  {riskProfileExplanation.summary && (
-                    <div style={{ fontSize: '13px', color: '#334155' }}>
-                      {riskProfileExplanation.summary}
-                    </div>
-                  )}
-                  {keyFactors.length > 0 && (
-                    <div style={{ fontSize: '13px', color: '#334155' }}>
-                      <div style={{ fontWeight: 600, marginBottom: 4 }}>Ключевые факторы</div>
-                      <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 4 }}>
-                        {keyFactors.map((factor: string, idx: number) => (
-                          <li key={`factor_${idx}`}>{factor}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {recommendations.length > 0 && (
-                    <div style={{ fontSize: '13px', color: '#334155' }}>
-                      <div style={{ fontWeight: 600, marginBottom: 4 }}>Рекомендации</div>
-                      <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 4 }}>
-                        {recommendations.map((rec: string, idx: number) => (
-                          <li key={`rec_${idx}`}>{rec}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {riskProfileExplanation.caution && (
-                    <div style={{ fontSize: '13px', color: '#92400E', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '8px 10px' }}>
-                      {riskProfileExplanation.caution}
-                    </div>
-                  )}
+
+                <div style={{ display: 'grid', gap: '10px', marginBottom: '10px' }}>
+                  {budgetBars.map((bar) => {
+                    const widthPercent = Math.max(3, Math.round((bar.value / budgetMax) * 100));
+                    return (
+                      <div key={bar.key} className="pfp-family-budget-row">
+                        <div className="pfp-family-budget-row__label">{bar.label}</div>
+                        <div className="pfp-family-budget-row__bar">
+                          <div
+                            style={{
+                              width: `${widthPercent}%`,
+                              minWidth: '10px',
+                              height: '100%',
+                              background: bar.color,
+                              borderRadius: '999px',
+                              opacity: 0.95
+                            }}
+                          />
+                        </div>
+                        <div className="pfp-family-budget-row__amount">{formatCurrency(bar.value)}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="pfp-overview__panel-foot">
+                  <span>Свободные деньги</span>
+                  <b className={freeMoney < 0 ? 'pfp-overview__panel-value pfp-overview__panel-value--negative' : 'pfp-overview__panel-value pfp-overview__panel-value--positive'}>
+                    {formatCurrency(freeMoney)}
+                  </b>
                 </div>
               </div>
-            )}
+
+              <div className="pfp-overview__panel">
+                <div className="pfp-overview__panel-title">
+                  {riskProfileExplanation?.title || 'Риск-профиль клиента'}
+                </div>
+                <div className="pfp-overview__panel-text">{riskSummaryText}</div>
+
+                {keyFactors.length > 0 && (
+                  <div className="pfp-overview__list-block">
+                    <div className="pfp-overview__list-title">Ключевые факторы</div>
+                    <ul className="pfp-overview__list">
+                      {keyFactors.map((factor: string, idx: number) => (
+                        <li key={`factor_${idx}`}>{factor}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {recommendations.length > 0 && (
+                  <div className="pfp-overview__list-block">
+                    <div className="pfp-overview__list-title">Рекомендации</div>
+                    <ul className="pfp-overview__list">
+                      {recommendations.map((rec: string, idx: number) => (
+                        <li key={`rec_${idx}`}>{rec}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {riskProfileExplanation?.caution && (
+                  <div className="pfp-overview__caution">{riskProfileExplanation.caution}</div>
+                )}
+              </div>
+            </div>
           </section>
 
           {isResolutAvProject && (
@@ -893,45 +916,20 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
             </div>
           )}
 
-          <div style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
+          <div className="pfp-action-bar">
             {isResolutAvProject && (
               <button
                 type="button"
                 onClick={() => onPublishToResolut?.()}
                 disabled={!!isResolutPublishing || !!isCalculating}
-                style={{
-                  background: '#0b7285',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '100px',
-                  padding: '16px 32px',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  cursor: isResolutPublishing || isCalculating ? 'wait' : 'pointer',
-                  opacity: isResolutPublishing || isCalculating ? 0.75 : 1,
-                  boxShadow: '0px 4px 6px -1px rgba(11, 114, 133, 0.35)',
-                  transition: 'transform 0.1s',
-                  minWidth: '240px',
-                }}
+                className="pfp-action-btn pfp-action-btn--success"
               >
                 {isResolutPublishing ? 'Оформляем…' : 'Оформить в Resolut'}
               </button>
             )}
             <button
               onClick={onGoToReport}
-              style={{
-                background: '#C2185B',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '100px',
-                padding: '16px 32px',
-                fontSize: '16px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                boxShadow: '0px 4px 6px -1px rgba(194, 24, 91, 0.4)',
-                transition: 'transform 0.1s',
-                minWidth: '240px',
-              }}
+              className="pfp-action-btn pfp-action-btn--primary"
             >
               Перейти в отчет
             </button>
@@ -939,20 +937,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
               type="button"
               onClick={() => void handleOpenHtmlReport()}
               disabled={htmlReportOpening || !!isCalculating}
-              style={{
-                background: '#0F172A',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '100px',
-                padding: '16px 32px',
-                fontSize: '16px',
-                fontWeight: '600',
-                cursor: htmlReportOpening || isCalculating ? 'wait' : 'pointer',
-                opacity: htmlReportOpening || isCalculating ? 0.75 : 1,
-                boxShadow: '0px 4px 6px -1px rgba(15, 23, 42, 0.35)',
-                transition: 'transform 0.1s',
-                minWidth: '240px',
-              }}
+              className="pfp-action-btn pfp-action-btn--secondary"
             >
               {htmlReportOpening ? 'Открываем…' : 'HTML-отчет'}
             </button>
@@ -960,19 +945,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
               <button
                 type="button"
                 onClick={() => onOpenFinancialProducts?.()}
-                style={{
-                  background: 'linear-gradient(135deg, #21A038 0%, #1B8A2D 100%)',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '100px',
-                  padding: '16px 32px',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  boxShadow: '0px 4px 6px -1px rgba(33, 160, 56, 0.4)',
-                  transition: 'transform 0.1s',
-                  minWidth: '240px',
-                }}
+                className="pfp-action-btn pfp-action-btn--soft"
               >
                 Финансовые продукты
               </button>
@@ -1073,7 +1046,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
             {(taxBenefitsSummary || taxPlanningLegacy || calculatedGoals.length > 0) && (
               <div
                 style={{
-                  background: 'linear-gradient(108.52deg, #C2185B 0%, #E91E63 100%)',
+                  background: 'linear-gradient(135deg, #312e81 0%, #5b21b6 100%)',
                   borderRadius: '24px',
                   padding: '24px',
                   color: '#fff',
@@ -1167,16 +1140,16 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                 transition: 'all 0.2s'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#C2185B';
-                e.currentTarget.style.background = '#FFF0F5';
+                e.currentTarget.style.borderColor = '#7C3AED';
+                e.currentTarget.style.background = '#F5F3FF';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.borderColor = '#E5E7EB';
                 e.currentTarget.style.background = '#F9FAFB';
               }}
             >
-              <Plus size={32} color="#C2185B" />
-              <span style={{ color: '#C2185B', fontSize: '16px', fontWeight: '500' }}>+ Добавить цель</span>
+              <Plus size={32} color="#7C3AED" />
+              <span style={{ color: '#7C3AED', fontSize: '16px', fontWeight: '500' }}>+ Добавить цель</span>
             </button>
           </div>
 
