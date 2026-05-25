@@ -1,6 +1,7 @@
 import React from 'react';
+import ReactMarkdown from 'react-markdown';
 import { extendedToLegacy, legacyToExtended } from '../constants/portfolioRiskProfiles';
-import { X, Plus, ArrowLeft, Trash2, Send, Loader2 } from 'lucide-react';
+import { X, Plus, ArrowLeft, Trash2, Loader2 } from 'lucide-react';
 import avatarImage from '../assets/avatar_full.png';
 import { clientApi } from '../api/clientApi';
 import { getGoalImage, GOAL_GALLERY_ITEMS } from '../utils/GoalImages';
@@ -86,7 +87,6 @@ interface ResultPageDesignProps {
   onRestart?: () => void;
   isCalculating?: boolean;
   aiPreviewText?: string;
-  aiStatusText?: string;
   onOpenAiChat?: () => void;
   isResolutAvProject?: boolean;
   isResolutPublishing?: boolean;
@@ -132,7 +132,6 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   onRestart,
   isCalculating,
   aiPreviewText,
-  aiStatusText,
   onOpenAiChat,
   isResolutAvProject,
   isResolutPublishing,
@@ -155,6 +154,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   const [htmlReportOpening, setHtmlReportOpening] = React.useState(false);
   const [htmlReportModalOpen, setHtmlReportModalOpen] = React.useState(false);
   const [htmlReportSrcDoc, setHtmlReportSrcDoc] = React.useState<string | null>(null);
+  const [isRiskProfileModalOpen, setIsRiskProfileModalOpen] = React.useState(false);
 
   const handleEditGoal = (goal: GoalResult) => {
     setEditingGoal(goal);
@@ -715,55 +715,31 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
           <section className="pfp-overview">
             <div className="pfp-overview__layout">
               <div className="pfp-overview__hero">
-                <div>
-                  <div className="pfp-overview__eyebrow">Сводка плана</div>
-                  <h1 className="pfp-overview__title">Финансовый план собран</h1>
-                  <p className="pfp-overview__description">
-                    Ключевые показатели плана, нагрузка на бюджет семьи и подсказки по риск-профилю в одном месте.
-                  </p>
-                </div>
-
-                <div className="pfp-overview__assistant">
+                <button
+                  type="button"
+                  className="pfp-overview__assistant-card"
+                  onClick={() => onOpenAiChat?.()}
+                >
                   <div className="pfp-ai-preview-row">
                     <div style={{ flexShrink: 0 }}>
                       <div className="pfp-overview__assistant-avatar">
                         <img src={avatarImage} alt="AI" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       </div>
                     </div>
-                    <div className="pfp-ai-preview-bubble">
-                      {aiPreviewText || 'AI анализирует финансовый план клиента. Нажмите, чтобы открыть чат.'}
+                    <div className="pfp-ai-preview-bubble pfp-ai-preview-bubble--compact">
+                      <div className="pfp-overview__assistant-preview">
+                        <div className="pfp-overview__assistant-markdown">
+                          <ReactMarkdown>
+                            {aiPreviewText || 'AI анализирует финансовый план клиента. Нажмите, чтобы открыть чат.'}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
                     </div>
                   </div>
-
-                  <div className="pfp-overview__composer">
-                    <input
-                      type="text"
-                      readOnly
-                      placeholder="Напишите ваш вопрос..."
-                      onClick={() => onOpenAiChat?.()}
-                      onFocus={(e) => {
-                        e.preventDefault();
-                        onOpenAiChat?.();
-                      }}
-                      className="pfp-overview__composer-input"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => onOpenAiChat?.()}
-                      className="pfp-overview__composer-send"
-                    >
-                      <Send size={18} />
-                    </button>
+                  <div className="pfp-overview__click-hint">
+                    Нажмите, чтобы открыть весь AI-разбор
                   </div>
-
-                  <button
-                    type="button"
-                    className="pfp-action-btn pfp-action-btn--secondary"
-                    onClick={() => onOpenAiChat?.()}
-                  >
-                    {aiStatusText || 'Открыть AI-разбор'}
-                  </button>
-                </div>
+                </button>
               </div>
 
               <div className="pfp-overview__metrics">
@@ -819,38 +795,47 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                 </div>
               </div>
 
-              <div className="pfp-overview__panel">
+              <button
+                type="button"
+                className="pfp-overview__panel pfp-overview__panel-button"
+                onClick={() => setIsRiskProfileModalOpen(true)}
+              >
                 <div className="pfp-overview__panel-title">
                   {riskProfileExplanation?.title || 'Риск-профиль клиента'}
                 </div>
-                <div className="pfp-overview__panel-text">{riskSummaryText}</div>
+                <div className="pfp-overview__panel-preview">
+                  <div className="pfp-overview__panel-text">{riskSummaryText}</div>
 
-                {keyFactors.length > 0 && (
-                  <div className="pfp-overview__list-block">
-                    <div className="pfp-overview__list-title">Ключевые факторы</div>
-                    <ul className="pfp-overview__list">
-                      {keyFactors.map((factor: string, idx: number) => (
-                        <li key={`factor_${idx}`}>{factor}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                  {keyFactors.length > 0 && (
+                    <div className="pfp-overview__list-block">
+                      <div className="pfp-overview__list-title">Ключевые факторы</div>
+                      <ul className="pfp-overview__list">
+                        {keyFactors.map((factor: string, idx: number) => (
+                          <li key={`factor_${idx}`}>{factor}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
-                {recommendations.length > 0 && (
-                  <div className="pfp-overview__list-block">
-                    <div className="pfp-overview__list-title">Рекомендации</div>
-                    <ul className="pfp-overview__list">
-                      {recommendations.map((rec: string, idx: number) => (
-                        <li key={`rec_${idx}`}>{rec}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                  {recommendations.length > 0 && (
+                    <div className="pfp-overview__list-block">
+                      <div className="pfp-overview__list-title">Рекомендации</div>
+                      <ul className="pfp-overview__list">
+                        {recommendations.map((rec: string, idx: number) => (
+                          <li key={`rec_${idx}`}>{rec}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
-                {riskProfileExplanation?.caution && (
-                  <div className="pfp-overview__caution">{riskProfileExplanation.caution}</div>
-                )}
-              </div>
+                  {riskProfileExplanation?.caution && (
+                    <div className="pfp-overview__caution">{riskProfileExplanation.caution}</div>
+                  )}
+                </div>
+                <div className="pfp-overview__click-hint">
+                  Нажмите, чтобы открыть весь риск-разбор
+                </div>
+              </button>
             </div>
           </section>
 
@@ -1164,6 +1149,67 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
           setIsAddModalOpen(false);
         }}
       />
+
+      {isRiskProfileModalOpen && (
+        <div className="pfp-text-modal-overlay" onClick={() => setIsRiskProfileModalOpen(false)}>
+          <div
+            className="pfp-text-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pfp-risk-profile-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="pfp-text-modal__header">
+              <div>
+                <div className="pfp-text-modal__eyebrow">Риск-профилирование</div>
+                <h2 id="pfp-risk-profile-modal-title" className="pfp-text-modal__title">
+                  {riskProfileExplanation?.title || 'Риск-профиль клиента'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="pfp-text-modal__close"
+                onClick={() => setIsRiskProfileModalOpen(false)}
+                aria-label="Закрыть"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="pfp-text-modal__body">
+              <div className="pfp-text-modal__section">
+                <p className="pfp-text-modal__paragraph">{riskSummaryText}</p>
+              </div>
+
+              {keyFactors.length > 0 && (
+                <div className="pfp-text-modal__section">
+                  <div className="pfp-text-modal__section-title">Ключевые факторы</div>
+                  <ul className="pfp-overview__list">
+                    {keyFactors.map((factor: string, idx: number) => (
+                      <li key={`risk_modal_factor_${idx}`}>{factor}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {recommendations.length > 0 && (
+                <div className="pfp-text-modal__section">
+                  <div className="pfp-text-modal__section-title">Рекомендации</div>
+                  <ul className="pfp-overview__list">
+                    {recommendations.map((rec: string, idx: number) => (
+                      <li key={`risk_modal_rec_${idx}`}>{rec}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {riskProfileExplanation?.caution && (
+                <div className="pfp-overview__caution">{riskProfileExplanation.caution}</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Editing Modal */}
       {editingGoal && (

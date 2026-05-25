@@ -65,7 +65,6 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [isReportPreviewOpen, setIsReportPreviewOpen] = useState(false);
     const [isProductsModalOpen, setIsProductsModalOpen] = useState(false);
-    const [isAiLoading, setIsAiLoading] = useState(false);
     const [isResolutPublishing, setIsResolutPublishing] = useState(false);
     /** Опции plan-publish-preview / publish-from-plan (см. PlanQuotesRequest). */
     const [resolutIncludeMonthlyFlow, setResolutIncludeMonthlyFlow] = useState(false);
@@ -154,7 +153,6 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
         let cancelled = false;
 
         const bootstrapAiChat = async () => {
-            setIsAiLoading(true);
             let shouldTriggerAutoPrompt = false;
             try {
                 const history = await aiService.getAgentClientHistory(resolvedClientId);
@@ -177,9 +175,6 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
                 if (!cancelled && shouldTriggerAutoPrompt) {
                     await sendAgentClientMessage(resolvedClientId, AUTO_PROMPT, { appendUserMessage: false });
                 }
-                if (!cancelled) {
-                    setIsAiLoading(false);
-                }
             }
         };
 
@@ -198,12 +193,7 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
             return 'AI анализирует финансовый план клиента. Нажмите, чтобы открыть чат.';
         }
 
-        const lines = lastAssistantMessage.content
-            .split(/\r?\n/)
-            .map((line) => line.trim())
-            .filter(Boolean);
-
-        return lines.slice(0, 5).join('\n');
+        return lastAssistantMessage.content.trim();
     }, [messages]);
 
     const isResolutAvProject = useMemo(() => {
@@ -424,7 +414,6 @@ const ResultPage: React.FC<ResultPageProps> = ({ data, client, onRestart, onReca
                 onRecalculate={onRecalculate}
                 isCalculating={isCalculating}
                 aiPreviewText={previewText}
-                aiStatusText={isAiLoading || isTyping ? 'Генерирует ответ...' : 'Задать вопрос'}
                 onOpenAiChat={() => setIsChatOpen(true)}
                 isResolutAvProject={isResolutAvProject}
                 isResolutPublishing={isResolutPublishing}
