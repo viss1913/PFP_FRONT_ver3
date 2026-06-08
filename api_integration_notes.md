@@ -7,11 +7,11 @@
 Во все запросы, связанные с расчетом ПФП и получением настроек, необходимо добавить заголовок идентификации проекта.
 
 - **Заголовок:** `X-Project-Key`
-- **Значение для стандартного проекта:** `pk_proj_0e9fdde1e8cd961121906f04507af06e4afec281a58012c4`
+- **Значение для Finam (test API):** `pk_7f1ccfe5b2598134a575320d` — см. `src/api/projectKey.ts`
 
 **Пример (Axios):**
 ```javascript
-api.defaults.headers.common['X-Project-Key'] = 'pk_proj_0e9fdde1e8cd961121906f04507af06e4afec281a58012c4';
+api.defaults.headers.common['X-Project-Key'] = 'pk_7f1ccfe5b2598134a575320d';
 ```
 
 ## 2. Пострадавшие эндпоинты

@@ -68,6 +68,14 @@
     margin-bottom: 12px;
 }
 
+.landing-consultant__seo-intro {
+    margin: 0 0 20px;
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--landing-text-muted);
+    max-width: 52ch;
+}
+
 .landing-section-subtitle {
     color: var(--landing-text-muted);
     font-size: var(--landing-fs-md);

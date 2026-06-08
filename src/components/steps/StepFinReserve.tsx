@@ -1,5 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { rangeFillStyle } from '../../utils/rangeInputStyle';
+import {
+    computeRecommendedFinReserveInitial,
+    computeRecommendedFinReserveMonthly,
+    formatCompactRubles,
+    pickFinReserveMonthlyReplenishment,
+} from '../../utils/finReserveRecommendations';
 import avatarImage from '../../assets/avatar_full.png';
 import type { CJMData } from '../CJMFlow';
 
@@ -18,23 +24,29 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
         .filter((g) => g.goal_type_id === 3 || g.goal_type_id === 8)
         .reduce((sum, g) => sum + (g.initial_capital || 0), 0);
     const totalLiquidCapital = assetsCapital > 0 ? assetsCapital : investmentOrRentGoalCapital;
+    const avgMonthlyIncome = data.avgMonthlyIncome || 0;
 
-    /** По умолчанию: min(доход × 3, 20% доступного капитала), в рублях. */
-    const defaultInitialFinReserve = Math.max(
-        0,
-        Math.min(
-            Math.round((data.avgMonthlyIncome || 0) * 3),
-            Math.round(totalLiquidCapital * 0.2)
-        )
+    const recommendedInitial = useMemo(
+        () => computeRecommendedFinReserveInitial(totalLiquidCapital, avgMonthlyIncome),
+        [totalLiquidCapital, avgMonthlyIncome],
+    );
+    const recommendedMonthly = useMemo(
+        () => computeRecommendedFinReserveMonthly(avgMonthlyIncome, totalLiquidCapital),
+        [avgMonthlyIncome, totalLiquidCapital],
     );
 
-    // Initialize with default values if not set
     const [initialCapital, setInitialCapital] = useState<number>(
-        data.initialCapital ?? defaultInitialFinReserve
+        data.initialCapital ?? recommendedInitial,
     );
-    const [monthlyReplenishment, setMonthlyReplenishment] = useState<number>(
-        data.monthlyReplenishment && data.monthlyReplenishment > 0 ? data.monthlyReplenishment : 5000
+    const [monthlyReplenishment, setMonthlyReplenishment] = useState<number>(() =>
+        pickFinReserveMonthlyReplenishment(data.monthlyReplenishment, recommendedMonthly),
     );
+
+    useEffect(() => {
+        setMonthlyReplenishment(
+            pickFinReserveMonthlyReplenishment(data.monthlyReplenishment, recommendedMonthly),
+        );
+    }, [recommendedMonthly, data.monthlyReplenishment]);
 
     // Update data when values change
     useEffect(() => {
@@ -94,7 +106,9 @@ const StepFinReserve: React.FC<StepFinReserveProps> = ({ data, setData, onNext, 
                     maxWidth: '600px',
                     fontWeight: '500'
                 }}>
-                    Часть капитала очень важно выделить на Финансовый резерв. Я подберу продукты. Рекомендую направить на финансовый резерев сейчас 200 тыс и пополнять его на 2 тыс.
+                    Часть капитала очень важно выделить на Финансовый резерв. Я подберу продукты. Рекомендую направить на финансовый резерв сейчас{' '}
+                    <strong>{formatCompactRubles(recommendedInitial)}</strong> и пополнять его на{' '}
+                    <strong>{formatCompactRubles(recommendedMonthly)}</strong>.
                 </div>
             </div>
 

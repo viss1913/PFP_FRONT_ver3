@@ -251,3 +251,41 @@ export interface CalculatePayload {
     goals: CalculationGoal[];
     client: CalculationClientData;
 }
+
+export type ClientCreditType = 'MORTGAGE' | 'CONSUMER_LOAN' | 'CREDIT_CARD' | 'AUTO_LOAN' | 'OTHER';
+
+export interface ClientCardCreditRow {
+    type: ClientCreditType;
+    balance: number;
+    monthlyPayment: number;
+    rate: number;
+    name?: string;
+}
+
+export interface ClientCardContactsForm {
+    first_name: string;
+    last_name: string;
+    middle_name: string;
+    phone: string;
+    email: string;
+    birth_date: string;
+    gender: 'male' | 'female';
+    avg_monthly_income: number;
+}
+
+export interface ClientCardFormState {
+    contacts: ClientCardContactsForm;
+    family: FamilyProfile;
+    credits: ClientCardCreditRow[];
+    assets: Asset[];
+}
+
+export type ClientCardDirtySection = 'contacts' | 'family' | 'credits' | 'assets';
+
+/** Тело PUT /api/pfp/clients/{clientId} — без goals, expenses, recalculate */
+export interface AgentClientPatchBody {
+    client?: Record<string, unknown>;
+    assets?: Array<Record<string, unknown>>;
+    credits?: ClientCardCreditRow[];
+    liabilities?: Array<Record<string, unknown>>;
+}

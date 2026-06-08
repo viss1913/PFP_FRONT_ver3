@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Allow: /sber
+Disallow: /invite/
+Disallow: /register/
+Disallow: /atb_mass
+Disallow: /atb_bank
+
+Sitemap: https://family-office.bank-future.com/sitemap.xml

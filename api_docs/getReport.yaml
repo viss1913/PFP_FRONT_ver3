@@ -1,0 +1,462 @@
+openapi: 3.0.0
+info:
+  title: PDF Report API
+  version: 1.0.0
+  description: |
+    Specification for the dedicated PDF Report endpoint.
+    This endpoint aggregates all client data, calculations, and AI analysis into a structure optimized for visualization.
+
+paths:
+  /pfp/reports/{clientId}:
+    get:
+      summary: Get Full Client Report Data
+      description: |
+        Returns a complete dataset for generating the client's financial plan PDF.
+        Includes current assets, calculated goals, and specific metrics for charts (Waterfall, Portfolio).
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful report data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+
+  /pfp/reports/{clientId}/pdf:
+    get:
+      summary: Сгенерировать PDF отчёта клиента
+      description: |
+        Собирает HTML (обложка, сводная, страницы целей по наличию в отчёте) и отдаёт **application/pdf** (Puppeteer).
+        Порядок страниц и фильтрация — query-параметры ниже.
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: includeCover
+          in: query
+          required: false
+          description: Обложка включена по умолчанию; передайте `0` или `false`, чтобы пропустить.
+          schema:
+            type: string
+        - name: includeSummary
+          in: query
+          required: false
+          description: Сводная включена по умолчанию; `0` или `false` — пропустить.
+          schema:
+            type: string
+        - name: goalTypes
+          in: query
+          required: false
+          description: |
+            Подмножество страниц целей через запятую: `FIN_RESERVE`, `LIFE`, `INVESTMENT`, `OTHER`.
+            Без параметра — для каждого типа, если в `goals_detailed` есть цель, страница попадёт в PDF.
+          schema:
+            type: string
+            example: FIN_RESERVE,LIFE
+        - name: disposition
+          in: query
+          required: false
+          description: |
+            `attachment` — отдать файл как вложение (скачивание). Иначе по умолчанию `inline`.
+          schema:
+            type: string
+            enum:
+              - attachment
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: PDF-документ
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Некорректный clientId
+        '401':
+          description: Нет токена
+        '500':
+          description: Ошибка генерации (в т.ч. не выбрано ни одной страницы)
+
+  /pfp/reports/{clientId}/html:
+    get:
+      summary: HTML полного отчёта клиента (агентский контур)
+      description: |
+        Собирает полный HTML отчёта (обложка, сводная, страницы целей) без рендера PDF.
+        Удобно для предпросмотра в ЛК агента.
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: includeCover
+          in: query
+          required: false
+          description: Обложка включена по умолчанию; передайте `0` или `false`, чтобы пропустить.
+          schema:
+            type: string
+        - name: includeSummary
+          in: query
+          required: false
+          description: Сводная включена по умолчанию; `0` или `false` — пропустить.
+          schema:
+            type: string
+        - name: goalTypes
+          in: query
+          required: false
+          description: Подмножество страниц целей через запятую (как у PDF).
+          schema:
+            type: string
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: HTML-документ и страницы по отдельности
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  html:
+                    type: string
+                  pages:
+                    type: array
+                    items:
+                      type: string
+                  toc:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  generated_at:
+                    type: string
+                    format: date-time
+        '400':
+          description: Некорректный clientId
+        '401':
+          description: Нет токена
+        '403':
+          description: Нет доступа к клиенту
+        '404':
+          description: Клиент не найден
+        '500':
+          description: Ошибка генерации HTML
+
+  /my/plan/report:
+    get:
+      summary: JSON отчёта текущего клиента (ЛК B2C)
+      description: |
+        Тот же контракт, что `GET /pfp/reports/{clientId}`, но идентификатор клиента берётся из JWT (`clientId` в токене).
+        Требуется роль client (или разрешённые роли кабинета `/my`).
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successful report data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+        '400':
+          description: В токене нет clientId
+        '401':
+          description: Нет токена
+
+  /my/plan/report/pdf:
+    get:
+      summary: PDF отчёта текущего клиента (ЛК B2C)
+      description: |
+        Генерация PDF по данным плана; визуальный стиль из `agent_report_pdf_settings` агента, указанного в `clients.agent_id`,
+        либо дефолты, если агент не привязан.
+      parameters:
+        - name: includeCover
+          in: query
+          required: false
+          description: Обложка включена по умолчанию; `0` или `false` — пропустить.
+          schema:
+            type: string
+        - name: includeSummary
+          in: query
+          required: false
+          description: Сводная по умолчанию включена; `0` или `false` — пропустить.
+          schema:
+            type: string
+        - name: goalTypes
+          in: query
+          required: false
+          description: Подмножество страниц целей через запятую (как у агентского PDF).
+          schema:
+            type: string
+        - name: disposition
+          in: query
+          required: false
+          description: `attachment` — скачивание файла.
+          schema:
+            type: string
+            enum:
+              - attachment
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: PDF-документ
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Нет clientId в токене
+        '401':
+          description: Нет токена
+        '404':
+          description: Профиль клиента не найден
+        '500':
+          description: Ошибка генерации PDF
+
+  /my/plan/report/html:
+    get:
+      summary: HTML отчёта текущего клиента (ЛК B2C)
+      description: |
+        Возвращает HTML-представление отчёта для фронтового предпросмотра без рендера PDF.
+        Полезно, когда нужно быстро показать страницы в веб-интерфейсе и отдельно запускать экспорт в PDF.
+      parameters:
+        - name: includeCover
+          in: query
+          required: false
+          description: Обложка включена по умолчанию; `0` или `false` — пропустить.
+          schema:
+            type: string
+        - name: includeSummary
+          in: query
+          required: false
+          description: Сводная по умолчанию включена; `0` или `false` — пропустить.
+          schema:
+            type: string
+        - name: goalTypes
+          in: query
+          required: false
+          description: Подмножество страниц целей через запятую (как у PDF-эндпоинтов).
+          schema:
+            type: string
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: HTML отчёта и страницы по отдельности
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  html:
+                    type: string
+                    description: Единый HTML со всеми страницами отчёта.
+                  pages:
+                    type: array
+                    description: Массив HTML-страниц (по одной строке на страницу).
+                    items:
+                      type: string
+                  toc:
+                    type: array
+                    description: Оглавление (если доступно для текущей темы/набора страниц).
+                    items:
+                      type: object
+                      additionalProperties: true
+                  generated_at:
+                    type: string
+                    format: date-time
+        '400':
+          description: Нет clientId в токене
+        '401':
+          description: Нет токена
+        '404':
+          description: Профиль клиента не найден
+        '500':
+          description: Ошибка генерации HTML
+
+  /pfp/reports/{clientId}/pages/{pageType}/html:
+    get:
+      summary: HTML одной страницы отчёта клиента
+      description: |
+        Полный HTML одной страницы A4 для печати или отладки. Данные — из расчёта клиента (`goals_detailed` и т.д.).
+        Значения `pageType` совпадают с превью в pdf-settings (`SUMMARY`, `FIN_RESERVE`, …); допускаются синонимы пути (см. реализацию `reportPagesController`).
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: pageType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - SUMMARY
+              - FIN_RESERVE
+              - LIFE
+              - INVESTMENT
+              - OTHER
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: HTML-документ
+          content:
+            text/html:
+              schema:
+                type: string
+        '400':
+          description: Неизвестный pageType или нет данных для страницы
+        '401':
+          description: Нет токена
+        '404':
+          description: Клиент или цель не найдены
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    projectKeyAuth:
+      type: apiKey
+      in: header
+      name: x-project-key
+      description: Public Project Key for multi-tenancy context
+  parameters:
+    ProjectKeyHeader:
+      name: x-project-key
+      in: header
+      required: false
+      description: Public key to identify the project project context
+      schema:
+        type: string
+        example: pk_default_pfp_2026
+    projectKeyAuth:
+      type: apiKey
+      in: header
+      name: x-project-key
+      description: Public Project Key for multi-tenancy context
+  parameters:
+    ProjectKeyHeader:
+      name: x-project-key
+      in: header
+      required: false
+      description: Public key to identify the project project context
+      schema:
+        type: string
+        example: pk_default_pfp_2026
+
+  schemas:
+    ReportResponse:
+      type: object
+      properties:
+        client_profile:
+          type: object
+          properties:
+            id: { type: integer }
+            full_name: { type: string, example: "Иванов Иван Иванович" }
+            age: { type: integer }
+            email: { type: string }
+        
+        current_situation:
+          description: Data for the "Current Financial Health" section
+          type: object
+          properties:
+            assets_total: { type: number, description: "Total value of current assets" }
+            liabilities_total: { type: number, description: "Total debts" }
+            net_worth: { type: number, description: "Assets - Liabilities" }
+            assets_breakdown:
+              type: array
+              items:
+                type: object
+                properties:
+                  name: { type: string }
+                  value: { type: number }
+
+        overall_plan:
+          description: Aggregated metrics for the entire plan (all goals combined)
+          type: object
+          properties:
+            chart_waterfall:
+              description: >
+                Data for the "Investment vs Result" bar/waterfall chart.
+                Shows where the money comes from.
+              type: object
+              properties:
+                invested_by_client:
+                  type: number
+                  description: "Total nominal amount the client will pay (Initial + Monthly * Months)"
+                state_support_nominal:
+                  type: number
+                  description: "Total free money from State (Tax Deductions + Cofinancing)"
+                investment_income:
+                  type: number
+                  description: "Pure market gain (Compound interest on both Client's and State's money)"
+                total_projected:
+                  type: number
+                  description: "Final Sum (Invested + State + Income). This is the height of the final bar."
+            
+            consolidated_portfolio:
+              description: Summary of all recommended instruments across all goals
+              type: object
+              properties:
+                assets_allocation:
+                  type: array
+                  description: "For Pie Chart (By Asset Class/Instrument)"
+                  items:
+                    type: object
+                    properties:
+                      name: { type: string }
+                      share: { type: number, description: "Percentage (0-100)" }
+                      amount: { type: number }
+                      yield: { type: number }
+
+        ai_executive_summary:
+          type: string
+          description: "Markdown-formatted text generated by AI. Contains 3 paragraphs: Praise, Efficiency Analysis, Recommendation."
+          example: |
+            Отличное начало! Ваш план охватывает все ключевые цели...
+            
+            Обратите внимание: государство добавит к вашим вложениям 1.5 млн руб...
+            
+            Рекомендуем настроить автопополнение, чтобы не пропускать взносы.
+
+        pdf_summary_layout:
+          type: object
+          description: >
+            Единый блок для вёрстки сводного PDF на фронте: продолжение основных целей после первых двух
+            на HTML-сводной, пироги «распределение капитала / пополнений» по целям, подсказки page-break.
+          additionalProperties: true
+
+        comon_showcase:
+          description: >
+            Витрина стратегий Comon (если включено в projects.settings.comon_showcase).
+            См. docs/report-pdf-frontend-contract.md
+          type: object
+          additionalProperties: true
+
+        goals_detailed:
+          type: array
+          description: "List of calculated goals with their specific summaries"
+          items:
+            type: object
+            properties:
+              goal_type: { type: string, example: "PENSION" }
+              summary:
+                type: object
+                additionalProperties: true
+                description: "Goal-specific metrics (e.g. target_amount, monthly_replenishment, pension_gap_future)"

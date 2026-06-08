@@ -9,6 +9,7 @@ import { PortfolioDistribution } from './PortfolioDistribution';
 import { formatMonthsToDate } from '../utils/dateUtils';
 import AddGoalModal from './AddGoalModal';
 import { wrapReportHtmlForMobile } from '../utils/reportHtmlSrcdoc';
+import { resolvePortfolioYieldPercent } from '../utils/portfolioYield';
 
 // Specialized Recalculate Forms
 import PensionForm from './recalculate-forms/PensionForm';
@@ -85,6 +86,8 @@ interface ResultPageDesignProps {
   onGoToReport?: () => void;
   onRecalculate?: (payload: any) => void;
   onRestart?: () => void;
+  restartLabel?: string;
+  onEditClientData?: () => void;
   isCalculating?: boolean;
   aiPreviewText?: string;
   onOpenAiChat?: () => void;
@@ -130,6 +133,8 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   onGoToReport,
   onRecalculate,
   onRestart,
+  restartLabel,
+  onEditClientData,
   isCalculating,
   aiPreviewText,
   onOpenAiChat,
@@ -406,11 +411,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   );
   const monthlyGoalsReplenishment = Number(consolidatedPortfolio?.total_monthly_replenishment || 0);
   const freeMoney = familyIncomeTotal - monthlyObligations - monthlyGoalsReplenishment;
-  const portfolioYieldPercent = Number(
-    consolidatedPortfolio?.yield_percent
-    ?? consolidatedPortfolio?.accumulation_yield_percent
-    ?? 0
-  );
+  const portfolioYieldPercent = resolvePortfolioYieldPercent(consolidatedPortfolio, calculatedGoals);
 
   const budgetBars = [
     { key: 'income', label: 'Доходы семьи', value: familyIncomeTotal, color: '#0f766e' },
@@ -684,7 +685,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#F9FAFB', fontFamily: "'Inter', sans-serif" }}>
       {/* Кнопка "Назад" */}
-      <div className="pfp-result-back">
+      <div className="pfp-result-back" style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center' }}>
         <button
           onClick={onRestart}
           style={{
@@ -703,8 +704,28 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
           onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.color = '#666')}
         >
           <ArrowLeft size={20} />
-          Назад к списку клиентов
+          {restartLabel || 'Назад к списку клиентов'}
         </button>
+        {onEditClientData && (
+          <button
+            type="button"
+            onClick={onEditClientData}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: 'none',
+              border: 'none',
+              color: '#4f46e5',
+              cursor: 'pointer',
+              fontSize: '14px',
+              padding: '8px 0',
+              fontWeight: 600,
+            }}
+          >
+            Данные клиента
+          </button>
+        )}
       </div>
 
 

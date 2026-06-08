@@ -12,7 +12,7 @@ export const FAMILY_OFFICE_BROKER_OPTIONS: FamilyOfficeBrokerOption[] = [
         id: 'finam_pack',
         label: 'Финам и партнёры',
         subtitle: 'Финам · Сбер Страхование жизни · НПФ Ренессанс',
-        project_key: 'pk_fedf4e6cb9ad07f8e7ce2c81',
+        project_key: 'pk_7f1ccfe5b2598134a575320d',
         available: true,
     },
     {

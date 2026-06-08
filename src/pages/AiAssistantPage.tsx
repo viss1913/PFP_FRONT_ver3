@@ -110,9 +110,7 @@ const AiAssistantPage: React.FC<AiAssistantPageProps> = ({ onNavigate }) => {
     };
 
     return (
-        <div style={{ minHeight: '100vh', background: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
-            <Header activePage="ai-assistant" onNavigate={onNavigate} />
-
+        <Header activePage="ai-assistant" onNavigate={onNavigate}>
             <main style={{
                 flex: 1,
                 display: 'grid',
@@ -123,7 +121,7 @@ const AiAssistantPage: React.FC<AiAssistantPageProps> = ({ onNavigate }) => {
                 margin: '0 auto',
                 width: '100%',
                 boxSizing: 'border-box',
-                height: 'calc(100vh - 64px)' // Full height minus header
+                height: 'calc(100vh - var(--lk-header-h))'
             }}>
                 {/* Sidebar: Assistants */}
                 <div style={{
@@ -195,7 +193,7 @@ const AiAssistantPage: React.FC<AiAssistantPageProps> = ({ onNavigate }) => {
                     )}
                 </div>
             </main>
-        </div>
+        </Header>
     );
 };
 

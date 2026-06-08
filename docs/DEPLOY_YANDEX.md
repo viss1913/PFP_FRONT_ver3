@@ -2,6 +2,19 @@
 
 ## Переменные в `.env`
 
+Перед `npm run build` / `deploy:yandex` (вшиваются в бандл):
+
+```env
+VITE_API_BASE_URL=https://pfp-api.bank-future.com/api
+VITE_SITE_URL=https://family-office.bank-future.com
+```
+
+Дефолтный `project_key` Finam задаётся в коде: `src/api/projectKey.ts` (`pk_7f1ccfe5b2598134a575320d`).
+Для route-level lane `atb_mass` там же есть отдельный override:
+
+- `project_id = 3`
+- `project_key = pk_e0d2b45ac658fd23726398f5`
+
 Только для CLI (не `VITE_*`):
 
 ```env
@@ -29,6 +42,8 @@ BUCKET_NAME=family-office.bank-future.com
 
 Прод: **https://family-office.bank-future.com**
 
+SEO (Вебмастер, Метрика, чеклист): [`docs/SEO_WEBMASTER.md`](SEO_WEBMASTER.md)
+
 Служебный URL бакета: `http://family-office.bank-future.com.website.yandexcloud.net`
 
 ## Чеклист перед релизом
@@ -44,7 +59,7 @@ BUCKET_NAME=family-office.bank-future.com
 - **Чтение объектов** — для всех (публичная статика).
 - **Запись** — только сервисный аккаунт (ключи в `.env`).
 - Website hosting: главная и ошибка = `index.html` (SPA).
-- Для вложенных path (`/sber`, `/invite/activate`, `/register`) после `npm run build` скрипт `scripts/copy-spa-fallbacks.mjs` кладёт `index.html` в соответствующие папки в `dist/` — иначе CDN может отдавать 404 без загрузки React.
+- Для вложенных path (`/sber`, `/invite/activate`, `/register`, `/atb_mass`, `/atb_bank`) после `npm run build` скрипт `scripts/copy-spa-fallbacks.mjs` кладёт `index.html` в соответствующие папки в `dist/` — иначе CDN может отдавать 404 без загрузки React.
 
 ## Отчёт проверки (2026-05-19)
 

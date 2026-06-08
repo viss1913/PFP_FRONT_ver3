@@ -34,7 +34,7 @@ const LandingHero: React.FC<LandingHeroProps> = ({ copy }) => {
                         src={landingVisualAssets.heroImage}
                         srcSet={landingVisualAssets.heroSrcSet}
                         sizes="(max-width: 1024px) 100vw, 50vw"
-                        alt=""
+                        alt="Платформа BankFuture — family office для семьи и финансового консультанта"
                         loading="eager"
                     />
                 </div>

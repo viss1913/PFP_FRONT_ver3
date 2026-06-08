@@ -1,5 +1,6 @@
 import type { LandingLang } from '../content/landingCopy';
 import type { LandingVariant } from '../content/landingAssets';
+import { YM_COUNTER_ID } from '../config/analytics';
 
 const UTM_KEY = 'landing_utm';
 
@@ -40,20 +41,31 @@ declare global {
 
 let analyticsInitialized = false;
 
+function resolveYmCounterId(): number {
+    const fromEnv = Number(import.meta.env.VITE_YM_COUNTER_ID);
+    if (!Number.isNaN(fromEnv) && fromEnv > 0) return fromEnv;
+    return YM_COUNTER_ID;
+}
+
+function isYmScriptPresent(): boolean {
+    return Array.from(document.scripts).some((s) => s.src.includes('mc.yandex.ru/metrika'));
+}
+
 export function initLandingAnalytics(): void {
     if (analyticsInitialized || typeof window === 'undefined') return;
     analyticsInitialized = true;
 
-    const ymId = Number(import.meta.env.VITE_YM_COUNTER_ID);
-    if (!Number.isNaN(ymId) && ymId > 0) {
+    const ymId = resolveYmCounterId();
+    if (!isYmScriptPresent()) {
         const script = document.createElement('script');
         script.async = true;
-        script.src = `https://mc.yandex.ru/metrika/tag.js`;
+        script.src = `https://mc.yandex.ru/metrika/tag.js?id=${ymId}`;
         script.onload = () => {
             window.ym?.(ymId, 'init', {
                 clickmap: true,
                 trackLinks: true,
                 accurateTrackBounce: true,
+                webvisor: true,
             });
         };
         document.head.appendChild(script);
@@ -91,8 +103,8 @@ export function trackLandingEvent(
         console.debug('[landing analytics]', payload);
     }
 
-    const ymId = Number(import.meta.env.VITE_YM_COUNTER_ID);
-    if (!Number.isNaN(ymId) && ymId > 0 && window.ym) {
+    const ymId = resolveYmCounterId();
+    if (window.ym) {
         window.ym(ymId, 'reachGoal', event, payload);
     }
 

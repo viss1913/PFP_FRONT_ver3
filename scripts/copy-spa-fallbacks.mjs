@@ -11,7 +11,7 @@ const distDir = resolve(root, 'dist');
 const indexHtml = resolve(distDir, 'index.html');
 
 /** Path segments under dist/ — must match publicRoutes in src/routing/publicRoutes.ts */
-const SPA_ROUTES = ['sber', 'invite/activate', 'register'];
+const SPA_ROUTES = ['sber', 'invite/activate', 'register', 'atb_mass', 'atb_bank'];
 
 if (!existsSync(indexHtml)) {
     console.error('dist/index.html не найден. Сначала: npm run build');

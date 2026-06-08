@@ -5,6 +5,7 @@ import ClientList from './ClientList';
 import CrmClientsDashboard from './CrmClientsDashboard';
 import CrmViewSwitcher, { type CrmViewMode } from './CrmViewSwitcher';
 import SubagentNetworkView from './SubagentNetworkView';
+import { agentLkApi, isSubagentNetworkDisabledError, type SubagentDashboardResponse } from '../api/agentLkApi';
 import { crmApi } from '../api/crmApi';
 import type { CrmBriefingResponse } from '../types/crm';
 import avatarImage from '../assets/avatar_full.png';
@@ -15,20 +16,7 @@ import type { Client } from '../types/client';
 import { ChatWindow } from './ai/ChatWindow';
 import { aiService } from '../services/aiService';
 import type { AiMessage, AiAssistant } from '../types/ai';
-import {
-    agentLkApi,
-    isSubagentNetworkDisabledError,
-    type SubagentDashboardResponse,
-} from '../api/agentLkApi';
-
-type NavPage = 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings';
-
-const CRM_VIEW_MODE_KEY = 'pfp_crm_view_mode';
-
-function readStoredViewMode(): CrmViewMode {
-    const stored = localStorage.getItem(CRM_VIEW_MODE_KEY);
-    return stored === 'subagents' ? 'subagents' : 'clients';
-}
+import type { NavPage } from './lk/lkNavigation';
 
 const avatarBoxStyle: React.CSSProperties = {
     width: '44px',
@@ -41,8 +29,11 @@ const avatarBoxStyle: React.CSSProperties = {
 
 interface AiCrmPageProps {
     onSelectClient: (client: Client) => void;
+    onEditClient?: (client: Client) => void;
     onNewClient: () => void;
     onNavigate: (page: NavPage) => void;
+    /** Без оболочки Header — когда CRM встроен в ATB Bank shell. */
+    contentOnly?: boolean;
 }
 
 function getGreetingName(displayName: string): string {
@@ -57,75 +48,24 @@ function getTimeGreeting(): string {
     return 'Добрый вечер';
 }
 
-const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNavigate }) => {
+const AiCrmPage: React.FC<AiCrmPageProps> = ({
+    onSelectClient,
+    onEditClient,
+    onNewClient,
+    onNavigate,
+    contentOnly = false,
+}) => {
     const agentProfile = useAgentProfileOptional();
     const [messages, setMessages] = useState<AiMessage[]>([]);
     const [isTyping, setIsTyping] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [activeAssistant, setActiveAssistant] = useState<AiAssistant | null>(null);
-
-    const [networkAvailable, setNetworkAvailable] = useState(false);
-    const [networkProbeDone, setNetworkProbeDone] = useState(false);
-    const [viewMode, setViewMode] = useState<CrmViewMode>(() => readStoredViewMode());
-    const [dashboard, setDashboard] = useState<SubagentDashboardResponse | null>(null);
-    const [dashboardLoading, setDashboardLoading] = useState(false);
     const [crmBriefing, setCrmBriefing] = useState<CrmBriefingResponse | null>(null);
-
-    const loadDashboard = useCallback(async () => {
-        setDashboardLoading(true);
-        try {
-            const data = await agentLkApi.getSubagentsDashboard();
-            if (data.enabled !== false) {
-                setDashboard(data);
-                setNetworkAvailable(true);
-            } else {
-                setNetworkAvailable(false);
-                setDashboard(null);
-            }
-            return data;
-        } catch (error) {
-            if (isSubagentNetworkDisabledError(error)) {
-                setNetworkAvailable(false);
-                setDashboard(null);
-                setViewMode('clients');
-                localStorage.setItem(CRM_VIEW_MODE_KEY, 'clients');
-                return null;
-            }
-            console.error('Failed to load subagents dashboard:', error);
-            throw error;
-        } finally {
-            setDashboardLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        let cancelled = false;
-        (async () => {
-            try {
-                await loadDashboard();
-            } catch {
-                /* probe failed — network tab hidden */
-            } finally {
-                if (!cancelled) setNetworkProbeDone(true);
-            }
-        })();
-        return () => {
-            cancelled = true;
-        };
-    }, [loadDashboard]);
-
-    useEffect(() => {
-        if (!networkAvailable && viewMode === 'subagents') {
-            setViewMode('clients');
-            localStorage.setItem(CRM_VIEW_MODE_KEY, 'clients');
-        }
-    }, [networkAvailable, viewMode]);
-
-    useEffect(() => {
-        if (viewMode === 'subagents' && networkAvailable && !dashboard && !dashboardLoading) {
-            loadDashboard().catch(() => undefined);
-        }
-    }, [viewMode, networkAvailable, dashboard, dashboardLoading, loadDashboard]);
+    const [crmViewMode, setCrmViewMode] = useState<CrmViewMode>('clients');
+    const [subagentsDashboard, setSubagentsDashboard] = useState<SubagentDashboardResponse | null>(null);
+    const [subagentsLoading, setSubagentsLoading] = useState(false);
+    const [subagentsError, setSubagentsError] = useState<string | null>(null);
+    const [subagentsNetworkEnabled, setSubagentsNetworkEnabled] = useState<boolean | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -141,6 +81,54 @@ const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNa
             cancelled = true;
         };
     }, []);
+
+    const loadSubagentsDashboard = useCallback(async () => {
+        setSubagentsLoading(true);
+        setSubagentsError(null);
+        try {
+            const dashboard = await agentLkApi.getSubagentsDashboard();
+            setSubagentsDashboard(dashboard);
+            setSubagentsNetworkEnabled(true);
+        } catch (error) {
+            if (isSubagentNetworkDisabledError(error)) {
+                setSubagentsNetworkEnabled(false);
+                setSubagentsDashboard(null);
+                setCrmViewMode('clients');
+            } else {
+                setSubagentsNetworkEnabled(true);
+                setSubagentsError('Не удалось загрузить сеть субагентов. Попробуйте обновить страницу.');
+            }
+        } finally {
+            setSubagentsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (contentOnly) return;
+        let cancelled = false;
+        agentLkApi
+            .getSubagentsDashboard()
+            .then((dashboard) => {
+                if (!cancelled) {
+                    setSubagentsDashboard(dashboard);
+                    setSubagentsNetworkEnabled(true);
+                }
+            })
+            .catch((error) => {
+                if (!cancelled) {
+                    setSubagentsNetworkEnabled(!isSubagentNetworkDisabledError(error));
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [contentOnly]);
+
+    useEffect(() => {
+        if (contentOnly || crmViewMode !== 'subagents') return;
+        if (subagentsDashboard) return;
+        void loadSubagentsDashboard();
+    }, [contentOnly, crmViewMode, subagentsDashboard, loadSubagentsDashboard]);
 
     useEffect(() => {
         const loadAssistant = async () => {
@@ -208,14 +196,6 @@ const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNa
         return `${greeting} ${snippet}`;
     }, [messages, agentFirstName, crmBriefing]);
 
-    const handleViewModeChange = (mode: CrmViewMode) => {
-        setViewMode(mode);
-        localStorage.setItem(CRM_VIEW_MODE_KEY, mode);
-        if (mode === 'subagents' && networkAvailable) {
-            loadDashboard().catch(() => undefined);
-        }
-    };
-
     const handleSendMessage = async (text: string) => {
         if (!activeAssistant) {
             alert('Ассистент еще не загружен или недоступен.');
@@ -277,138 +257,176 @@ const AiCrmPage: React.FC<AiCrmPageProps> = ({ onSelectClient, onNewClient, onNa
         </div>
     );
 
-    return (
-        <div style={{ minHeight: '100vh', background: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
-            <Header activePage="crm" onNavigate={onNavigate} />
-
-                <main className="lk-page-main">
-                    <div className="crm-ai-banner" onClick={() => setIsChatOpen(true)} role="button" tabIndex={0}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsChatOpen(true); }}>
-                        <div className="crm-ai-banner__avatar-wrap">
-                            {assistantAvatar}
-                            <span className="crm-ai-banner__online">Online</span>
-                        </div>
-                        <div className="crm-ai-banner__body">
-                            <p className="crm-ai-banner__text">{bannerText}</p>
-                        </div>
-                        <button
-                            type="button"
-                            className="crm-ai-banner__cta"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setIsChatOpen(true);
-                            }}
-                        >
-                            <MessageCircle size={18} />
-                            Написать ассистенту
-                        </button>
+    const pageBody = (
+        <>
+            <main className="lk-page-main">
+                <div
+                    className="crm-ai-banner"
+                    onClick={() => setIsChatOpen(true)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') setIsChatOpen(true);
+                    }}
+                >
+                    <div className="crm-ai-banner__avatar-wrap">
+                        {assistantAvatar}
+                        <span className="crm-ai-banner__online">Online</span>
                     </div>
+                    <div className="crm-ai-banner__body">
+                        <p className="crm-ai-banner__text">{bannerText}</p>
+                    </div>
+                    <button
+                        type="button"
+                        className="crm-ai-banner__cta"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsChatOpen(true);
+                        }}
+                    >
+                        <MessageCircle size={18} />
+                        Написать ассистенту
+                    </button>
+                </div>
 
-                    {(viewMode === 'clients' || !networkAvailable) && <CrmClientsDashboard />}
+                {!contentOnly && subagentsNetworkEnabled !== false ? (
+                    <CrmViewSwitcher
+                        mode={crmViewMode}
+                        onChange={(mode) => {
+                            setCrmViewMode(mode);
+                            if (mode === 'subagents' && !subagentsDashboard) {
+                                void loadSubagentsDashboard();
+                            }
+                        }}
+                    />
+                ) : null}
 
-                    <div className="lk-card">
-                        {networkProbeDone && networkAvailable && (
-                            <CrmViewSwitcher mode={viewMode} onChange={handleViewModeChange} />
-                        )}
+                {crmViewMode === 'subagents' && !contentOnly ? (
+                    <>
+                        {subagentsError ? (
+                            <div
+                                className="lk-card"
+                                style={{ marginBottom: 24, color: '#b91c1c', fontSize: 14 }}
+                            >
+                                {subagentsError}
+                            </div>
+                        ) : null}
+                        {subagentsDashboard ? (
+                            <SubagentNetworkView dashboard={subagentsDashboard} loading={subagentsLoading} />
+                        ) : subagentsLoading ? (
+                            <div className="lk-card" style={{ padding: 32, textAlign: 'center', color: '#64748b' }}>
+                                Загружаем сеть субагентов…
+                            </div>
+                        ) : null}
+                    </>
+                ) : (
+                    <>
+                        <CrmClientsDashboard />
 
-                        {viewMode === 'clients' || !networkAvailable ? (
+                        <div className="lk-card">
                             <ClientList
                                 onSelectClient={onSelectClient}
+                                {...(onEditClient ? { onEditClient } : {})}
                                 onNewClient={onNewClient}
                                 embedded
                                 lightSearch
                             />
-                        ) : dashboard ? (
-                            <SubagentNetworkView dashboard={dashboard} loading={dashboardLoading} />
-                        ) : (
-                            <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
-                                {dashboardLoading ? 'Загрузка дашборда…' : 'Не удалось загрузить дашборд сети'}
-                            </div>
-                        )}
-                    </div>
-                </main>
+                        </div>
+                    </>
+                )}
+            </main>
 
-                {isChatOpen && (
+            {isChatOpen ? (
+                <div
+                    onClick={() => setIsChatOpen(false)}
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        background: 'rgba(15,23,42,0.45)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1200,
+                        padding: '16px',
+                    }}
+                >
                     <div
-                        onClick={() => setIsChatOpen(false)}
+                        onClick={(e) => e.stopPropagation()}
                         style={{
-                            position: 'fixed',
-                            inset: 0,
-                            background: 'rgba(15,23,42,0.45)',
+                            width: 'min(720px, 100%)',
+                            height: 'min(520px, 90vh)',
+                            background: '#fff',
+                            borderRadius: '24px',
+                            boxShadow: '0 24px 80px rgba(15,23,42,0.35)',
                             display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            zIndex: 1200,
-                            padding: '16px',
+                            flexDirection: 'column',
+                            overflow: 'hidden',
                         }}
                     >
                         <div
-                            onClick={(e) => e.stopPropagation()}
                             style={{
-                                width: 'min(720px, 100%)',
-                                height: 'min(520px, 90vh)',
-                                background: '#fff',
-                                borderRadius: '24px',
-                                boxShadow: '0 24px 80px rgba(15,23,42,0.35)',
+                                padding: '16px 20px',
+                                borderBottom: '1px solid #e5e7eb',
                                 display: 'flex',
-                                flexDirection: 'column',
-                                overflow: 'hidden',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
                             }}
                         >
-                            <div
-                                style={{
-                                    padding: '16px 20px',
-                                    borderBottom: '1px solid #e5e7eb',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                }}
-                            >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    {assistantAvatar}
-                                    <span style={{ fontWeight: 600, fontSize: '16px' }}>AI CRM ассистент</span>
-                                    <span
-                                        style={{
-                                            fontSize: '11px',
-                                            padding: '2px 8px',
-                                            borderRadius: '999px',
-                                            background: '#dcfce7',
-                                            color: '#16a34a',
-                                            fontWeight: 600,
-                                            textTransform: 'uppercase',
-                                        }}
-                                    >
-                                        Online
-                                    </span>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setIsChatOpen(false)}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                {assistantAvatar}
+                                <span style={{ fontWeight: 600, fontSize: '16px' }}>AI CRM ассистент</span>
+                                <span
                                     style={{
-                                        border: 'none',
-                                        background: 'transparent',
-                                        cursor: 'pointer',
-                                        fontSize: '20px',
-                                        lineHeight: 1,
-                                        color: '#6b7280',
+                                        fontSize: '11px',
+                                        padding: '2px 8px',
+                                        borderRadius: '999px',
+                                        background: '#dcfce7',
+                                        color: '#16a34a',
+                                        fontWeight: 600,
+                                        textTransform: 'uppercase',
                                     }}
                                 >
-                                    ×
-                                </button>
+                                    Online
+                                </span>
                             </div>
-                            <div style={{ flex: 1, minHeight: 0 }}>
-                                <ChatWindow
-                                    messages={messages}
-                                    onSendMessage={handleSendMessage}
-                                    isTyping={isTyping}
-                                    embedded
-                                    placeholder="Спросите AI CRM ассистента…"
-                                />
-                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsChatOpen(false)}
+                                style={{
+                                    border: 'none',
+                                    background: 'transparent',
+                                    cursor: 'pointer',
+                                    fontSize: '20px',
+                                    lineHeight: 1,
+                                    color: '#6b7280',
+                                }}
+                            >
+                                ×
+                            </button>
+                        </div>
+                        <div style={{ flex: 1, minHeight: 0 }}>
+                            <ChatWindow
+                                messages={messages}
+                                onSendMessage={handleSendMessage}
+                                isTyping={isTyping}
+                                embedded
+                                placeholder="Спросите AI CRM ассистента…"
+                            />
                         </div>
                     </div>
-                )}
-        </div>
+                </div>
+            ) : null}
+        </>
+    );
+
+    if (contentOnly) {
+        return pageBody;
+    }
+
+    return (
+        <Header activePage="crm" onNavigate={onNavigate}>
+            {pageBody}
+        </Header>
     );
 };
 

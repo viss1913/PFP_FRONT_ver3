@@ -1,4 +1,5 @@
 import React from 'react';
+import { getWeightedPortfolioYield } from '../utils/portfolioYield';
 
 interface AllocationItem {
     name: string;
@@ -112,20 +113,11 @@ const DonutChart: React.FC<{ items: AllocationItem[], title: string, total: numb
 export const PortfolioDistribution: React.FC<PortfolioDistributionProps> = ({ assetsAllocation, cashFlowAllocation, totalYieldPercent }) => {
     // Helper to sum amounts
     const getTotal = (items?: AllocationItem[]) => items?.reduce((acc, item) => acc + item.amount, 0) || 0;
-    const getWeightedYield = (items?: AllocationItem[]) => {
-        if (!items || items.length === 0) return 0;
-        const total = getTotal(items);
-        if (total <= 0) return 0;
-        const weighted = items.reduce((acc, item: any) => {
-            const itemYield = Number(item?.yield ?? item?.yield_percent ?? 0);
-            return acc + (Number(item.amount || 0) * itemYield);
-        }, 0);
-        return weighted / total;
-    };
-
     const hasAssets = assetsAllocation && assetsAllocation.length > 0;
     const hasCashFlow = cashFlowAllocation && cashFlowAllocation.length > 0;
-    const computedYield = hasAssets ? getWeightedYield(assetsAllocation) : getWeightedYield(cashFlowAllocation);
+    const computedYield = hasAssets
+        ? getWeightedPortfolioYield(assetsAllocation)
+        : getWeightedPortfolioYield(cashFlowAllocation);
     const effectiveYield = Number.isFinite(totalYieldPercent) && (totalYieldPercent || 0) > 0
         ? Number(totalYieldPercent)
         : computedYield;

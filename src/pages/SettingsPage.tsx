@@ -1,5 +1,8 @@
 import React, { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from 'react';
 import Header from '../components/Header';
+import ProductCommissionSchemaEditor, {
+    type ProductCommissionRuleForm,
+} from '../components/settings/ProductCommissionSchemaEditor';
 import { API_BASE_URL } from '../api/config';
 import { normalizePdfCoverLayout } from '../utils/pdfCoverLayout';
 import {
@@ -57,6 +60,8 @@ type NavPage = 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 
 
 interface SettingsPageProps {
     onNavigate: (page: NavPage) => void;
+    /** Без оболочки Header — когда настройки встроены в ATB Bank shell. */
+    contentOnly?: boolean;
 }
 
 type SettingsTab =
@@ -1224,7 +1229,7 @@ const SummaryHtmlPreview: React.FC<{
     );
 };
 
-const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
+const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = false }) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>('products');
     const [products, setProducts] = useState<AgentProduct[] | null>(null);
     const [portfolios, setPortfolios] = useState<AgentPortfolio[] | null>(null);
@@ -1617,6 +1622,21 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         resolut_pfp_code: '',
         resolut_quote_p_type: 'unset',
     });
+
+    const [productCommissionEnabled, setProductCommissionEnabled] = useState(false);
+    const [productCommissionRules, setProductCommissionRules] = useState<ProductCommissionRuleForm[]>([
+        {
+            rule_type: 'FIRST_YEAR_PERCENT_OF_PREMIUMS',
+            base: 'FLOW',
+            rate_percent: 8,
+        },
+        {
+            rule_type: 'AUM_MANAGEMENT_FEE',
+            base: 'AUM_AVG',
+            rate_percent: 1.2,
+        },
+    ]);
+
     const [productCreateLines, setProductCreateLines] = useState(() => [getDefaultProductCreateLine()]);
     const [productCreateIszhLines, setProductCreateIszhLines] = useState(() => [getDefaultProductCreateIszhLine()]);
     const [isSavingProduct, setIsSavingProduct] = useState(false);
@@ -2062,6 +2082,20 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
         });
         setProductCreateLines([getDefaultProductCreateLine()]);
         setProductCreateIszhLines([getDefaultProductCreateIszhLine()]);
+
+        setProductCommissionEnabled(false);
+        setProductCommissionRules([
+            {
+                rule_type: 'FIRST_YEAR_PERCENT_OF_PREMIUMS',
+                base: 'FLOW',
+                rate_percent: 8,
+            },
+            {
+                rule_type: 'AUM_MANAGEMENT_FEE',
+                base: 'AUM_AVG',
+                rate_percent: 1.2,
+            },
+        ]);
     };
 
     const openCreatePortfolio = () => {
@@ -2406,6 +2440,19 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
             product_type: pt,
             currency: productForm.currency.trim() || 'RUB',
             lines,
+            ...(productCommissionEnabled &&
+            String(productForm.product_type).toUpperCase() === 'LIFE'
+                ? {
+                      commission_schema: {
+                          version: 1,
+                          rules: productCommissionRules.map((r) => ({
+                              rule_type: r.rule_type,
+                              base: r.base,
+                              rate_percent: r.rate_percent,
+                          })),
+                      },
+                  }
+                : {}),
             ...buildResolutProductPayloadPart(
                 isResolutAvProject,
                 productForm.resolut_pfp_code,
@@ -3309,10 +3356,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
     const pdfCoverDateStr =
         coverLayoutPx?.contentDate?.trim() || pdfSettings?.date_preview?.trim() || '';
 
-    return (
-        <div style={{ minHeight: '100vh', background: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
-            <Header activePage="settings" onNavigate={onNavigate} />
-
+    const settingsMain = (
             <main className="lk-page-main" style={{ maxWidth: '1200px' }}>
                 {/* Tabs */}
                 <div className="lk-settings-tabs">
@@ -6693,6 +6737,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
 
                                 </div>
 
+                                {String(productForm.product_type).toUpperCase() === 'LIFE' && (
+                                    <ProductCommissionSchemaEditor
+                                        enabled={productCommissionEnabled}
+                                        onEnabledChange={setProductCommissionEnabled}
+                                        rules={productCommissionRules}
+                                        onRulesChange={setProductCommissionRules}
+                                    />
+                                )}
+
                                 <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                                     <button
                                         type="button"
@@ -6837,6 +6890,35 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                 setEditResolutPfpCode(
                                                     rc != null && String(rc).trim() !== '' ? String(rc).slice(0, 64) : '',
                                                 );
+                                                const cs = (sp as any).commission_schema;
+                                                if (
+                                                    cs &&
+                                                    Array.isArray(cs.rules) &&
+                                                    cs.version != null
+                                                ) {
+                                                    setProductCommissionEnabled(true);
+                                                    setProductCommissionRules(
+                                                        cs.rules.map((r: any) => ({
+                                                            rule_type: String(r.rule_type ?? ''),
+                                                            base: String(r.base ?? ''),
+                                                            rate_percent: Number(r.rate_percent) || 0,
+                                                        })),
+                                                    );
+                                                } else {
+                                                    setProductCommissionEnabled(false);
+                                                    setProductCommissionRules([
+                                                        {
+                                                            rule_type: 'FIRST_YEAR_PERCENT_OF_PREMIUMS',
+                                                            base: 'FLOW',
+                                                            rate_percent: 8,
+                                                        },
+                                                        {
+                                                            rule_type: 'AUM_MANAGEMENT_FEE',
+                                                            base: 'AUM_AVG',
+                                                            rate_percent: 1.2,
+                                                        },
+                                                    ]);
+                                                }
                                                 const pq = sp.resolut_quote_p_type;
                                                 const pn = pq === null || pq === undefined || pq === '' ? NaN : Number(pq);
                                                 if (!Number.isNaN(pn) && ([0, 1, 2, 4, 12] as number[]).includes(pn)) {
@@ -7715,6 +7797,20 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                         )}
                                     </div>
 
+                                    {isEditingProduct &&
+                                        String(
+                                            (selectedProduct as any)?.product_type ||
+                                                (selectedProduct as any)?.type ||
+                                                '',
+                                        ).toUpperCase() === 'LIFE' && (
+                                            <ProductCommissionSchemaEditor
+                                                enabled={productCommissionEnabled}
+                                                onEnabledChange={setProductCommissionEnabled}
+                                                rules={productCommissionRules}
+                                                onRulesChange={setProductCommissionRules}
+                                            />
+                                        )}
+
                                     <details style={{ marginTop: '10px', fontSize: '11px', color: '#6b7280' }}>
                                         <summary>Показать полный JSON продукта</summary>
                                         <pre
@@ -7803,6 +7899,19 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                                                         product_type: base.product_type || base.type,
                                                         currency: base.currency || 'RUB',
                                                         lines,
+                                                        ...(productCommissionEnabled &&
+                                                        String(pt).toUpperCase() === 'LIFE'
+                                                            ? {
+                                                                  commission_schema: {
+                                                                      version: 1,
+                                                                      rules: productCommissionRules.map((r) => ({
+                                                                          rule_type: r.rule_type,
+                                                                          base: r.base,
+                                                                          rate_percent: r.rate_percent,
+                                                                      })),
+                                                                  },
+                                                              }
+                                                            : {}),
                                                         ...buildResolutProductPayloadPart(
                                                             isResolutAvProject,
                                                             editResolutPfpCode,
@@ -9514,7 +9623,16 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
                     </div>
                 )}
             </main>
-        </div>
+    );
+
+    if (contentOnly) {
+        return settingsMain;
+    }
+
+    return (
+        <Header activePage="settings" onNavigate={onNavigate}>
+            {settingsMain}
+        </Header>
     );
 };
 

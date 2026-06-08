@@ -1,7 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { crmApi } from '../api/crmApi';
 import type { CrmAgentDashboardResponse } from '../types/crm';
+import type { CrmCommissionByProductRow } from '../types/commission';
 import { formatMoneyRub } from '../utils/formatMoney';
+
+function hasNonZeroCommission(row: CrmCommissionByProductRow): boolean {
+    return (row.commission_year_1_rub ?? 0) > 0 || (row.commission_total_rub ?? 0) > 0;
+}
 
 type SummaryCardVariant = 'clients' | 'capital-0' | 'capital-1' | 'capital-2' | 'capital-3' | 'capital-4' | 'insurance';
 
@@ -76,6 +81,22 @@ const CrmClientsDashboard: React.FC = () => {
             },
         ];
 
+        items.push({
+            key: 'commission_year_1',
+            label: 'Доход за 1-й год',
+            value: formatMoneyRub(data.commission_year_1_rub ?? 0),
+            sub: 'прогноз комиссий',
+            variant: 'capital-0',
+        });
+
+        items.push({
+            key: 'commission_total',
+            label: 'Доход за весь срок',
+            value: formatMoneyRub(data.commission_total_rub ?? 0),
+            sub: 'прогноз комиссий',
+            variant: 'capital-1',
+        });
+
         (data.capital_by_product ?? []).forEach((row, index) => {
             const key = row.product_id != null ? `product-${row.product_id}` : `product-${row.name}`;
             items.push({
@@ -96,6 +117,18 @@ const CrmClientsDashboard: React.FC = () => {
 
         return items;
     }, [data]);
+
+    const commissionProducts = useMemo(() => {
+        if (!data?.commission_by_product?.length) return [];
+        return [...data.commission_by_product]
+            .filter(hasNonZeroCommission)
+            .sort((a, b) => (b.commission_total_rub ?? 0) - (a.commission_total_rub ?? 0));
+    }, [data]);
+
+    const maxCommissionTotal = useMemo(() => {
+        if (!commissionProducts.length) return 0;
+        return Math.max(...commissionProducts.map((r) => r.commission_total_rub ?? 0));
+    }, [commissionProducts]);
 
     if (loading) {
         return (
@@ -134,6 +167,60 @@ const CrmClientsDashboard: React.FC = () => {
                     </div>
                 ))}
             </div>
+
+            {commissionProducts.length > 0 && (
+                <div className="crm-commission-breakdown">
+                    <div className="crm-commission-breakdown__header">
+                        <h3 className="crm-commission-breakdown__title">Разбивка по продуктам</h3>
+                        <span className="crm-commission-breakdown__badge">
+                            {commissionProducts.length}{' '}
+                            {commissionProducts.length === 1 ? 'продукт' : commissionProducts.length < 5 ? 'продукта' : 'продуктов'}
+                        </span>
+                    </div>
+                    <div className="crm-commission-products-grid">
+                        {commissionProducts.map((row, idx) => {
+                            const sharePct =
+                                maxCommissionTotal > 0
+                                    ? Math.round(((row.commission_total_rub ?? 0) / maxCommissionTotal) * 100)
+                                    : 0;
+                            return (
+                                <article
+                                    key={row.product_id != null ? String(row.product_id) : `${row.name}-${idx}`}
+                                    className={`crm-commission-product-card crm-commission-product-card--${idx % 5}`}
+                                >
+                                    <h4 className="crm-commission-product-card__name" title={row.name}>
+                                        {row.name}
+                                    </h4>
+                                    <div className="crm-commission-product-card__metrics">
+                                        <div className="crm-commission-product-card__metric">
+                                            <span className="crm-commission-product-card__metric-label">1-й год</span>
+                                            <span className="crm-commission-product-card__metric-value">
+                                                {formatMoneyRub(row.commission_year_1_rub)}
+                                            </span>
+                                        </div>
+                                        <div className="crm-commission-product-card__metric crm-commission-product-card__metric--total">
+                                            <span className="crm-commission-product-card__metric-label">Весь срок</span>
+                                            <span className="crm-commission-product-card__metric-value">
+                                                {formatMoneyRub(row.commission_total_rub)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {maxCommissionTotal > 0 && (
+                                        <div className="crm-commission-product-card__bar" aria-hidden>
+                                            <div
+                                                className="crm-commission-product-card__bar-fill"
+                                                style={{ width: `${sharePct}%` }}
+                                            />
+                                        </div>
+                                    )}
+                                </article>
+                            );
+                        })}
+                    </div>
+                    <p className="crm-commission-breakdown__note">Прогноз комиссий, не факт начисления</p>
+                </div>
+            )}
+
             {data.as_of ? (
                 <p className="crm-summary-dashboard__footnote">
                     Капитал — снимок расчёта ПФП на {formatAsOf(data.as_of)}

@@ -1,3 +1,5 @@
+import type { CrmCommissionByProductRow } from './commission';
+
 export interface CrmCapitalByProductRow {
     product_id?: number | null;
     name: string;
@@ -20,6 +22,9 @@ export interface CrmAgentDashboardResponse {
     clients_rebalanced_this_month: number;
     capital_by_product: CrmCapitalByProductRow[];
     insurance_premiums_rub: number;
+    commission_year_1_rub: number;
+    commission_total_rub: number;
+    commission_by_product: CrmCommissionByProductRow[];
     trends_pct?: Record<string, number> | null;
     as_of: string;
     clients?: CrmDashboardClientRow[];

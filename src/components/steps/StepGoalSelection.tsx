@@ -196,7 +196,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
     const isStandard = !isPension && !isPassive && !isRent && !isInvest && !isReserve && !isInheritance;
 
     const clientAge = data.age ?? 0;
-    const hidePensionForAge = clientAge > 60;
+    const replacePensionWithInheritance = clientAge > 60;
 
     const hasPensionGoal = goals.some((g) => g.goal_type_id === GOAL_TYPE_PENSION);
     const hasPassiveGoal = goals.some((g) => g.goal_type_id === GOAL_TYPE_PASSIVE_INCOME);
@@ -214,26 +214,30 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
     const educationGalleryItems = buildChildEducationGalleryItems(data.familyProfile?.children);
     const educationVisible = educationGalleryItems.filter((item) => !goals.some((g) => g.name === item.title));
 
-    const strategyGoals: GoalGalleryItem[] = GOAL_GALLERY_ITEMS.filter((item) => featuredStrategyIds.has(item.id)).filter(
-        (item) => {
+    const strategyGoals: GoalGalleryItem[] = [
+        ...GOAL_GALLERY_ITEMS.filter((item) => featuredStrategyIds.has(item.id)).filter((item) => {
             if (item.id === 'rent') return !hasRentGoal;
             if (item.id === 'invest_save') return !hasInvestSaveGoal;
             return true;
-        }
-    );
+        }),
+        ...(!replacePensionWithInheritance && inheritanceGalleryItem && !hasInheritanceGoal
+            ? [inheritanceGalleryItem]
+            : []),
+    ];
+
+    const futureGoalsBase: GoalGalleryItem[] = GOAL_GALLERY_ITEMS.filter(
+        (item) =>
+            !featuredStrategyIds.has(item.id) &&
+            item.id !== 'pension' &&
+            item.id !== 'inheritance'
+    ).filter((item) => {
+        if (item.id === 'passive') return !incomeGoalPairLocked;
+        return true;
+    });
 
     const futureGoals: GoalGalleryItem[] = [
         ...educationVisible,
-        ...GOAL_GALLERY_ITEMS.filter(
-            (item) =>
-                !featuredStrategyIds.has(item.id) &&
-                item.id !== 'pension' &&
-                !(hidePensionForAge && item.id === 'inheritance')
-        ).filter((item) => {
-            if (item.id === 'passive') return !incomeGoalPairLocked;
-            if (item.id === 'inheritance') return !hasInheritanceGoal;
-            return true;
-        }),
+        ...futureGoalsBase,
     ];
 
     const modalConfig = selectedGalleryItem
@@ -340,9 +344,14 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                                     <div className="selected-goal-mini-card__content">
                                         <span className="selected-goal-mini-card__title">{g.name}</span>
                                         <span className="selected-goal-mini-card__sum">{formatCurrency(
-                                            (g.goal_type_id === 1 || g.goal_type_id === 2) ? (g.desired_monthly_income || 0) :
-                                                (g.goal_type_id === 8 || g.goal_type_id === GOAL_TYPE_INHERITANCE) ? (g.initial_capital || 0) :
-                                                    (g.target_amount || 0)
+                                            (g.goal_type_id === 1 || g.goal_type_id === 2)
+                                                ? (g.desired_monthly_income || 0)
+                                                : (g.goal_type_id === GOAL_TYPE_INVESTMENT
+                                                    || g.goal_type_id === 8
+                                                    || g.goal_type_id === GOAL_TYPE_INHERITANCE
+                                                    || g.goal_type_id === 7)
+                                                    ? (g.initial_capital || 0)
+                                                    : (g.target_amount || 0)
                                         )}</span>
                                     </div>
                                     <button
@@ -379,7 +388,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                     </div>
                 )}
 
-                {pensionGalleryItem && !incomeGoalPairLocked && !hidePensionForAge && (
+                {pensionGalleryItem && !incomeGoalPairLocked && !replacePensionWithInheritance && (
                     <div className="goal-section-card" style={{ gridColumn: '1 / -1' }}>
                         <div style={{ marginBottom: 14 }}>
                             <h3 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#0f172a' }}>Достойная пенсия</h3>
@@ -403,7 +412,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
                     </div>
                 )}
 
-                {inheritanceGalleryItem && hidePensionForAge && !hasInheritanceGoal && (
+                {inheritanceGalleryItem && replacePensionWithInheritance && !hasInheritanceGoal && (
                     <div className="goal-section-card" style={{ gridColumn: '1 / -1' }}>
                         <div style={{ marginBottom: 14 }}>
                             <h3 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#0f172a' }}>Наследство</h3>
@@ -451,8 +460,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
 
                 <div className="goal-section-card" style={{ gridColumn: '1 / -1' }}>
                     <div style={{ marginBottom: 14 }}>
-                        <h3 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#0f172a' }}>Капитал и Доход</h3>
-                        <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: 14 }}>Сохранить, приумножить и получать ежемесячный денежный поток</p>
+                        <h3 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#0f172a' }}>Цели в настоящем</h3>
                     </div>
                     <div className="goal-section-grid">
                         {strategyGoals.map(item => (

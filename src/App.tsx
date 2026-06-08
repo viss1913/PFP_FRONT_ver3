@@ -14,12 +14,14 @@ import AiAgentPage from './pages/AiAgentPage'
 import ReportPreviewPage from './components/ReportPreviewPage'
 import type { Client } from './types/client'
 import { clientApi } from './api/clientApi'
+import ClientCardPage from './components/ClientCardPage'
 import NewsPage from './pages/NewsPage'
 import MacroStatsPage from './pages/MacroStatsPage'
 import SettingsPage from './pages/SettingsPage'
 import LandingPage from './pages/LandingPage'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import { appendLandingParams } from './utils/landingNavigation'
+import { applyPageSeo, getAppPageSeo } from './seo/pageSeo'
 import type { LandingLang } from './content/landingCopy'
 import type { LandingVariant } from './content/landingAssets'
 
@@ -39,12 +41,14 @@ type Page =
     | 'news'
     | 'macro'
     | 'settings'
+    | 'client-card'
 
 const LK_PAGES: Page[] = [
     'list',
     'cjm',
     'edit',
     'result',
+    'client-card',
     'ai-assistant',
     'ai-agent',
     'news',
@@ -79,6 +83,7 @@ function App() {
     const [calculationResult, setCalculationResult] = useState<any>(null)
     const [newClientData, setNewClientData] = useState<{ fio: string; phone: string; email?: string; uuid: string } | null>(null);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+    const [selectedClientIdForCard, setSelectedClientIdForCard] = useState<number | null>(null);
     const [loadingPlan, setLoadingPlan] = useState(false);
 
     const enrichWithRiskProfileResult = useCallback(async (result: any, _clientId?: number | null) => {
@@ -92,6 +97,10 @@ function App() {
         }
         return result;
     }, []);
+
+    useEffect(() => {
+        applyPageSeo(getAppPageSeo(currentPage));
+    }, [currentPage]);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -203,6 +212,12 @@ function App() {
         setSelectedClient(null); // Clear selected client if any
         setCurrentPage('cjm');
     }
+
+    const handleEditClient = (client: Client) => {
+        if (!client.id) return;
+        setSelectedClientIdForCard(client.id);
+        setCurrentPage('client-card');
+    };
 
     const handleSelectClient = async (client: Client) => {
         setLoadingPlan(true);
@@ -398,6 +413,7 @@ function App() {
                     )}
                     <AiCrmPage
                         onSelectClient={handleSelectClient}
+                        onEditClient={handleEditClient}
                         onNewClient={handleNewClient}
                         onNavigate={handleNavigate}
                     />
@@ -405,39 +421,44 @@ function App() {
             )}
 
             {currentPage === 'cjm' && (
-                <div style={{ minHeight: '100vh', background: '#f8f9fa' }}>
-                    <Header
-                        activePage="pfp"
-                        onNavigate={handleNavigate}
-                    />
+                <Header activePage="pfp" onNavigate={handleNavigate}>
                     <CJMFlow
                         onComplete={handleCalculationComplete}
                         initialData={newClientData || undefined}
                         onBack={() => setCurrentPage('list')}
                     />
-                </div>
+                </Header>
             )}
 
             {currentPage === 'edit' && selectedClient && (
-                <div style={{ minHeight: '100vh', background: '#f8f9fa' }}>
-                    <Header
-                        activePage="pfp"
-                        onNavigate={handleNavigate}
-                    />
+                <Header activePage="pfp" onNavigate={handleNavigate}>
                     <CJMFlow
                         onComplete={handleCalculationComplete}
                         clientId={selectedClient.id}
                         onBack={() => setCurrentPage('list')}
                     />
-                </div>
+                </Header>
+            )}
+
+            {currentPage === 'client-card' && selectedClientIdForCard != null && (
+                <Header activePage="pfp" onNavigate={handleNavigate}>
+                    <ClientCardPage
+                        clientId={selectedClientIdForCard}
+                        onBack={() => {
+                            setSelectedClientIdForCard(null);
+                            setCurrentPage('list');
+                        }}
+                        onSaved={(updated) => {
+                            if (selectedClient?.id === updated.id) {
+                                setSelectedClient(updated);
+                            }
+                        }}
+                    />
+                </Header>
             )}
 
             {currentPage === 'result' && (
-                <div style={{ minHeight: '100vh', background: '#f8f9fa' }}>
-                    <Header
-                        activePage="pfp"
-                        onNavigate={handleNavigate}
-                    />
+                <Header activePage="pfp" onNavigate={handleNavigate}>
                     {loadingPlan && (
                         <div style={{
                             position: 'fixed',
@@ -457,22 +478,23 @@ function App() {
                         data={calculationResult}
                         client={selectedClient}
                         onRestart={() => setCurrentPage('list')}
+                        onEditClientData={
+                            selectedClient?.id
+                                ? () => handleEditClient(selectedClient)
+                                : undefined
+                        }
                         onRecalculate={handleRecalculate}
                         onAddGoal={handleAddGoal}
                         onDeleteGoal={handleDeleteGoal}
                         isCalculating={loadingPlan}
                     />
-                </div>
+                </Header>
             )}
 
             {currentPage === 'test' && (
-                <div style={{ minHeight: '100vh', background: '#f8f9fa' }}>
-                    <Header
-                        activePage="pfp"
-                        onNavigate={handleNavigate}
-                    />
+                <Header activePage="pfp" onNavigate={handleNavigate}>
                     <ResultPageTest />
-                </div>
+                </Header>
             )}
             </LkFinamGate>
         </div>

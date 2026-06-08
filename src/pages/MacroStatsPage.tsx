@@ -169,9 +169,7 @@ const MacroStatsPage: React.FC<MacroStatsPageProps> = ({ onNavigate }) => {
     );
 
     return (
-        <div style={{ minHeight: '100vh', background: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
-            <Header activePage="macro" onNavigate={onNavigate} />
-
+        <Header activePage="macro" onNavigate={onNavigate}>
             <main className="lk-page-main" style={{ maxWidth: '1200px' }}>
                 <div
                     style={{
@@ -326,7 +324,7 @@ const MacroStatsPage: React.FC<MacroStatsPageProps> = ({ onNavigate }) => {
                     </div>
                 )}
             </main>
-        </div>
+        </Header>
     );
 };
 

@@ -17,6 +17,7 @@ const LandingConsultant: React.FC<LandingConsultantProps> = ({ copy }) => {
                 <div>
                     <h2 className="landing-section-title">{copy.consultant.title}</h2>
                     <p className="landing-section-subtitle">{copy.consultant.subtitle}</p>
+                    <p className="landing-consultant__seo-intro">{copy.consultant.seoIntro}</p>
                     <ul className="landing-consultant__benefits">
                         {copy.consultant.benefits.map((b) => (
                             <li key={b}>

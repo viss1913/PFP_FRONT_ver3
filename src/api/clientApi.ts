@@ -1,7 +1,15 @@
 import axios from 'axios';
 import type { PortfolioRiskProfileType } from '../constants/portfolioRiskProfiles';
-import type { Client, ClientFilters, ClientListResponse, CalculatePayload, GetClientOptions } from '../types/client';
+import type {
+    AgentClientPatchBody,
+    Client,
+    ClientFilters,
+    ClientListResponse,
+    CalculatePayload,
+    GetClientOptions,
+} from '../types/client';
 import { API_BASE_WITH_API } from './config';
+import { getRuntimeProjectId, PROJECT_KEY } from './projectKey';
 
 const API_BASE_URL = API_BASE_WITH_API;
 
@@ -140,19 +148,21 @@ export interface ClientReportPdfSendEmailResponse {
 
 // Helper to get project_id from localStorage
 const getProjectId = (): number => {
+    const routeProjectId = getRuntimeProjectId();
+    if (routeProjectId !== 1) {
+        return routeProjectId;
+    }
     try {
         const userStr = localStorage.getItem('user');
         if (userStr) {
             const user = JSON.parse(userStr);
-            return user.projectId || user.project_id || 1;
+            return user.projectId || user.project_id || routeProjectId;
         }
     } catch (e) {
         console.error('Error parsing user from localStorage', e);
     }
-    return 1; // Default fallback
+    return routeProjectId;
 };
-
-const PROJECT_KEY = 'pk_proj_0e9fdde1e8cd961121906f04507af06e4afec281a58012c4';
 
 const REPORT_PAGE_TYPES: readonly ReportPageType[] = [
     'SUMMARY',
@@ -372,10 +382,21 @@ export const clientApi = {
         return normalizeClient(response.data);
     },
 
+    /** GET карточки клиента для редактирования (без чатов) */
+    getClientCard: async (id: number): Promise<Client> => {
+        return clientApi.getClient(id, { include_chat_ai: false });
+    },
+
+    /** PUT /pfp/clients/{id} — частичное обновление карточки, без пересчёта плана */
+    patchClientCard: async (id: number, body: AgentClientPatchBody): Promise<Client> => {
+        const response = await api.put<Client>(`/pfp/clients/${id}`, body);
+        return normalizeClient(response.data);
+    },
+
     // Update client profile
     updateClient: async (id: number, data: Partial<Client>): Promise<Client> => {
         const response = await api.put(`/client/${id}`, { client: data });
-        return response.data;
+        return normalizeClient(response.data);
     },
 
     // Existing calculation logic refactored

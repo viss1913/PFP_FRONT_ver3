@@ -42,6 +42,8 @@ export interface LandingCopy {
     consultant: {
         title: string;
         subtitle: string;
+        /** SEO-абзац под блоком для агентов (B2B-ключи). */
+        seoIntro: string;
         benefits: string[];
         dashboardTitle: string;
         totalClients: string;
@@ -200,6 +202,8 @@ export const landingCopy: Record<LandingLang, LandingCopy> = {
         consultant: {
             title: 'Запустите свой family office',
             subtitle: 'Для агентов и консультантов: своя практика семейного офиса на базе BankFuture',
+            seoIntro:
+                'BankFuture — платформа для финансовых консультантов и агентов, которые хотят запустить family office (семейный офис) без Excel и разовых PDF. В одном личном кабинете — CRM, расчёт финансового плана клиенту онлайн, отчёты для семьи и доступ к продуктам партнёров. Это софт для финансового планирования и сопровождения: вы ведёте практику как семейный офис, а не как «консультант с таблицами».',
             benefits: [
                 'Свой бренд и клиентская база',
                 'CRM и калькуляторы family office',
@@ -237,8 +241,20 @@ export const landingCopy: Record<LandingLang, LandingCopy> = {
                     a: 'Нет. Материалы носят информационный характер. Решения принимаются с учётом вашей ситуации и с участием консультанта.',
                 },
                 {
-                    q: 'Как агенту открыть свой family office?',
-                    a: 'Оставьте заявку в блоке для агентов. После онбординга — CRM, обучение, методология и доступ к партнёрским продуктам.',
+                    q: 'Как консультанту запустить family office на BankFuture?',
+                    a: 'Оставьте заявку в блоке для агентов. После онбординга вы получаете CRM, обучение, методологию family office и доступ к партнёрским продуктам — инвестиции, страхование, НПФ.',
+                },
+                {
+                    q: 'Чем BankFuture отличается от Excel и разовых PDF-планов?',
+                    a: 'План живёт в платформе: цели, сценарии, продукты и отчёты обновляются, клиент видит единую картину. Это формат семейного офиса с сопровождением, а не файл раз в год.',
+                },
+                {
+                    q: 'Есть ли CRM и отчёты для клиентов?',
+                    a: 'Да. В кабинете консультанта — CRM, расчёт финансового плана, карточка клиента и PDF-отчёты для семьи. Всё в одной программе для финансового планирования.',
+                },
+                {
+                    q: 'Подходит ли платформа независимым финансовым консультантам?',
+                    a: 'Да. BankFuture рассчитан на агентов и консультантов с собственной клиентской базой: свой бренд, практика family office и продукты партнёров на одной платформе.',
                 },
                 {
                     q: 'На каком языке интерфейс?',
@@ -442,6 +458,8 @@ export const landingCopy: Record<LandingLang, LandingCopy> = {
         consultant: {
             title: 'Launch your family office',
             subtitle: 'For agents and advisors: your family-office practice on BankFuture',
+            seoIntro:
+                'BankFuture is a platform for financial advisors and agents who want to run a family office practice without Excel and one-off PDFs. One dashboard combines CRM, online financial planning for clients, family reports, and partner products — software for ongoing planning, not spreadsheet chaos.',
             benefits: [
                 'Your brand and client base',
                 'Family-office CRM and calculators',
@@ -479,8 +497,20 @@ export const landingCopy: Record<LandingLang, LandingCopy> = {
                     a: 'No. Materials are informational. Decisions depend on your situation and involve your advisor.',
                 },
                 {
-                    q: 'How does an agent launch a family office?',
-                    a: 'Apply in the agent section. After onboarding: CRM, training, methodology, and partner products.',
+                    q: 'How do advisors launch a family office on BankFuture?',
+                    a: 'Apply in the agent section. After onboarding you get CRM, training, family-office methodology, and partner products.',
+                },
+                {
+                    q: 'How is BankFuture different from Excel and one-off PDF plans?',
+                    a: 'The plan lives on the platform: goals, scenarios, products, and reports stay updated. It is an ongoing family-office format, not a file once a year.',
+                },
+                {
+                    q: 'Is there CRM and reporting for clients?',
+                    a: 'Yes. Advisor dashboard includes CRM, financial plan calculation, client cards, and PDF reports for families.',
+                },
+                {
+                    q: 'Is it for independent financial advisors?',
+                    a: 'Yes. Built for agents and advisors with their own client base, brand, and family-office practice on one platform.',
                 },
                 {
                     q: 'What language is the app?',

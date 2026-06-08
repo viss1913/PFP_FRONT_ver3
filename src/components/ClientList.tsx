@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Search,
     Plus,
@@ -8,15 +8,20 @@ import {
     MessageCircle,
     UserPlus,
     SlidersHorizontal,
-    MoreHorizontal,
+    Pencil,
+    Briefcase,
+    FileUser,
+    TrendingUp,
 } from 'lucide-react';
 import { clientApi } from '../api/clientApi';
 import type { Client } from '../types/client';
+import { useCommissionForecastCache } from '../hooks/useCommissionForecastCache';
 import StatusDropdown from './StatusDropdown';
 import ClientB2cChatAiModal from './ClientB2cChatAiModal';
 import FamilyOfficeInviteModal from './FamilyOfficeInviteModal';
 import { clientToFamilyOfficeInvitePrefill } from '../utils/familyOfficeInvite';
 import type { FamilyOfficeInviteRequest } from '../api/agentLkApi';
+import CrmCommissionForecastModal from './crm/CrmCommissionForecastModal';
 import {
     formatBirthDateAndAge,
     formatDateShort,
@@ -34,6 +39,7 @@ type RebalanceSort = 'none' | 'asc' | 'desc';
 
 interface ClientListProps {
     onSelectClient: (client: Client) => void;
+    onEditClient?: (client: Client) => void;
     onNewClient: () => void;
     embedded?: boolean;
     lightSearch?: boolean;
@@ -57,8 +63,16 @@ function ScheduledDateCell({ scheduled }: { scheduled: Date | null }) {
     );
 }
 
+function formatCompactRub(value: number): string {
+    const abs = Math.abs(value || 0);
+    if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(1).replace('.0', '')}M`;
+    if (abs >= 1_000) return `${(value / 1_000).toFixed(0)}k`;
+    return `${Math.round(value || 0)}`;
+}
+
 const ClientList: React.FC<ClientListProps> = ({
     onSelectClient,
+    onEditClient,
     onNewClient,
     embedded,
     lightSearch = false,
@@ -72,10 +86,25 @@ const ClientList: React.FC<ClientListProps> = ({
     const [limit] = useState(50);
     const [activeDropdownId, setActiveDropdownId] = useState<number | null>(null);
     const [chatModalClient, setChatModalClient] = useState<Client | null>(null);
+    const [commissionModalClient, setCommissionModalClient] = useState<Client | null>(null);
     const [inviteModalOpen, setInviteModalOpen] = useState(false);
     const [invitePrefill, setInvitePrefill] = useState<Partial<FamilyOfficeInviteRequest> | undefined>();
     const [rebalanceSort, setRebalanceSort] = useState<RebalanceSort>('none');
     const trimmedSearch = search.trim();
+
+    const { getCommissionForecast } = useCommissionForecastCache();
+    const rowRefs = useRef<Record<number, HTMLTableRowElement | null>>({});
+    const clientsByIdRef = useRef<Map<number, Client>>(new Map());
+    const [commissionStates, setCommissionStates] = useState<
+        Record<
+            number,
+            {
+                status: 'loading' | 'ready' | 'error';
+                commission_year_1_rub?: number;
+                commission_total_rub?: number;
+            }
+        >
+    >({});
 
     const displayedClients = useMemo(() => {
         if (rebalanceSort === 'none') return clients;
@@ -87,6 +116,69 @@ const ClientList: React.FC<ClientListProps> = ({
         });
         return sorted;
     }, [clients, rebalanceSort]);
+
+    const ensureCommissionForecastById = useCallback(
+        async (clientId: number) => {
+            const id = Number(clientId);
+            if (!Number.isFinite(id) || id <= 0) return;
+
+            const client = clientsByIdRef.current.get(id);
+            if (client?.has_plan === false) return;
+
+            setCommissionStates((prev) => {
+                const cur = prev[id];
+                if (cur?.status === 'loading' || cur?.status === 'ready') return prev;
+                return { ...prev, [id]: { status: 'loading' } };
+            });
+
+            try {
+                const forecast = await getCommissionForecast(id);
+                setCommissionStates((prev) => ({
+                    ...prev,
+                    [id]: {
+                        status: 'ready',
+                        commission_year_1_rub: forecast.commission_year_1_rub,
+                        commission_total_rub: forecast.commission_total_rub,
+                    },
+                }));
+            } catch {
+                setCommissionStates((prev) => ({
+                    ...prev,
+                    [id]: { status: 'error' },
+                }));
+            }
+        },
+        [getCommissionForecast],
+    );
+
+    useEffect(() => {
+        clientsByIdRef.current = new Map(displayedClients.map((c) => [c.id, c]));
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                for (const entry of entries) {
+                    if (!entry.isIntersecting) continue;
+                    const idStr = (entry.target as HTMLElement).dataset.clientId;
+                    const id = idStr ? Number(idStr) : NaN;
+                    if (!Number.isFinite(id)) continue;
+                    observer.unobserve(entry.target);
+                    void ensureCommissionForecastById(id);
+                }
+            },
+            { threshold: 0.35 },
+        );
+
+        displayedClients.forEach((client) => {
+            const el = rowRefs.current[client.id];
+            if (!el) return;
+            el.dataset.clientId = String(client.id);
+            observer.observe(el);
+        });
+
+        return () => {
+            observer.disconnect();
+        };
+    }, [displayedClients, ensureCommissionForecastById]);
 
     const cycleRebalanceSort = () => {
         setRebalanceSort((prev) => {
@@ -104,6 +196,29 @@ const ClientList: React.FC<ClientListProps> = ({
     const closeInviteModal = () => {
         setInviteModalOpen(false);
         setInvitePrefill(undefined);
+    };
+
+    const renderCommissionMeta = (client: Client) => {
+        if (client.has_plan === false) {
+            return <div className="crm-commission-row__meta crm-commission-row__meta--muted">Нет плана</div>;
+        }
+        const state = commissionStates[client.id];
+        if (!state || state.status === 'loading') {
+            return <div className="crm-commission-row__meta crm-commission-row__meta--loading">Комиссия: …</div>;
+        }
+        if (state.status === 'error') {
+            return <div className="crm-commission-row__meta crm-commission-row__meta--muted">Комиссия: —</div>;
+        }
+        const y1 = state.commission_year_1_rub ?? 0;
+        const total = state.commission_total_rub ?? 0;
+        if (y1 <= 0 && total <= 0) {
+            return <div className="crm-commission-row__meta crm-commission-row__meta--muted">Комиссия: нет прогноза</div>;
+        }
+        return (
+            <div className="crm-commission-row__meta">
+                Комиссия: {formatCompactRub(y1)} / {formatCompactRub(total)}
+            </div>
+        );
     };
 
     useEffect(() => {
@@ -234,10 +349,14 @@ const ClientList: React.FC<ClientListProps> = ({
                                 <tr
                                     key={client.id || client.uuid}
                                     className="crm-clients-table__row"
+                                    ref={(el) => {
+                                        if (client.id != null) rowRefs.current[client.id] = el;
+                                    }}
                                     style={{
                                         position: 'relative',
                                         zIndex: activeDropdownId === client.id ? 10 : undefined,
                                     }}
+                                    data-client-id={client.id}
                                     onClick={() => onSelectClient(client)}
                                 >
                                     <td>
@@ -258,6 +377,20 @@ const ClientList: React.FC<ClientListProps> = ({
                                                         </>
                                                     ) : null}
                                                 </div>
+                                                {renderCommissionMeta(client)}
+                                                {onEditClient ? (
+                                                    <button
+                                                        type="button"
+                                                        className="crm-client-edit-link"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onEditClient(client);
+                                                        }}
+                                                    >
+                                                        <FileUser size={14} aria-hidden />
+                                                        Данные клиента
+                                                    </button>
+                                                ) : null}
                                                 {client.has_plan === false ? (
                                                     <span className="crm-client-no-plan">без плана</span>
                                                 ) : null}
@@ -315,10 +448,32 @@ const ClientList: React.FC<ClientListProps> = ({
                                             <button
                                                 type="button"
                                                 className="crm-row-actions__btn"
-                                                title="Открыть карточку"
+                                                title="Прогноз комиссий"
+                                                onClick={() => setCommissionModalClient(client)}
+                                                disabled={client.has_plan === false}
+                                            >
+                                                <TrendingUp size={16} />
+                                                <span className="crm-row-actions__label">Комиссии</span>
+                                            </button>
+                                            {onEditClient ? (
+                                                <button
+                                                    type="button"
+                                                    className="crm-row-actions__btn crm-row-actions__btn--data"
+                                                    title="Редактировать данные клиента"
+                                                    onClick={() => onEditClient(client)}
+                                                >
+                                                    <Pencil size={16} />
+                                                    <span className="crm-row-actions__label">Данные</span>
+                                                </button>
+                                            ) : null}
+                                            <button
+                                                type="button"
+                                                className="crm-row-actions__btn"
+                                                title="Открыть финансовый план"
                                                 onClick={() => onSelectClient(client)}
                                             >
-                                                <MoreHorizontal size={16} />
+                                                <Briefcase size={16} />
+                                                <span className="crm-row-actions__label">План</span>
                                             </button>
                                         </div>
                                     </td>
@@ -364,6 +519,12 @@ const ClientList: React.FC<ClientListProps> = ({
                 onClose={() => setChatModalClient(null)}
                 clientId={chatModalClient?.id ?? null}
                 clientTitle={`${chatModalClient?.first_name ?? ''} ${chatModalClient?.last_name ?? ''}`}
+            />
+            <CrmCommissionForecastModal
+                isOpen={commissionModalClient != null}
+                onClose={() => setCommissionModalClient(null)}
+                clientId={commissionModalClient?.id ?? null}
+                clientTitle={`${commissionModalClient?.first_name ?? ''} ${commissionModalClient?.last_name ?? ''}`}
             />
             <FamilyOfficeInviteModal
                 isOpen={inviteModalOpen}

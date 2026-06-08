@@ -20,9 +20,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ onNavigate }) => {
     const showItems = !loading && !error && data && data.items.length > 0 && !data.quiet;
 
     return (
-        <div style={{ minHeight: '100vh', background: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
-            <Header activePage="news" onNavigate={onNavigate} />
-
+        <Header activePage="news" onNavigate={onNavigate}>
             <main className="lk-page-main" style={{ maxWidth: '1200px' }}>
                 <div className="lk-card" style={{ textAlign: 'left', boxShadow: '0 10px 30px rgba(0,0,0,0.04)', border: '1px solid #f0f0f0' }}>
                     <h1 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '8px', color: '#111' }}>
@@ -60,7 +58,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ onNavigate }) => {
                     </p>
                 </div>
             </main>
-        </div>
+        </Header>
     );
 };
 

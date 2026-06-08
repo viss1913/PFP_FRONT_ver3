@@ -697,10 +697,8 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
     );
 
     return (
-        <div style={{ minHeight: '100vh', background: '#f8f9fa', display: 'flex', flexDirection: 'column' }}>
-            <Header activePage="ai-agent" onNavigate={onNavigate} />
-
-            <main style={{ flex: 1, padding: '32px' }}>
+        <Header activePage="ai-agent" onNavigate={onNavigate}>
+            <main className="lk-page-main" style={{ flex: 1 }}>
                 {/* Tab Switcher */}
                 <div style={{
                     display: 'flex',
@@ -760,7 +758,7 @@ const AiAgentPage: React.FC<AiAgentPageProps> = ({ onNavigate }) => {
                     activeTab === 'settings' ? renderSettings() : renderDialogs()
                 )}
             </main>
-        </div>
+        </Header>
     );
 };
 

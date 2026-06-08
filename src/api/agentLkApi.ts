@@ -339,6 +339,18 @@ export interface ProductCreatePayload {
     product_type: string;
     currency: string;
     lines: ProductLineCreate[];
+    /**
+     * Схема комиссий для CRM-прогноза (см. commission_schema в агентской API-спеке).
+     * Передаётся в POST/PUT /pfp/products.
+     */
+    commission_schema?: {
+        version: number;
+        rules: Array<{
+            rule_type: string;
+            base: string;
+            rate_percent: number;
+        }>;
+    };
     /** Интеграция Резолют (проект AV); опционально. */
     resolut_pfp_code?: string | null;
     resolut_quote_p_type?: ResolutQuotePType | null;
