@@ -482,9 +482,11 @@ export const clientApi = {
         return response.data;
     },
 
-    // Delete Goal
+    // Delete Goal (ЛК агента: пересчёт плана в ответе, может занять несколько секунд)
     deleteGoal: async (clientId: number, goalId: number): Promise<any> => {
-        const response = await api.delete(`/client/${clientId}/goals/${goalId}`);
+        const response = await api.delete(`/pfp/clients/${clientId}/goals/${goalId}`, {
+            timeout: 120_000,
+        });
         return response.data;
     },
 

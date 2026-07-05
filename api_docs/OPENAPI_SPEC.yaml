@@ -759,6 +759,22 @@ components:
           minimum: 0
           description: Доходность в процентах годовых (%)
           example: 14.0
+        gender:
+          type: string
+          nullable: true
+          enum: [male, female, null]
+          description: |
+            Пол для строки матрицы (пенсия). NULL или отсутствие — строка для любого пола
+            (цели без демографии, например «Пассивный доход»).
+        age:
+          type: integer
+          nullable: true
+          minimum: 18
+          maximum: 120
+          description: |
+            Возраст на момент наступления цели (лет). В справочнике НПФ обычно 60/65.
+            В PENSION бэкенд подставляет age_at_goal = текущий возраст + лет до пенсии (М 65 / Ж 60).
+            NULL в строке — для любого возраста.
     PassiveIncomeYieldSettings:
       type: object
       description: Настройки линий доходности для пассивного дохода
@@ -2337,10 +2353,20 @@ paths:
 
   /pfp/settings/passive-income/yield:
     get:
-      summary: Получить линии доходности для пассивного дохода
+      summary: Матрица доходности (срок × сумма × пол × возраст)
       tags:
         - Settings
-      description: Возвращает все линии доходности для целей типа "Пассивный доход"
+      description: |
+        Матрица доходности фазы выплат (`passive_income_yield`).
+        Каждая строка: диапазоны срока и суммы, опционально **gender** и **age**, **yield_percent** (% годовых).
+
+        В расчёте **PENSION** строка подбирается по сроку до пенсии, капиталу, полу клиента и
+        **age_at_goal** = текущий возраст + лет до выхода на пенсию (М 65 / Ж 60).
+
+        Строки без gender/age — универсальные (цель «Пассивный доход» и fallback для пенсии).
+
+        В `summary` цели PENSION: `payout_yield_percent`, `payout_yield_percent_planning`,
+        `payout_age_at_goal`, `payout_coefficient_gender`, `payout_coefficient_age`, `payout_coefficient_value`.
       responses:
         '200':
           description: OK
@@ -2351,10 +2377,16 @@ paths:
         '404':
           description: Passive income yield settings not found
     put:
-      summary: Обновить линии доходности для пассивного дохода (admin only)
+      summary: Сохранить матрицу доходности (admin only)
       tags:
         - Settings
-      description: Обновляет линии доходности для целей типа "Пассивный доход". Полностью заменяет существующие линии новым массивом.
+      description: |
+        Полная замена массива `lines`. Пример строки для НПФ:
+        `{ "min_term_months": 0, "max_term_months": 360, "min_amount": 0, "max_amount": 10000000,
+        "gender": "female", "age": 60, "yield_percent": 3.4 }`
+
+        Поля: min_term_months, max_term_months, min_amount, max_amount, yield_percent;
+        опционально gender (male/female) и age (возраст на момент цели). Пустой gender/age — универсальная строка.
       requestBody:
         required: true
         content:

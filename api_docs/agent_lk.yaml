@@ -945,6 +945,55 @@ paths:
         '404':
           description: Настройка не найдена
 
+  /pfp/settings/passive-income/yield:
+    get:
+      tags: [ "Настройки планов и проекта" ]
+      summary: Матрица доходности (срок × сумма × пол × возраст)
+      description: |
+        Линии `passive_income_yield` — единая матрица для фазы выплат.
+        Поля строки: **min_term_months**, **max_term_months**, **min_amount**, **max_amount**,
+        **yield_percent** (% годовых); опционально **gender** (`male`/`female`) и **age** (возраст **на момент наступления цели**).
+
+        В расчёте **PENSION** строка выбирается по:
+        - сроку до пенсии (`monthsToPension`);
+        - капиталу (на планировании — начальный + ОПС, на выплате — накопленный);
+        - полу клиента;
+        - **возрасту на момент цели** = текущий возраст + лет до пенсии (`age_at_goal`).
+          Срок до пенсии для цели PENSION: выход **М 65 / Ж 60** (см. `details.state_pension.retirement_age`).
+
+        Строки **без** gender/age — универсальные (цель «Пассивный доход» и fallback для пенсии).
+
+        В `summary` цели PENSION: `payout_yield_percent`, `payout_yield_percent_planning`,
+        `payout_age_at_goal`, `payout_yield_source`,
+        `payout_coefficient_gender`, `payout_coefficient_age`, `payout_coefficient_value`.
+      responses:
+        '200':
+          description: Матрица линий
+          content:
+            application/json:
+              schema:
+                $ref: '../../openapi/OPENAPI_SPEC.yaml#/components/schemas/PassiveIncomeYieldSettings'
+    put:
+      tags: [ "Настройки планов и проекта" ]
+      summary: Сохранить матрицу доходности (admin)
+      description: |
+        Полная замена массива `lines`. Пример строки для НПФ:
+        `{ "min_term_months": 0, "max_term_months": 360, "min_amount": 0, "max_amount": 10000000,
+        "gender": "female", "age": 60, "yield_percent": 3.4 }`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../openapi/OPENAPI_SPEC.yaml#/components/schemas/PassiveIncomeYieldUpdate'
+      responses:
+        '200':
+          description: Обновлено
+        '400':
+          description: Ошибка валидации
+        '403':
+          description: Только admin
+
   # ==================== РАСЧЁТ ПФП И НАЛОГОВОЕ ПЛАНИРОВАНИЕ ====================
   /client/calculate:
     post:
@@ -1926,9 +1975,9 @@ paths:
 
         **Тренды:** `trends_pct` в v1 всегда `null` (нет истории снимков).
 
-        Query `include_clients=1` — компактный список `{ id, created_at, last_rebalance_at, has_plan }`.
-        В ответе также отдаются агрегаты прогноза комиссий:
-        `commission_year_1_rub`, `commission_total_rub`, `commission_by_product[]`.
+        Query `include_clients=1` — список клиентов с датами и прогнозом комиссий
+        (`commission_year_1_rub`, `commission_total_rub` на каждого).
+        В ответе также агрегаты: `commission_year_1_rub`, `commission_total_rub`, `commission_by_product[]`.
       parameters:
         - name: include_clients
           in: query
@@ -1957,6 +2006,10 @@ paths:
           required: false
           schema: { type: integer, format: int64 }
           description: Опционально — прогноз только по одному клиенту
+        - name: include_clients
+          in: query
+          schema: { type: string, enum: ['0', '1', 'true', 'false'] }
+          description: Вернуть `clients[]` с прогнозом по каждому клиенту
       responses:
         '200':
           description: OK
@@ -2383,10 +2436,11 @@ paths:
   /pfp/constructor/bot:
     post:
       tags: [ "Конструктор ИИ" ]
-      summary: Зарегистрировать или обновить бота конструктора
+      summary: Зарегистрировать или обновить бота конструктора проекта
       description: |
-        Одна запись бота на пару (агент, проект, `bot_type`): при повторном вызове — обновление полей и перезапуск бота.
-        Для MAX: задайте `webhook_secret` и укажите вебхук на `POST /api/pfp/constructor/webhook/max/{id}` (id бота из ответа списка/БД).
+        **Один бот на проект** (`project_id` + `bot_type`): любой агент tenant может читать/обновлять общую запись.
+        При повторном вызове — обновление полей и перезапуск. В ответе `scope: project`.
+        Для MAX: `webhook_secret` и вебхук `POST /api/pfp/constructor/webhook/max/{id}`.
       requestBody:
         required: true
         content:
@@ -2404,7 +2458,7 @@ paths:
           description: Ошибка сохранения
     get:
       tags: [ "Конструктор ИИ" ]
-      summary: Список ботов агента в проекте (или один по типу)
+      summary: Бот(ы) проекта — общие для всех агентов (или один по типу)
       parameters:
         - name: bot_type
           in: query
@@ -2431,14 +2485,14 @@ paths:
   /pfp/constructor/clients:
     get:
       tags: [ "Конструктор ИИ" ]
-      summary: Клиенты ботов конструктора
+      summary: Клиенты бота(ов) проекта
       parameters:
         - name: bot_id
           in: query
           required: false
           schema:
             type: string
-          description: Фильтр по id бота; иначе — клиенты всех ботов агента
+          description: Фильтр по id бота в проекте; иначе — клиенты всех messenger-ботов проекта
       responses:
         '200':
           description: Список с полями сессии и последним сообщением
@@ -2546,8 +2600,12 @@ paths:
       tags: [ "Конструктор ИИ" ]
       summary: Список команд CJM (шаблоны проекта или привязка к боту)
       description: |
-        Без `bot_id`: по умолчанию шаблоны (`is_template: true`) текущего `project_id`.
-        С `bot_id` — команды этого бота. С `is_template=true|false` — фильтр по шаблонам и проекту.
+        **Шаблоны проекта** (`is_template: true`, `project_id` из `x-project-key` / JWT) — общий CJM для всех ботов проекта.
+        Партнёр-админ настраивает один раз на проект; агенты читают те же шаблоны.
+
+        Без `bot_id`: только шаблоны текущего `project_id`.
+        С `bot_id`: команды бота **+** шаблоны проекта (по умолчанию). `include_project_templates=false` — только команды бота.
+        С `is_template=true|false` — фильтр по шаблонам в рамках проекта.
       parameters:
         - name: bot_id
           in: query
@@ -2555,6 +2613,10 @@ paths:
         - name: is_template
           in: query
           schema: { type: boolean }
+        - name: include_project_templates
+          in: query
+          schema: { type: boolean, default: true }
+          description: При `bot_id` — включать шаблоны проекта (default true)
       responses:
         '200':
           content:
@@ -2567,7 +2629,8 @@ paths:
       tags: [ "Конструктор ИИ" ]
       summary: Создать команду или шаблон
       description: |
-        Если не передан `bot_id`, запись создаётся как шаблон проекта (`is_template` по умолчанию true).
+        Без `bot_id` (или `is_template: true`) — **шаблон проекта** (`project_id` из JWT / `x-project-key`).
+        С `bot_id` — команда конкретного бота в том же проекте (для переопределения шаблона).
       requestBody:
         required: true
         content:
@@ -2623,6 +2686,69 @@ paths:
                 type: object
                 properties:
                   success: { type: boolean, example: true }
+
+  /pfp/constructor/commands/{id}/media:
+    post:
+      tags: [ "Конструктор ИИ" ]
+      summary: Загрузить картинку или видео к стадии CJM
+      description: multipart/form-data, поле `file`. До 5 файлов на команду. Хранение в R2.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                caption:
+                  type: string
+                  nullable: true
+                  description: Подпись к файлу в Telegram
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  media: { $ref: '#/components/schemas/ConstructorCommandMediaItem' }
+                  all:
+                    type: array
+                    items: { $ref: '#/components/schemas/ConstructorCommandMediaItem' }
+
+  /pfp/constructor/commands/{id}/media/{mediaId}:
+    delete:
+      tags: [ "Конструктор ИИ" ]
+      summary: Удалить медиа со стадии CJM
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: mediaId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  all:
+                    type: array
+                    items: { $ref: '#/components/schemas/ConstructorCommandMediaItem' }
 
   /pfp/constructor/brain-contexts:
     get:
@@ -3327,6 +3453,22 @@ components:
         as_of:
           type: string
           format: date-time
+        clients:
+          type: array
+          description: При `include_clients=1` — прогноз по каждому клиенту
+          items:
+            $ref: '#/components/schemas/CrmCommissionForecastClientRow'
+
+    CrmCommissionForecastClientRow:
+      type: object
+      properties:
+        id: { type: integer }
+        commission_year_1_rub: { type: number }
+        commission_total_rub: { type: number }
+        commission_by_product:
+          type: array
+          items:
+            $ref: '#/components/schemas/CrmCommissionByProductRow'
 
     CrmDashboardClientRow:
       type: object
@@ -3337,6 +3479,12 @@ components:
           type: string
           format: date-time
           nullable: true
+        commission_year_1_rub:
+          type: number
+          description: Прогноз комиссии за 1-й год (при include_clients=1)
+        commission_total_rub:
+          type: number
+          description: Прогноз комиссии за весь горизонт (при include_clients=1)
           description: Последний пересчёт / first-run (из goals_summary), не clients.updated_at
         has_plan: { type: boolean }
         first_name: { type: string, nullable: true }
@@ -3990,6 +4138,18 @@ components:
         audio: { type: string, nullable: true }
         document: { type: string, nullable: true }
 
+    ConstructorCommandMediaItem:
+      type: object
+      properties:
+        id: { type: string, description: UUID файла в массиве media }
+        type: { type: string, enum: [image, video] }
+        url: { type: string, description: Публичный URL в R2/CDN }
+        key: { type: string, nullable: true, description: Ключ объекта в R2 }
+        filename: { type: string, nullable: true }
+        mime: { type: string, nullable: true }
+        caption: { type: string, nullable: true, description: Подпись к картинке/видео в Telegram }
+        sort: { type: integer, description: Порядок отправки }
+
     ConstructorCommand:
       type: object
       properties:
@@ -4001,6 +4161,11 @@ components:
         response: { type: string, description: Ответ или шаблон ответа на стадии }
         section: { type: string, nullable: true }
         is_template: { type: boolean }
+        media:
+          type: array
+          nullable: true
+          description: Картинки/видео стадии (до 5). Отправляются в Telegram при переходе на стадию.
+          items: { $ref: '#/components/schemas/ConstructorCommandMediaItem' }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
@@ -4024,6 +4189,10 @@ components:
         section: { type: string, nullable: true }
         is_template: { type: boolean }
         bot_id: { type: string, nullable: true }
+        media:
+          type: array
+          nullable: true
+          items: { $ref: '#/components/schemas/ConstructorCommandMediaItem' }
 
     ConstructorBrainContext:
       type: object

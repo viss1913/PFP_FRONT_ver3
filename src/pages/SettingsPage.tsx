@@ -37,6 +37,7 @@ import {
     type AiB2cStageCreate,
     type ConstructorCommand,
     type ConstructorCommandCreate,
+    type ConstructorCommandMediaItem,
     type InflationRateRange,
     type PassiveIncomeYieldLine,
     type PdfCoverSettingsResponse,
@@ -155,6 +156,29 @@ const GOAL_REPORT_TEMPLATE_IDS: readonly string[] = [
 
 const CHAT_BRAIN_ALLOWED_DOCUMENT_EXTENSIONS = new Set(['pdf', 'doc', 'docx', 'txt', 'md', 'rtf']);
 const CHAT_BRAIN_MAX_DOCUMENT_SIZE_BYTES = 8 * 1024 * 1024;
+
+const COMMAND_MEDIA_MAX_COUNT = 5;
+const COMMAND_MEDIA_MAX_SIZE_BYTES = 50 * 1024 * 1024;
+const COMMAND_MEDIA_ALLOWED_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm', 'mov', 'pdf']);
+
+function parseCommandMediaList(command?: ConstructorCommand | null): ConstructorCommandMediaItem[] {
+    const raw = command?.media;
+    if (!Array.isArray(raw)) return [];
+    return raw
+        .filter((item): item is ConstructorCommandMediaItem => item != null && typeof item === 'object' && 'id' in item)
+        .slice()
+        .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+}
+
+function mergeCommandMediaIntoStages(
+    stages: ConstructorCommand[] | null,
+    commandId: number | string,
+    media: ConstructorCommandMediaItem[]
+): ConstructorCommand[] | null {
+    if (!stages) return stages;
+    const id = String(commandId);
+    return stages.map((stage) => (String(stage.id) === id ? { ...stage, media } : stage));
+}
 
 const FIXED_REPORT_NAV_ORDER: readonly string[] = [
     PDF_COVER_TEMPLATE_ID,
@@ -1793,6 +1817,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
         classifier: '',
         response: '',
     });
+    const [chatStageMedia, setChatStageMedia] = useState<ConstructorCommandMediaItem[]>([]);
+    const [chatStageMediaCaption, setChatStageMediaCaption] = useState('');
+    const [chatStageMediaUploading, setChatStageMediaUploading] = useState(false);
+    const [chatStageMediaDeletingId, setChatStageMediaDeletingId] = useState<string | null>(null);
+    const chatStageMediaInputRef = useRef<HTMLInputElement | null>(null);
     const [savingAiB2c, setSavingAiB2c] = useState(false);
     const [deletingAiB2cId, setDeletingAiB2cId] = useState<string | null>(null);
 
@@ -3136,9 +3165,16 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
         }
     };
 
+    const applyChatStageMediaList = (commandId: number | string, media: ConstructorCommandMediaItem[]) => {
+        setChatStageMedia(media);
+        setChatStages((prev) => mergeCommandMediaIntoStages(prev, commandId, media));
+    };
+
     const openChatStageCreate = () => {
         setEditingChatStageId(null);
         setChatStageForm({ stage_key: '', classifier: '', response: '' });
+        setChatStageMedia([]);
+        setChatStageMediaCaption('');
         setChatStageModalOpen(true);
     };
     const openChatStageEdit = (s: ConstructorCommand) => {
@@ -3148,7 +3184,67 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
             classifier: (s.classifier ?? '').toString(),
             response: (s.response ?? '').toString(),
         });
+        setChatStageMedia(parseCommandMediaList(s));
+        setChatStageMediaCaption('');
         setChatStageModalOpen(true);
+    };
+
+    const onChatStageMediaFileChange = async (file: File | null) => {
+        if (!file || editingChatStageId == null) return;
+        const extension = file.name.split('.').pop()?.trim().toLowerCase() ?? '';
+        if (!COMMAND_MEDIA_ALLOWED_EXTENSIONS.has(extension)) {
+            setError('Неподдерживаемый файл. Разрешены: jpg, png, webp, gif, mp4, webm, mov, pdf.');
+            return;
+        }
+        if (file.size > COMMAND_MEDIA_MAX_SIZE_BYTES) {
+            setError('Файл слишком большой. Лимит: 50 MB.');
+            return;
+        }
+        if (chatStageMedia.length >= COMMAND_MEDIA_MAX_COUNT) {
+            setError(`Можно загрузить не больше ${COMMAND_MEDIA_MAX_COUNT} файлов на стадию.`);
+            return;
+        }
+        try {
+            setChatStageMediaUploading(true);
+            setError(null);
+            const res = await agentLkApi.uploadCommandMedia(
+                editingChatStageId,
+                file,
+                chatStageMediaCaption
+            );
+            applyChatStageMediaList(editingChatStageId, res.all ?? []);
+            setChatStageMediaCaption('');
+        } catch (e) {
+            console.error('Failed to upload command media:', e);
+            const responseData = (e as { response?: { data?: unknown } })?.response?.data;
+            let backendMessage = '';
+            if (typeof responseData === 'string') {
+                backendMessage = responseData.trim();
+            } else if (responseData && typeof responseData === 'object') {
+                const dataObj = responseData as Record<string, unknown>;
+                const direct = dataObj.error ?? dataObj.message ?? dataObj.detail;
+                if (typeof direct === 'string') backendMessage = direct.trim();
+            }
+            setError(backendMessage || 'Не удалось загрузить медиа стадии.');
+        } finally {
+            setChatStageMediaUploading(false);
+            if (chatStageMediaInputRef.current) chatStageMediaInputRef.current.value = '';
+        }
+    };
+
+    const deleteChatStageMedia = async (mediaId: string) => {
+        if (editingChatStageId == null) return;
+        try {
+            setChatStageMediaDeletingId(mediaId);
+            setError(null);
+            const res = await agentLkApi.deleteCommandMedia(editingChatStageId, mediaId);
+            applyChatStageMediaList(editingChatStageId, res.all ?? []);
+        } catch (e) {
+            console.error('Failed to delete command media:', e);
+            setError('Не удалось удалить медиа стадии.');
+        } finally {
+            setChatStageMediaDeletingId(null);
+        }
     };
     const saveChatStage = async () => {
         if (!chatStageForm.stage_key.trim() || !chatStageForm.classifier.trim() || !chatStageForm.response.trim()) {
@@ -4295,16 +4391,19 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
                                             Доходность пассивного дохода
                                         </h2>
                                         <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '12px' }}>
-                                            Линии по срокам и суммам: минимальный/максимальный срок (мес.), мин/макс сумма (₽), доходность % годовых.
+                                            Линии по срокам, суммам, полу и возрасту на цели. Пустые пол и возраст — универсальная строка
+                                            (цель «Пассивный доход»). Для пенсии бэкенд сам считает возраст на цели: текущий возраст + лет до пенсии.
                                         </p>
                                         <div style={{ overflowX: 'auto' }}>
-                                            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
                                                 <thead>
                                                     <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
                                                         <th style={{ textAlign: 'left', padding: '8px', fontSize: '12px', color: '#6b7280' }}>Срок от (мес.)</th>
                                                         <th style={{ textAlign: 'left', padding: '8px', fontSize: '12px', color: '#6b7280' }}>Срок до (мес.)</th>
                                                         <th style={{ textAlign: 'left', padding: '8px', fontSize: '12px', color: '#6b7280' }}>Сумма от (₽)</th>
                                                         <th style={{ textAlign: 'left', padding: '8px', fontSize: '12px', color: '#6b7280' }}>Сумма до (₽)</th>
+                                                        <th style={{ textAlign: 'left', padding: '8px', fontSize: '12px', color: '#6b7280' }}>Пол</th>
+                                                        <th style={{ textAlign: 'left', padding: '8px', fontSize: '12px', color: '#6b7280' }}>Возраст на цели</th>
                                                         <th style={{ textAlign: 'left', padding: '8px', fontSize: '12px', color: '#6b7280' }}>Доходность %</th>
                                                         <th style={{ width: 48 }} />
                                                     </tr>
@@ -4316,6 +4415,37 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
                                                             <td style={{ padding: '8px' }}><input type="number" min={0} value={line.max_term_months} onChange={(e) => { const n = passiveYieldLines.slice(); n[i] = { ...n[i], max_term_months: Number(e.target.value) || 0 }; setPassiveYieldLines(n); }} style={{ width: 70, padding: 6, borderRadius: 6, border: '1px solid #d1d5db' }} /></td>
                                                             <td style={{ padding: '8px' }}><input type="number" min={0} value={line.min_amount} onChange={(e) => { const n = passiveYieldLines.slice(); n[i] = { ...n[i], min_amount: Number(e.target.value) || 0 }; setPassiveYieldLines(n); }} style={{ width: 100, padding: 6, borderRadius: 6, border: '1px solid #d1d5db' }} /></td>
                                                             <td style={{ padding: '8px' }}><input type="number" min={0} value={line.max_amount} onChange={(e) => { const n = passiveYieldLines.slice(); n[i] = { ...n[i], max_amount: Number(e.target.value) || 0 }; setPassiveYieldLines(n); }} style={{ width: 100, padding: 6, borderRadius: 6, border: '1px solid #d1d5db' }} /></td>
+                                                            <td style={{ padding: '8px' }}>
+                                                                <select
+                                                                    value={line.gender ?? ''}
+                                                                    onChange={(e) => {
+                                                                        const n = passiveYieldLines.slice();
+                                                                        const v = e.target.value;
+                                                                        n[i] = { ...n[i], gender: v === '' ? null : (v as 'male' | 'female') };
+                                                                        setPassiveYieldLines(n);
+                                                                    }}
+                                                                    style={{ width: 90, padding: 6, borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13 }}
+                                                                >
+                                                                    <option value="">—</option>
+                                                                    <option value="male">М</option>
+                                                                    <option value="female">Ж</option>
+                                                                </select>
+                                                            </td>
+                                                            <td style={{ padding: '8px' }}>
+                                                                <input
+                                                                    type="number"
+                                                                    min={18}
+                                                                    max={120}
+                                                                    placeholder="60"
+                                                                    value={line.age ?? ''}
+                                                                    onChange={(e) => {
+                                                                        const n = passiveYieldLines.slice();
+                                                                        n[i] = { ...n[i], age: e.target.value === '' ? null : Number(e.target.value) };
+                                                                        setPassiveYieldLines(n);
+                                                                    }}
+                                                                    style={{ width: 64, padding: 6, borderRadius: 6, border: '1px solid #d1d5db' }}
+                                                                />
+                                                            </td>
                                                             <td style={{ padding: '8px' }}><input type="number" step={0.1} min={0} value={line.yield_percent} onChange={(e) => { const n = passiveYieldLines.slice(); n[i] = { ...n[i], yield_percent: Number(e.target.value) || 0 }; setPassiveYieldLines(n); }} style={{ width: 72, padding: 6, borderRadius: 6, border: '1px solid #d1d5db' }} /></td>
                                                             <td style={{ padding: '8px' }}><button type="button" onClick={() => setPassiveYieldLines(passiveYieldLines.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', color: '#b91c1c', cursor: 'pointer', fontSize: 12 }}>Удалить</button></td>
                                                         </tr>
@@ -4326,7 +4456,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
                                         <div style={{ marginTop: '12px', display: 'flex', gap: 8 }}>
                                             <button
                                                 type="button"
-                                                onClick={() => setPassiveYieldLines([...passiveYieldLines, { min_term_months: 0, max_term_months: 60, min_amount: 0, max_amount: 1e12, yield_percent: 10 }])}
+                                                onClick={() => setPassiveYieldLines([...passiveYieldLines, { min_term_months: 0, max_term_months: 60, min_amount: 0, max_amount: 1e12, gender: null, age: null, yield_percent: 10 }])}
                                                 style={{ padding: '8px 14px', borderRadius: 10, border: '1px solid #D946EF', color: '#D946EF', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
                                             >
                                                 + Добавить линию
@@ -4337,8 +4467,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
                                                 onClick={async () => {
                                                     setPlansSaving('passiveYield');
                                                     try {
-                                                        await agentLkApi.putPassiveIncomeYield(passiveYieldLines);
-                                                        setError(null);
+                                                        const saved = await agentLkApi.putPassiveIncomeYield(passiveYieldLines);
+                                                        if (saved.project_id == null) {
+                                                            setError(
+                                                                'Доходность сохранена, но project_id в ответе null — настройка не привязана к проекту. Сообщите бэкенду.'
+                                                            );
+                                                        } else {
+                                                            setPassiveYieldLines(saved.lines ?? passiveYieldLines);
+                                                            setError(null);
+                                                        }
                                                     } catch (e) {
                                                         setError('Не удалось сохранить доходность пассивного дохода.');
                                                     } finally {
@@ -8826,6 +8963,185 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
                                         placeholder="Ответы/шаблоны ответов для этого чат-сценария…"
                                     />
                                 </div>
+                                {editingChatStageId != null ? (
+                                    <div
+                                        style={{
+                                            marginTop: '4px',
+                                            padding: '14px 16px',
+                                            borderRadius: '12px',
+                                            border: '1px solid #e5e7eb',
+                                            background: '#f9fafb',
+                                        }}
+                                    >
+                                        <div
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                gap: '12px',
+                                                flexWrap: 'wrap',
+                                                marginBottom: '10px',
+                                            }}
+                                        >
+                                            <div>
+                                                <div style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>
+                                                    Медиа стадии
+                                                </div>
+                                                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#6b7280' }}>
+                                                    До {COMMAND_MEDIA_MAX_COUNT} файлов, макс. 50 MB — картинки, видео или PDF. Отправляются в бот при переходе на стадию.
+                                                </p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                disabled={
+                                                    chatStageMediaUploading ||
+                                                    chatStageMedia.length >= COMMAND_MEDIA_MAX_COUNT
+                                                }
+                                                onClick={() => chatStageMediaInputRef.current?.click()}
+                                                style={{
+                                                    padding: '8px 14px',
+                                                    borderRadius: '10px',
+                                                    border: 'none',
+                                                    background: '#0EA5E9',
+                                                    color: '#fff',
+                                                    fontSize: '13px',
+                                                    fontWeight: 600,
+                                                    cursor:
+                                                        chatStageMediaUploading ||
+                                                        chatStageMedia.length >= COMMAND_MEDIA_MAX_COUNT
+                                                            ? 'not-allowed'
+                                                            : 'pointer',
+                                                    opacity:
+                                                        chatStageMediaUploading ||
+                                                        chatStageMedia.length >= COMMAND_MEDIA_MAX_COUNT
+                                                            ? 0.6
+                                                            : 1,
+                                                }}
+                                            >
+                                                {chatStageMediaUploading ? 'Загрузка…' : 'Добавить файл'}
+                                            </button>
+                                        </div>
+                                        <input
+                                            ref={chatStageMediaInputRef}
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime,application/pdf,.pdf"
+                                            style={{ display: 'none' }}
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0] ?? null;
+                                                void onChatStageMediaFileChange(file);
+                                            }}
+                                        />
+                                        <div style={{ marginBottom: '12px' }}>
+                                            <label style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
+                                                Подпись в Telegram (опционально)
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={chatStageMediaCaption}
+                                                onChange={(e) => setChatStageMediaCaption(e.target.value)}
+                                                placeholder="Подпись к следующему файлу"
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '8px 10px',
+                                                    borderRadius: '10px',
+                                                    border: '1px solid #e5e7eb',
+                                                    fontSize: '13px',
+                                                }}
+                                            />
+                                        </div>
+                                        {chatStageMedia.length === 0 ? (
+                                            <p style={{ margin: 0, fontSize: '13px', color: '#9ca3af' }}>
+                                                Медиа не загружены.
+                                            </p>
+                                        ) : (
+                                            <ul
+                                                style={{
+                                                    listStyle: 'none',
+                                                    margin: 0,
+                                                    padding: 0,
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    gap: '10px',
+                                                }}
+                                            >
+                                                {chatStageMedia.map((item) => (
+                                                    <li
+                                                        key={item.id}
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '12px',
+                                                            padding: '10px 12px',
+                                                            borderRadius: '10px',
+                                                            background: '#fff',
+                                                            border: '1px solid #e5e7eb',
+                                                        }}
+                                                    >
+                                                        <div
+                                                            style={{
+                                                                width: 72,
+                                                                height: 72,
+                                                                borderRadius: '8px',
+                                                                overflow: 'hidden',
+                                                                background: '#f3f4f6',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                flexShrink: 0,
+                                                            }}
+                                                        >
+                                                            {item.type === 'image' ? (
+                                                                <img
+                                                                    src={item.url}
+                                                                    alt={item.filename ?? 'preview'}
+                                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                                />
+                                                            ) : (
+                                                                <span style={{ fontSize: '12px', color: '#6b7280', textAlign: 'center', padding: '4px' }}>
+                                                                    Видео
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ fontSize: '13px', fontWeight: 600, color: '#111' }}>
+                                                                {item.filename || item.type}
+                                                            </div>
+                                                            {item.caption ? (
+                                                                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                                                                    {item.caption}
+                                                                </div>
+                                                            ) : null}
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => void deleteChatStageMedia(item.id)}
+                                                            disabled={chatStageMediaDeletingId === item.id}
+                                                            style={{
+                                                                padding: '6px 12px',
+                                                                borderRadius: '8px',
+                                                                border: '1px solid #fecaca',
+                                                                background: '#fef2f2',
+                                                                fontSize: '12px',
+                                                                cursor:
+                                                                    chatStageMediaDeletingId === item.id
+                                                                        ? 'wait'
+                                                                        : 'pointer',
+                                                                color: '#b91c1c',
+                                                                flexShrink: 0,
+                                                            }}
+                                                        >
+                                                            Удалить
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <p style={{ margin: 0, fontSize: '12px', color: '#9ca3af' }}>
+                                        Медиа стадии можно добавить после сохранения сценария.
+                                    </p>
+                                )}
                                 <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                                     <button type="button" onClick={() => !savingAiB2c && setChatStageModalOpen(false)} style={{ padding: '8px 16px', borderRadius: '10px', border: '1px solid #e5e7eb', background: '#fff', fontSize: '13px', cursor: 'pointer' }}>Отмена</button>
                                     <button type="submit" disabled={savingAiB2c} style={{ padding: '8px 20px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #0EA5E9, #0284C7)', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', opacity: savingAiB2c ? 0.7 : 1 }}>{savingAiB2c ? 'Сохранение…' : 'Сохранить'}</button>

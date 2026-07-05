@@ -377,17 +377,22 @@ export interface InflationRateMatrix {
     ranges: InflationRateRange[];
 }
 
-/** Линия доходности для пассивного дохода (срок, сумма, % годовых) */
+/** Линия доходности для пассивного дохода (срок, сумма, пол, возраст на цели, % годовых) */
 export interface PassiveIncomeYieldLine {
     min_term_months: number;
     max_term_months: number;
     min_amount: number;
     max_amount: number;
     yield_percent: number;
+    /** null / отсутствие — универсальная строка (любой пол) */
+    gender?: 'male' | 'female' | null;
+    /** Возраст на момент наступления цели (лет); null — для любого возраста */
+    age?: number | null;
 }
 
 export interface PassiveIncomeYieldSettings {
     lines: PassiveIncomeYieldLine[];
+    project_id?: number | null;
     updated_at?: string;
 }
 
@@ -517,6 +522,23 @@ export interface ChatBrainContextDocument {
     [key: string]: unknown;
 }
 
+export interface ConstructorCommandMediaItem {
+    id: string;
+    type: 'image' | 'video';
+    url: string;
+    key?: string;
+    filename?: string | null;
+    mime?: string | null;
+    caption?: string;
+    sort: number;
+}
+
+export interface ConstructorCommandMediaMutationResponse {
+    success: boolean;
+    media?: ConstructorCommandMediaItem;
+    all: ConstructorCommandMediaItem[];
+}
+
 export interface ConstructorCommand {
     id: number | string;
     bot_id?: number | null;
@@ -526,6 +548,7 @@ export interface ConstructorCommand {
     response: string;
     section?: string | null;
     is_template?: boolean;
+    media?: ConstructorCommandMediaItem[];
     created_at?: string;
     updated_at?: string;
     [key: string]: unknown;
@@ -1473,6 +1496,38 @@ export const agentLkApi = {
         });
     },
 
+    uploadCommandMedia: async (
+        commandId: number | string,
+        file: File,
+        caption?: string
+    ): Promise<ConstructorCommandMediaMutationResponse> => {
+        const formData = new FormData();
+        formData.append('file', file);
+        if (caption?.trim()) formData.append('caption', caption.trim());
+        const response = await axios.post<ConstructorCommandMediaMutationResponse>(
+            `${API_BASE}/constructor/commands/${commandId}/media`,
+            formData,
+            {
+                headers: {
+                    ...getHeaders(),
+                    'Content-Type': 'multipart/form-data',
+                },
+            }
+        );
+        return response.data;
+    },
+
+    deleteCommandMedia: async (
+        commandId: number | string,
+        mediaId: string
+    ): Promise<ConstructorCommandMediaMutationResponse> => {
+        const response = await axios.delete<ConstructorCommandMediaMutationResponse>(
+            `${API_BASE}/constructor/commands/${commandId}/media/${mediaId}`,
+            { headers: getHeaders() }
+        );
+        return response.data;
+    },
+
     // --- Настройки планов (инфляция, рост расходов, доходность пассивного дохода) ---
 
     /** Список настроек по категории (calculation, pension и т.д.) */
@@ -1586,12 +1641,13 @@ export const agentLkApi = {
         }
     },
 
-    putPassiveIncomeYield: async (lines: PassiveIncomeYieldLine[]): Promise<void> => {
-        await axios.put(
+    putPassiveIncomeYield: async (lines: PassiveIncomeYieldLine[]): Promise<PassiveIncomeYieldSettings> => {
+        const response = await axios.put<PassiveIncomeYieldSettings>(
             `${API_BASE}/settings/passive-income/yield`,
             { lines },
             { headers: getHeaders() }
         );
+        return response.data;
     },
 
     /** HTML-превью клиентского отчёта (без генерации PDF). */
