@@ -64,6 +64,7 @@ interface StepFamilyProfileProps {
     setData: React.Dispatch<React.SetStateAction<CJMData>>;
     onNext: () => void;
     onPrev: () => void;
+    hideNda?: boolean;
 }
 
 const maritalOptions = [
@@ -112,7 +113,7 @@ const creditTypeOptions: Array<{ value: ClientCreditType; label: string }> = [
     { value: 'OTHER', label: 'Другое' }
 ];
 
-const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, onNext, onPrev }) => {
+const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, onNext, onPrev, hideNda = false }) => {
     const family = data.familyProfile;
     const [childBirthDateDrafts, setChildBirthDateDrafts] = useState<Record<number, string>>({});
     const [ndaLoading, setNdaLoading] = useState(false);
@@ -465,6 +466,7 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                         <option value="">Выберите статус</option>
                         {maritalOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </select>
+                    {!hideNda ? (
                     <button
                         type="button"
                         className="btn-primary"
@@ -484,8 +486,9 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
                     >
                         {ndaLoading ? 'Отправка…' : 'Подписать и отправить NDA'}
                     </button>
+                    ) : null}
                 </div>
-                {(ndaError || ndaOkMessage) && (
+                {!hideNda && (ndaError || ndaOkMessage) && (
                     <div style={{ marginTop: 10, fontSize: 14, color: ndaError ? '#b91c1c' : '#15803d' }}>
                         {ndaError || ndaOkMessage}
                     </div>

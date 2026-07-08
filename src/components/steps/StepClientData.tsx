@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { User, Phone, Mail } from 'lucide-react';
+import { ArrowRight, Calendar, Mail, Phone, User } from 'lucide-react';
 import type { CJMData } from '../CJMFlow';
 import { formatRussianPhoneInput, PHONE_MASK_TEMPLATE, PHONE_PLACEHOLDER, getPhoneInputCaretPosition, hasCompleteRussianPhone } from '../../utils/phone';
 
@@ -13,9 +13,21 @@ interface StepClientDataProps {
     data: CJMData;
     setData: React.Dispatch<React.SetStateAction<CJMData>>;
     onNext: () => void;
+    /** B2C guest: только email (без телефона), обязателен */
+    emailOnly?: boolean;
+    /** Скрыть телефон и email (legacy) */
+    hideContactFields?: boolean;
+    variant?: 'default' | 'b2c';
 }
 
-const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }) => {
+const StepClientData: React.FC<StepClientDataProps> = ({
+    data,
+    setData,
+    onNext,
+    emailOnly = false,
+    hideContactFields = false,
+    variant = 'default',
+}) => {
     const [birthDateDraft, setBirthDateDraft] = useState('');
 
     const calculateAge = (birthDate: string): number => {
@@ -131,14 +143,130 @@ const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }
     };
 
     const isFormValid = () => {
+        const baseValid = !!data.fio && !!data.birthDate && data.age >= 18;
+        if (hideContactFields) return baseValid;
+        if (emailOnly) {
+            return baseValid && isValidClientEmail(data.email || '');
+        }
         return (
-            !!data.fio &&
+            baseValid &&
             hasCompleteRussianPhone(data.phone || '') &&
-            isValidClientEmail(data.email || '') &&
-            !!data.birthDate &&
-            data.age >= 18
+            isValidClientEmail(data.email || '')
         );
     };
+
+    const showPhone = !hideContactFields && !emailOnly;
+    const showEmail = !hideContactFields || emailOnly;
+    const formValid = isFormValid();
+
+    if (variant === 'b2c') {
+        return (
+            <div className="b2c-step-client">
+                <header className="b2c-step-client__header">
+                    <h2 className="b2c-step-client__title">Расскажите о себе</h2>
+                    <p className="b2c-step-client__subtitle">
+                        Эти данные нужны только для построения вашего финансового плана
+                    </p>
+                </header>
+
+                <div className="b2c-step-client__field">
+                    <label className="b2c-step-client__label" htmlFor="b2c-client-fio">
+                        ФИО
+                    </label>
+                    <div className="b2c-step-client__input-wrap">
+                        <User size={18} className="b2c-step-client__input-icon" aria-hidden />
+                        <input
+                            id="b2c-client-fio"
+                            type="text"
+                            className="b2c-step-client__input"
+                            value={data.fio || ''}
+                            onChange={(e) => handleChange('fio', e.target.value)}
+                            placeholder="Иванов Иван Иванович"
+                        />
+                    </div>
+                </div>
+
+                {showEmail ? (
+                    <div className="b2c-step-client__field">
+                        <label className="b2c-step-client__label" htmlFor="b2c-client-email">
+                            Email
+                        </label>
+                        <div className="b2c-step-client__input-wrap">
+                            <Mail size={18} className="b2c-step-client__input-icon" aria-hidden />
+                            <input
+                                id="b2c-client-email"
+                                type="email"
+                                className="b2c-step-client__input"
+                                value={data.email || ''}
+                                onChange={(e) => handleChange('email', e.target.value)}
+                                placeholder="email@example.com"
+                                autoComplete="email"
+                            />
+                        </div>
+                        <p className="b2c-step-client__hint">
+                            Пароль не нужен — по email сохраним план и откроем отчёт.
+                        </p>
+                    </div>
+                ) : null}
+
+                <div className="b2c-step-client__field">
+                    <span className="b2c-step-client__label">Ваш пол</span>
+                    <div className="b2c-step-client__gender-grid">
+                        <button
+                            type="button"
+                            className={`b2c-step-client__gender${data.gender === 'male' ? ' b2c-step-client__gender--active' : ''}`}
+                            onClick={() => handleChange('gender', 'male')}
+                        >
+                            <span className="b2c-step-client__gender-symbol" aria-hidden>
+                                ♂
+                            </span>
+                            Мужской
+                        </button>
+                        <button
+                            type="button"
+                            className={`b2c-step-client__gender${data.gender === 'female' ? ' b2c-step-client__gender--active' : ''}`}
+                            onClick={() => handleChange('gender', 'female')}
+                        >
+                            <span className="b2c-step-client__gender-symbol" aria-hidden>
+                                ♀
+                            </span>
+                            Женский
+                        </button>
+                    </div>
+                </div>
+
+                <div className="b2c-step-client__field">
+                    <label className="b2c-step-client__label" htmlFor="b2c-client-birth">
+                        Дата рождения
+                    </label>
+                    <div className="b2c-step-client__input-wrap">
+                        <Calendar size={18} className="b2c-step-client__input-icon" aria-hidden />
+                        <input
+                            id="b2c-client-birth"
+                            type="text"
+                            inputMode="numeric"
+                            className="b2c-step-client__input"
+                            value={birthDateDraft}
+                            onChange={handleBirthDateChange}
+                            placeholder="дд.мм.гггг"
+                        />
+                    </div>
+                </div>
+
+                <div className="b2c-step-client__actions">
+                    <button
+                        type="button"
+                        className="b2c-step-client__next"
+                        onClick={onNext}
+                        disabled={!formValid}
+                    >
+                        Далее
+                        <ArrowRight size={18} strokeWidth={2.25} aria-hidden />
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div style={{ maxWidth: '600px', margin: '0 auto' }}>
@@ -162,7 +290,8 @@ const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }
                     </div>
                 </div>
 
-                <div className="input-group" style={{ marginBottom: '16px' }}>
+                {showPhone ? (
+                    <div className="input-group" style={{ marginBottom: '16px' }}>
                     <label className="label">Телефон</label>
                     <div style={{ position: 'relative' }}>
                         <Phone size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
@@ -176,9 +305,13 @@ const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }
                         />
                     </div>
                 </div>
+                ) : null}
 
+                {showEmail ? (
                 <div className="input-group" style={{ marginBottom: '16px' }}>
-                    <label className="label">Email</label>
+                    <label className="label">
+                        Email{emailOnly ? ' (для сохранения плана и отчёта)' : ''}
+                    </label>
                     <div style={{ position: 'relative' }}>
                         <Mail size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                         <input
@@ -190,7 +323,13 @@ const StepClientData: React.FC<StepClientDataProps> = ({ data, setData, onNext }
                             style={{ paddingLeft: '40px' }}
                         />
                     </div>
+                    {emailOnly ? (
+                        <p style={{ marginTop: '8px', fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                            Пароль не нужен — по email сохраним план и откроем отчёт.
+                        </p>
+                    ) : null}
                 </div>
+                ) : null}
 
             </div>
 

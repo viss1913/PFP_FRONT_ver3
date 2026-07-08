@@ -40,6 +40,14 @@ const awsEnv = {
   AWS_ACCESS_KEY_ID: accessKeyId,
   AWS_SECRET_ACCESS_KEY: secretAccessKey,
   AWS_DEFAULT_REGION: env.AWS_DEFAULT_REGION?.trim() || 'ru-central1',
+  HTTP_PROXY: '',
+  HTTPS_PROXY: '',
+  ALL_PROXY: '',
+  http_proxy: '',
+  https_proxy: '',
+  all_proxy: '',
+  NO_PROXY: '*',
+  no_proxy: '*',
 };
 
 const prefix = env.YC_S3_PREFIX?.trim().replace(/^\//, '').replace(/\/$/, '');
@@ -70,4 +78,33 @@ if (result.error) {
   process.exit(1);
 }
 
-process.exit(result.status ?? 1);
+if (result.status !== 0) {
+  process.exit(result.status ?? 1);
+}
+
+const planRedirectHtml = resolve(root, 'scripts/plan-query-redirect.html');
+if (existsSync(planRedirectHtml)) {
+  const planRedirectTarget = `${destination}plan`;
+  console.log(`Upload redirect: ${planRedirectHtml} → ${planRedirectTarget}`);
+  const redirectResult = spawnSync(
+    'aws',
+    [
+      's3',
+      'cp',
+      planRedirectHtml,
+      planRedirectTarget,
+      '--endpoint-url',
+      endpoint,
+      '--content-type',
+      'text/html; charset=utf-8',
+      '--cache-control',
+      'no-cache',
+    ],
+    { stdio: 'inherit', env: awsEnv },
+  );
+  if (redirectResult.status !== 0) {
+    process.exit(redirectResult.status ?? 1);
+  }
+}
+
+process.exit(0);

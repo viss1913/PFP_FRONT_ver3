@@ -99,6 +99,9 @@ interface ResultPageDesignProps {
   resolutTermMonths?: string;
   onResolutTermMonthsChange?: (value: string) => void;
   onOpenFinancialProducts?: () => void;
+  onSavePlan?: () => void;
+  onOpenHtmlReport?: () => void | Promise<void>;
+  onOpenPdfReport?: () => void | Promise<void>;
 }
 
 interface EditFormState {
@@ -146,6 +149,9 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   resolutTermMonths,
   onResolutTermMonthsChange,
   onOpenFinancialProducts,
+  onSavePlan,
+  onOpenHtmlReport,
+  onOpenPdfReport,
 }: ResultPageDesignProps) => {
   const [editingGoal, setEditingGoal] = React.useState<GoalResult | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = React.useState(false);
@@ -157,6 +163,7 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
   });
   const [snapshotForm, setSnapshotForm] = React.useState<EditFormState | null>(null);
   const [htmlReportOpening, setHtmlReportOpening] = React.useState(false);
+  const [pdfReportOpening, setPdfReportOpening] = React.useState(false);
   const [htmlReportModalOpen, setHtmlReportModalOpen] = React.useState(false);
   const [htmlReportSrcDoc, setHtmlReportSrcDoc] = React.useState<string | null>(null);
   const [isRiskProfileModalOpen, setIsRiskProfileModalOpen] = React.useState(false);
@@ -726,6 +733,15 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
             Данные клиента
           </button>
         )}
+        {onSavePlan && (
+          <button
+            type="button"
+            className="b2c-guest-plan__save-btn"
+            onClick={onSavePlan}
+          >
+            Сохранить план
+          </button>
+        )}
       </div>
 
 
@@ -740,6 +756,8 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                   type="button"
                   className="pfp-overview__assistant-card"
                   onClick={() => onOpenAiChat?.()}
+                  disabled={!onOpenAiChat}
+                  style={!onOpenAiChat ? { cursor: 'default', opacity: 0.92 } : undefined}
                 >
                   <div className="pfp-ai-preview-row">
                     <div style={{ flexShrink: 0 }}>
@@ -758,7 +776,9 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                     </div>
                   </div>
                   <div className="pfp-overview__click-hint">
-                    Нажмите, чтобы открыть весь AI-разбор
+                    {onOpenAiChat
+                      ? 'Нажмите, чтобы открыть весь AI-разбор'
+                      : 'AI-разбор будет доступен после сохранения плана'}
                   </div>
                 </button>
               </div>
@@ -933,20 +953,55 @@ const ResultPageDesign: React.FC<ResultPageDesignProps> = ({
                 {isResolutPublishing ? 'Оформляем…' : 'Оформить в Resolut'}
               </button>
             )}
-            <button
-              onClick={onGoToReport}
-              className="pfp-action-btn pfp-action-btn--primary"
-            >
-              Перейти в отчет
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleOpenHtmlReport()}
-              disabled={htmlReportOpening || !!isCalculating}
-              className="pfp-action-btn pfp-action-btn--secondary"
-            >
-              {htmlReportOpening ? 'Открываем…' : 'HTML-отчет'}
-            </button>
+            {(onGoToReport || onOpenHtmlReport || onOpenPdfReport) && (
+              <>
+                {onGoToReport ? (
+                  <button
+                    onClick={onGoToReport}
+                    className="pfp-action-btn pfp-action-btn--primary"
+                  >
+                    Перейти в отчет
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() =>
+                    void (onOpenHtmlReport ? onOpenHtmlReport() : handleOpenHtmlReport())
+                  }
+                  disabled={htmlReportOpening || !!isCalculating}
+                  className="pfp-action-btn pfp-action-btn--secondary"
+                >
+                  {htmlReportOpening ? 'Открываем…' : 'HTML-отчет'}
+                </button>
+                {onOpenPdfReport ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPdfReportOpening(true);
+                      void Promise.resolve(onOpenPdfReport()).finally(() => setPdfReportOpening(false));
+                    }}
+                    disabled={pdfReportOpening || !!isCalculating}
+                    className="pfp-action-btn pfp-action-btn--secondary"
+                  >
+                    {pdfReportOpening ? 'Открываем…' : 'PDF-отчет'}
+                  </button>
+                ) : null}
+              </>
+            )}
+            {onSavePlan && !onGoToReport && !onOpenHtmlReport && (
+              <>
+                <button
+                  type="button"
+                  onClick={onSavePlan}
+                  className="pfp-action-btn pfp-action-btn--primary"
+                >
+                  Сохранить план и открыть отчёт
+                </button>
+                <p className="pfp-guest-report-hint">
+                  Нужен email — сохраним лид в CRM и откроем HTML/PDF. Пароль не нужен.
+                </p>
+              </>
+            )}
             {onOpenFinancialProducts && (
               <button
                 type="button"

@@ -1495,6 +1495,16 @@ body.lk-nav-open {
     background: #f9fafb;
 }
 
+.crm-btn-invite--client {
+    border-color: #c7d2fe;
+    background: #eef2ff;
+    color: #4338ca;
+}
+
+.crm-btn-invite--client:hover {
+    background: #e0e7ff;
+}
+
 .crm-btn-new-client {
     display: inline-flex;
     align-items: center;
@@ -2712,6 +2722,19 @@ body.lk-nav-open {
     gap: 12px;
     margin-bottom: 24px;
     flex-wrap: wrap;
+}
+
+.pfp-guest-report-hint {
+    margin: 0;
+    max-width: 520px;
+    padding: 12px 18px;
+    border-radius: 14px;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(129, 140, 248, 0.28);
+    color: #4338ca;
+    font-size: 14px;
+    line-height: 1.5;
+    text-align: center;
 }
 
 .pfp-action-btn {

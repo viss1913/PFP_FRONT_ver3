@@ -2131,6 +2131,14 @@ export const agentLkApi = {
         return response.data;
     },
 
+    getClientInviteLink: async (): Promise<AgentInviteLinkResponse> => {
+        const response = await axios.get<AgentInviteLinkResponse>(
+            `${API_BASE}/agents/me/client-invite-link`,
+            { headers: getHeaders() },
+        );
+        return response.data;
+    },
+
     sendSubagentInviteEmail: async (
         body: SubagentInviteEmailRequest,
     ): Promise<SubagentInviteEmailResponse> => {

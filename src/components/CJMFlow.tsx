@@ -8,13 +8,27 @@ import StepAssets from './steps/StepAssets';
 import StepFinReserve from './steps/StepFinReserve';
 import StepLifeInsurance from './steps/StepLifeInsurance';
 import StepRiskProfile from './steps/StepRiskProfile';
+import B2cCjmShell, { type B2cCjmShellStep } from './b2c/B2cCjmShell';
 import { clientApi, type RiskAnswersResponse } from '../api/clientApi';
+import { b2cApi, parseGuestCalculateLead } from '../api/b2cApi';
+import { getClientB2cAttribution } from '../utils/clientB2cAttribution';
+import { buildGuestCalculatePayload, type GuestCalculatePayload } from '../utils/b2cGuestCalculatePayload';
 import { extendedToLegacy } from '../constants/portfolioRiskProfiles';
 import type { Asset, ClientGoal } from '../types/client';
 import type { RiskQuestionnaire } from '../api/clientApi';
 
+export interface CJMCompleteContext {
+    firstRunPayload?: GuestCalculatePayload;
+    guestLead?: {
+        guest_token: string;
+        client_id: number;
+        plan_saved: boolean;
+        email?: string;
+    };
+}
+
 interface CJMFlowProps {
-    onComplete: (result: any) => void;
+    onComplete: (result: any, context?: CJMCompleteContext) => void;
     initialData?: {
         fio?: string;
         phone?: string;
@@ -23,6 +37,10 @@ interface CJMFlowProps {
     };
     clientId?: number;
     onBack?: () => void;
+    /** guest — B2C без логина: calculate + guest risk API */
+    mode?: 'agent' | 'guest';
+    projectKey?: string;
+    inviterName?: string;
 }
 
 export interface CJMData {
@@ -97,7 +115,19 @@ function clientPoolCapitalForLifeStep(d: CJMData): number {
 
 const CAPITAL_FLOOR_LIFE_INSURANCE = 500_000;
 
-const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, onBack }) => {
+const CJMFlow: React.FC<CJMFlowProps> = ({
+    onComplete,
+    initialData,
+    clientId,
+    onBack,
+    mode = 'agent',
+    projectKey: projectKeyProp,
+    inviterName,
+}) => {
+    const isGuestMode = mode === 'guest';
+    const guestAttribution = getClientB2cAttribution();
+    const guestProjectKey = projectKeyProp || guestAttribution.project_key;
+    const guestRef = guestAttribution.ref?.trim();
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [riskQuestionnaire, setRiskQuestionnaire] = useState<RiskQuestionnaire | null>(null);
@@ -158,6 +188,10 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
             setStep(7);
         }
     }, [step, data]);
+
+    useLayoutEffect(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }, [step]);
 
     const handleCalculate = async () => {
         setLoading(true);
@@ -249,7 +283,39 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
 
             const questionnaireVersionIdForRisk = data.riskQuestionnaireVersionId ?? riskQuestionnaire?.id;
             let preSavedRiskResponse: RiskAnswersResponse | null = null;
-            if (clientId && questionnaireVersionIdForRisk) {
+            if (isGuestMode && questionnaireVersionIdForRisk) {
+                try {
+                    const primaryGoal = goalsToProcess[0];
+                    preSavedRiskResponse = await b2cApi.evaluateGuestRisk(guestProjectKey, {
+                        risk_profile_answers: normalizedRiskAnswers,
+                        goal: primaryGoal
+                            ? {
+                                  goal_type_id: primaryGoal.goal_type_id,
+                                  term_months: primaryGoal.term_months,
+                              }
+                            : undefined,
+                        client: {
+                            birth_date:
+                                data.birthDate ||
+                                new Date(new Date().getFullYear() - data.age, 0, 1)
+                                    .toISOString()
+                                    .split('T')[0],
+                            gender: data.gender,
+                        },
+                    });
+                    const nextRiskProfile = preSavedRiskResponse.risk_profile_result?.risk_profile;
+                    if (nextRiskProfile && typeof nextRiskProfile === 'string') {
+                        setData((prev) => ({
+                            ...prev,
+                            riskProfile: nextRiskProfile as CJMData['riskProfile'],
+                        }));
+                    }
+                } catch (e) {
+                    console.error('Failed to evaluate guest risk profile:', e);
+                    alert('Не удалось рассчитать риск-профиль. Попробуйте ещё раз.');
+                    return;
+                }
+            } else if (clientId && questionnaireVersionIdForRisk) {
                 try {
                     preSavedRiskResponse = await clientApi.saveRiskAnswers(
                         {
@@ -461,13 +527,36 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
             };
 
             let response;
+            let guestPayload: ReturnType<typeof buildGuestCalculatePayload> | null = null;
             let latestRiskResponse: {
                 risk_profile_answers: Record<string, string>;
                 risk_questionnaire_version_id: number;
                 risk_profile_result?: unknown;
                 risk_profile_explanation?: unknown;
             } | null = null;
-            if (clientId) {
+            if (isGuestMode) {
+                guestPayload = buildGuestCalculatePayload({
+                    ref: guestRef,
+                    goals: goalsPayload,
+                    birthDate:
+                        data.birthDate ||
+                        new Date(new Date().getFullYear() - data.age, 0, 1).toISOString().split('T')[0],
+                    gender: data.gender,
+                    fio: data.fio,
+                    firstName,
+                    lastName,
+                    middleName,
+                    phone: data.phone,
+                    email: emailTrimmed || undefined,
+                    avgMonthlyIncome: data.avgMonthlyIncome,
+                    assets: normalizedAssets,
+                    totalLiquidCapital: assetsInitial,
+                    riskProfileAnswers: questionnaireVersionId ? normalizedRiskAnswers : undefined,
+                    riskQuestionnaireVersionId: questionnaireVersionId,
+                    familyProfile: data.familyProfile as unknown as Record<string, unknown>,
+                });
+                response = await b2cApi.guestCalculate(guestProjectKey, guestPayload);
+            } else if (clientId) {
                 // UPDATE existing client + Calculate
                 // 1. Update Profile (using clientApi which has auth)
                 await clientApi.updateClient(clientId, payload.client);
@@ -483,7 +572,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                 response = await clientApi.firstRun(payload);
             }
 
-            if (questionnaireVersionId) {
+            if (questionnaireVersionId && !isGuestMode) {
                 try {
                     if (preSavedRiskResponse) {
                         latestRiskResponse = preSavedRiskResponse;
@@ -512,16 +601,35 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                 }
             }
 
-            const responseWithRiskData = latestRiskResponse
+            const guestRiskResponse = isGuestMode ? preSavedRiskResponse : null;
+            const responseWithRiskData = latestRiskResponse || guestRiskResponse
                 ? {
                     ...response,
-                    risk_profile_answers: latestRiskResponse.risk_profile_answers,
-                    risk_questionnaire_version_id: latestRiskResponse.risk_questionnaire_version_id,
-                    risk_profile_result: latestRiskResponse.risk_profile_result || null,
-                    risk_profile_explanation: latestRiskResponse.risk_profile_explanation || null
+                    risk_profile_answers:
+                        (latestRiskResponse || guestRiskResponse)?.risk_profile_answers ??
+                        normalizedRiskAnswers,
+                    risk_questionnaire_version_id:
+                        (latestRiskResponse || guestRiskResponse)?.risk_questionnaire_version_id ??
+                        questionnaireVersionId,
+                    risk_profile_result:
+                        (latestRiskResponse || guestRiskResponse)?.risk_profile_result || null,
+                    risk_profile_explanation:
+                        (latestRiskResponse || guestRiskResponse)?.risk_profile_explanation || null,
                 }
                 : response;
-            onComplete(responseWithRiskData);
+            const guestLead =
+                isGuestMode && guestPayload
+                    ? parseGuestCalculateLead(responseWithRiskData, emailTrimmed || undefined)
+                    : null;
+            onComplete(
+                responseWithRiskData,
+                guestPayload
+                    ? {
+                          firstRunPayload: guestPayload,
+                          guestLead: guestLead ?? undefined,
+                      }
+                    : undefined,
+            );
         } catch (error) {
             console.error('Calculation error:', error);
             alert('Ошибка при расчете. Пожалуйста, попробуйте снова.');
@@ -530,24 +638,35 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
         }
     };
 
-    const steps = [
-        { title: 'Личные данные', icon: <User size={20} /> },
-        { title: 'Семья', icon: <Users size={20} /> },
-        { title: 'Цели', icon: <Target size={20} /> },
-        { title: 'Активы', icon: <Briefcase size={20} /> },
-        { title: 'Финрезерв', icon: <PiggyBank size={20} /> },
-        { title: 'Защита Жизни', icon: <Heart size={20} /> },
-        { title: 'Риск-профиль', icon: <ShieldCheck size={20} /> }
+    const stepDefinitions: B2cCjmShellStep[] = [
+        { title: 'Личные данные', icon: User, stepNumber: 1 },
+        { title: 'Семья', icon: Users, stepNumber: 2 },
+        { title: 'Цели', icon: Target, stepNumber: 3 },
+        { title: 'Активы', icon: Briefcase, stepNumber: 4 },
+        { title: 'Финрезерв', icon: PiggyBank, stepNumber: 5 },
+        { title: 'Защита Жизни', icon: Heart, stepNumber: 6 },
+        { title: 'Риск-профиль', icon: ShieldCheck, stepNumber: 7 },
     ];
 
+    const steps = stepDefinitions.map(({ title, icon, stepNumber }) => ({
+        title,
+        icon: <>{React.createElement(icon, { size: 20 })}</>,
+        stepNumber,
+    }));
+
     const skipLifeInsurance = shouldSkipLifeInsuranceStep();
-    const stepsForHeader = skipLifeInsurance ? steps.filter((_, i) => i !== 5) : steps;
+    const stepsForHeader = skipLifeInsurance ? steps.filter((s) => s.stepNumber !== 6) : steps;
+    const b2cShellSteps = skipLifeInsurance
+        ? stepDefinitions.filter((s) => s.stepNumber !== 6)
+        : stepDefinitions;
 
     useEffect(() => {
         const loadRiskQuestionnaire = async () => {
             setRiskQuestionnaireLoading(true);
             try {
-                const questionnaire = await clientApi.getRiskQuestionnaireV2();
+                const questionnaire = isGuestMode
+                    ? await b2cApi.getGuestRiskQuestionnaire(guestProjectKey)
+                    : await clientApi.getRiskQuestionnaireV2();
                 setRiskQuestionnaire(questionnaire);
                 setData((prev) => ({
                     ...prev,
@@ -560,7 +679,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
             }
         };
         loadRiskQuestionnaire();
-    }, []);
+    }, [isGuestMode, guestProjectKey]);
 
     useEffect(() => {
         // If editing, fetch client data
@@ -613,6 +732,75 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
         padding: '24px'
     };
 
+    const renderStepContent = () => (
+        <>
+            {step === 1 && (
+                <StepClientData
+                    data={data}
+                    setData={setData}
+                    onNext={nextStep}
+                    emailOnly={isGuestMode}
+                    variant={isGuestMode ? 'b2c' : 'default'}
+                />
+            )}
+            {step === 2 && (
+                <StepFamilyProfile
+                    data={data}
+                    setData={setData}
+                    onNext={nextStep}
+                    onPrev={prevStep}
+                    hideNda={isGuestMode}
+                />
+            )}
+            {step === 3 && (
+                <StepGoalSelection
+                    data={data}
+                    setData={setData}
+                    onNext={nextStep}
+                    onPrev={prevStep}
+                    guestMode={isGuestMode}
+                />
+            )}
+            {step === 4 && <StepAssets data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
+            {step === 5 && <StepFinReserve data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
+            {step === 6 && <StepLifeInsurance data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
+            {step === 7 && (
+                <StepRiskProfile
+                    data={data}
+                    setData={setData}
+                    onComplete={handleCalculate}
+                    onPrev={prevStep}
+                    loading={loading}
+                    questionnaire={riskQuestionnaire}
+                    isQuestionnaireLoading={riskQuestionnaireLoading}
+                />
+            )}
+        </>
+    );
+
+    const stepMotion = (
+        <AnimatePresence mode="wait">
+            <motion.div
+                key={step}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }}
+                className={isGuestMode ? 'b2c-cjm-step' : 'premium-card'}
+            >
+                {renderStepContent()}
+            </motion.div>
+        </AnimatePresence>
+    );
+
+    if (isGuestMode) {
+        return (
+            <B2cCjmShell currentStep={step} steps={b2cShellSteps} inviterName={inviterName}>
+                {stepMotion}
+            </B2cCjmShell>
+        );
+    }
+
     return (
         <div style={{
             ...containerStyle,
@@ -636,16 +824,14 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                         ← Назад
                     </div>
                 )}
-                {stepsForHeader.map((s, i) => {
-                    const actualStep = skipLifeInsurance ? (i < 5 ? i + 1 : 7) : i + 1;
-                    return (
-                    <div key={actualStep} style={{ flex: 1, textAlign: 'center', position: 'relative' }}>
+                {stepsForHeader.map((s, i) => (
+                    <div key={s.stepNumber} style={{ flex: 1, textAlign: 'center', position: 'relative' }}>
                         <div style={{
                             width: '40px',
                             height: '40px',
                             borderRadius: '50%',
-                            background: step > actualStep ? 'var(--secondary)' : step === actualStep ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
-                            color: step === actualStep ? '#000' : '#fff',
+                            background: step > s.stepNumber ? 'var(--secondary)' : step === s.stepNumber ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+                            color: step === s.stepNumber ? '#000' : '#fff',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -654,7 +840,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                         }}>
                             {s.icon}
                         </div>
-                        <span style={{ fontSize: '12px', color: step === actualStep ? 'var(--primary)' : 'var(--text-muted)' }}>{s.title}</span>
+                        <span style={{ fontSize: '12px', color: step === s.stepNumber ? 'var(--primary)' : 'var(--text-muted)' }}>{s.title}</span>
                         {i < stepsForHeader.length - 1 && (
                             <div style={{
                                 position: 'absolute',
@@ -662,42 +848,14 @@ const CJMFlow: React.FC<CJMFlowProps> = ({ onComplete, initialData, clientId, on
                                 left: 'calc(50% + 25px)',
                                 right: 'calc(-50% + 25px)',
                                 height: '2px',
-                                background: step > actualStep ? 'var(--secondary)' : 'rgba(255,255,255,0.1)'
+                                background: step > s.stepNumber ? 'var(--secondary)' : 'rgba(255,255,255,0.1)'
                             }} />
                         )}
                     </div>
-                    );
-                })}
+                ))}
             </div>
 
-            <AnimatePresence mode="wait">
-                <motion.div
-                    key={step}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    transition={{ duration: 0.3 }}
-                    className="premium-card"
-                >
-                    {step === 1 && <StepClientData data={data} setData={setData} onNext={nextStep} />}
-                    {step === 2 && <StepFamilyProfile data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
-                    {step === 3 && <StepGoalSelection data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
-                    {step === 4 && <StepAssets data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
-                    {step === 5 && <StepFinReserve data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
-                    {step === 6 && <StepLifeInsurance data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
-                    {step === 7 && (
-                        <StepRiskProfile
-                            data={data}
-                            setData={setData}
-                            onComplete={handleCalculate}
-                            onPrev={prevStep}
-                            loading={loading}
-                            questionnaire={riskQuestionnaire}
-                            isQuestionnaireLoading={riskQuestionnaireLoading}
-                        />
-                    )}
-                </motion.div>
-            </AnimatePresence>
+            {stepMotion}
         </div>
     );
 };

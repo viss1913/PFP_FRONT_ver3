@@ -107,6 +107,12 @@ export const SEO = {
         description: 'Короткий сценарий персонального финансового планирования BankFuture.',
         robots: 'noindex, nofollow',
     },
+    b2cPlan: {
+        title: 'Ваш финансовый план — Family Office',
+        description: 'Составьте персональный финансовый план онлайн в Family Office BankFuture.',
+        canonicalPath: '/plan',
+        robots: 'noindex, nofollow',
+    },
 } as const satisfies Record<string, PageSeoConfig>;
 
 export function applyPageSeo(config: PageSeoConfig): void {

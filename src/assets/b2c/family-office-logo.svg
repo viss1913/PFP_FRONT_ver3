@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+  <path
+    d="M20 2L34 8.5V19.5C34 28.5 28 35.5 20 38C12 35.5 6 28.5 6 19.5V8.5L20 2Z"
+    fill="url(#fo-shield)"
+    stroke="#B8892A"
+    stroke-width="1.2"
+  />
+  <path
+    d="M15 12H25V15H18.5V18.5H24V21.5H18.5V28H15V12Z"
+    fill="#fff"
+  />
+  <defs>
+    <linearGradient id="fo-shield" x1="6" y1="2" x2="34" y2="38" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E8C56A" />
+      <stop offset="1" stop-color="#C9A227" />
+    </linearGradient>
+  </defs>
+</svg>

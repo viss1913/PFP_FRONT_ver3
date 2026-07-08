@@ -22,6 +22,13 @@ interface ResultPageProps {
     onAddGoal?: (goal: any) => void;
     onDeleteGoal?: (goalId: number) => void;
     isCalculating?: boolean;
+    /** B2C guest: скрыть agent-only UI, показать «Сохранить» */
+    guestMode?: boolean;
+    onSavePlan?: () => void;
+    /** После регистрации клиента — открыть отчёт */
+    onGoToReport?: () => void;
+    onOpenHtmlReport?: () => void | Promise<void>;
+    onOpenPdfReport?: () => void | Promise<void>;
 }
 
 const RESOLUT_AV_PROJECT_ID = 23;
@@ -71,6 +78,11 @@ const ResultPage: React.FC<ResultPageProps> = ({
     onAddGoal,
     onDeleteGoal,
     isCalculating,
+    guestMode = false,
+    onSavePlan,
+    onGoToReport: onGoToReportProp,
+    onOpenHtmlReport,
+    onOpenPdfReport,
 }) => {
     const [messages, setMessages] = useState<AiMessage[]>([]);
     const [isTyping, setIsTyping] = useState(false);
@@ -411,12 +423,16 @@ const ResultPage: React.FC<ResultPageProps> = ({
             <ResultPageDesign
                 calculationData={data}
                 client={client}
-                onAddGoal={onAddGoal}
-                onDeleteGoal={onDeleteGoal}
+                onAddGoal={guestMode ? undefined : onAddGoal}
+                onDeleteGoal={guestMode ? undefined : onDeleteGoal}
                 onRestart={onRestart}
                 restartLabel={restartLabel}
-                onEditClientData={onEditClientData}
-                onGoToReport={() => {
+                onEditClientData={guestMode ? undefined : onEditClientData}
+                onGoToReport={
+                    onGoToReportProp ??
+                    (guestMode
+                        ? undefined
+                        : () => {
                     const clientId = resolveClientId();
                     if (!clientId) {
                         console.error('Report Error: Could not resolve Client ID', { client, data });
@@ -424,21 +440,30 @@ const ResultPage: React.FC<ResultPageProps> = ({
                         return;
                     }
                     setIsReportPreviewOpen(true);
-                }}
-                onRecalculate={onRecalculate}
+                })
+                }
+                onOpenHtmlReport={onOpenHtmlReport}
+                onOpenPdfReport={onOpenPdfReport}
+                onRecalculate={guestMode ? undefined : onRecalculate}
                 isCalculating={isCalculating}
-                aiPreviewText={previewText}
-                onOpenAiChat={() => setIsChatOpen(true)}
-                isResolutAvProject={isResolutAvProject}
-                isResolutPublishing={isResolutPublishing}
-                onPublishToResolut={() => {
+                aiPreviewText={guestMode ? undefined : previewText}
+                onOpenAiChat={guestMode ? undefined : () => setIsChatOpen(true)}
+                isResolutAvProject={guestMode ? false : isResolutAvProject}
+                isResolutPublishing={guestMode ? false : isResolutPublishing}
+                onPublishToResolut={
+                    guestMode
+                        ? undefined
+                        : () => {
                     void handlePublishToResolut();
                 }}
                 resolutIncludeMonthlyFlow={resolutIncludeMonthlyFlow}
                 onResolutIncludeMonthlyFlowChange={setResolutIncludeMonthlyFlow}
                 resolutTermMonths={resolutTermMonths}
                 onResolutTermMonthsChange={setResolutTermMonths}
-                onOpenFinancialProducts={() => {
+                onOpenFinancialProducts={
+                    guestMode
+                        ? undefined
+                        : () => {
                     const clientId = resolveClientId();
                     if (!clientId) {
                         console.error('Financial Products Error: Could not resolve Client ID', { client, data });
@@ -447,7 +472,10 @@ const ResultPage: React.FC<ResultPageProps> = ({
                     }
                     setIsProductsModalOpen(true);
                 }}
+                onSavePlan={guestMode ? onSavePlan : undefined}
             />
+            {!guestMode && (
+            <>
             <ReportPreviewModal
                 isOpen={isReportPreviewOpen}
                 clientId={resolveClientId()}
@@ -498,6 +526,8 @@ const ResultPage: React.FC<ResultPageProps> = ({
                         </div>
                     </div>
                 </div>
+            )}
+            </>
             )}
         </>
     );

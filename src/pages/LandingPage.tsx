@@ -27,6 +27,11 @@ import LandingLeadModal from '../components/landing/LandingLeadModal';
 import FamilyOfficeSelfRegisterModal, {
     type FoRegisterOpenSource,
 } from '../components/landing/FamilyOfficeSelfRegisterModal';
+import {
+    captureClientB2cAttributionFromUrl,
+    hasClientB2cReferral,
+    navigateToB2cPlan,
+} from '../utils/clientB2cAttribution';
 
 interface LandingPageProps {
     onLogin: (intent?: 'client' | 'consultant') => void;
@@ -42,12 +47,22 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onPrivacy }) => {
     const [foRegisterSource, setFoRegisterSource] = useState<FoRegisterOpenSource>('manual');
 
     const openFoRegister = useCallback((source: string) => {
+        if (hasClientB2cReferral()) {
+            const ctx = getTrackingContext(lang, variant);
+            trackLandingEvent('cta_click', ctx, { cta: 'open_family_office_b2c', source });
+            navigateToB2cPlan();
+            return;
+        }
         const mapped: FoRegisterOpenSource =
             source === 'hero' || source === 'sticky' || source === 'final'
                 ? source
                 : 'manual';
         setFoRegisterSource(mapped);
         setFoRegisterOpen(true);
+    }, [lang, variant]);
+
+    useEffect(() => {
+        captureClientB2cAttributionFromUrl();
     }, []);
 
     useEffect(() => {
@@ -57,9 +72,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onPrivacy }) => {
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        if (params.get('open_fo') === '1') {
+        if (params.get('open_fo') === '1' && !hasClientB2cReferral()) {
             setFoRegisterSource('deeplink');
             setFoRegisterOpen(true);
+        }
+        if (params.get('open_fo') === '1' && hasClientB2cReferral()) {
+            navigateToB2cPlan();
         }
     }, []);
 

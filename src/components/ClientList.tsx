@@ -19,6 +19,7 @@ import { useCommissionForecastCache } from '../hooks/useCommissionForecastCache'
 import StatusDropdown from './StatusDropdown';
 import ClientB2cChatAiModal from './ClientB2cChatAiModal';
 import FamilyOfficeInviteModal from './FamilyOfficeInviteModal';
+import ClientB2cInviteModal from './ClientB2cInviteModal';
 import { clientToFamilyOfficeInvitePrefill } from '../utils/familyOfficeInvite';
 import type { FamilyOfficeInviteRequest } from '../api/agentLkApi';
 import CrmCommissionForecastModal from './crm/CrmCommissionForecastModal';
@@ -88,6 +89,7 @@ const ClientList: React.FC<ClientListProps> = ({
     const [chatModalClient, setChatModalClient] = useState<Client | null>(null);
     const [commissionModalClient, setCommissionModalClient] = useState<Client | null>(null);
     const [inviteModalOpen, setInviteModalOpen] = useState(false);
+    const [clientB2cInviteOpen, setClientB2cInviteOpen] = useState(false);
     const [invitePrefill, setInvitePrefill] = useState<Partial<FamilyOfficeInviteRequest> | undefined>();
     const [rebalanceSort, setRebalanceSort] = useState<RebalanceSort>('none');
     const trimmedSearch = search.trim();
@@ -301,11 +303,21 @@ const ClientList: React.FC<ClientListProps> = ({
                     </button>
                     <button
                         type="button"
-                        className="crm-btn-invite"
-                        onClick={() => openInviteModal()}
+                        className="crm-btn-invite crm-btn-invite--client"
+                        onClick={() => setClientB2cInviteOpen(true)}
+                        title="Ссылка для клиента: финансовый план на сайте"
                     >
                         <UserPlus size={18} />
-                        <span className="crm-btn-invite__label">Пригласить</span>
+                        <span className="crm-btn-invite__label">Пригласить клиента</span>
+                    </button>
+                    <button
+                        type="button"
+                        className="crm-btn-invite"
+                        onClick={() => openInviteModal()}
+                        title="Пригласить агента в Family Office"
+                    >
+                        <UserPlus size={18} />
+                        <span className="crm-btn-invite__label">В Family Office</span>
                     </button>
                     <button type="button" className="crm-btn-new-client" onClick={onNewClient}>
                         <Plus size={18} />
@@ -530,6 +542,10 @@ const ClientList: React.FC<ClientListProps> = ({
                 isOpen={inviteModalOpen}
                 onClose={closeInviteModal}
                 initialValues={invitePrefill}
+            />
+            <ClientB2cInviteModal
+                isOpen={clientB2cInviteOpen}
+                onClose={() => setClientB2cInviteOpen(false)}
             />
         </div>
     );

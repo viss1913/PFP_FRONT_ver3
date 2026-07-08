@@ -19,6 +19,10 @@ import {
 import { clampGoalValue, getGoalModalConfig } from '../../utils/goalOnboardingBounds';
 import { rangeFillStyle } from '../../utils/rangeInputStyle';
 import avatarImage from '../../assets/avatar_full.png';
+import {
+    AGENT_GOAL_SELECTION_DEFAULT_ADVICE,
+    B2C_GOAL_SELECTION_PENSION_ADVICE,
+} from '../../content/b2cGoalSelectionCopy';
 
 const INVEST_SAVE_TITLE = 'Сохранить и преумножить';
 
@@ -40,9 +44,16 @@ interface StepGoalSelectionProps {
     setData: React.Dispatch<React.SetStateAction<CJMData>>;
     onNext: () => void;
     onPrev: () => void;
+    guestMode?: boolean;
 }
 
-const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, onNext, onPrev }) => {
+const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({
+    data,
+    setData,
+    onNext,
+    onPrev,
+    guestMode = false,
+}) => {
 
 
     const goals = data.goals || [];
@@ -287,18 +298,37 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({ data, setData, on
 
                         {/* Speech Bubble */}
                         <div style={{
-                            background: '#fff',
+                            background: guestMode
+                                ? 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)'
+                                : '#fff',
                             borderRadius: '24px',
                             borderTopLeftRadius: '4px',
-                            padding: '32px',
-                            fontSize: '18px',
-                            lineHeight: '1.5',
+                            padding: '28px 32px',
+                            fontSize: guestMode ? '17px' : '18px',
+                            lineHeight: '1.65',
                             color: '#1F2937',
-                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
-                            maxWidth: '600px',
-                            fontWeight: '500'
+                            boxShadow: guestMode
+                                ? '0 8px 32px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255,255,255,0.9)'
+                                : '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                            maxWidth: '640px',
+                            fontWeight: 400,
+                            border: guestMode ? '1px solid rgba(148, 163, 184, 0.25)' : 'none',
                         }}>
-                            Выберите вашу первую цель. Я бы порекомендовала начать с создания пассивного дохода в будущем. Потом сможете добавить любую другую.
+                            {guestMode ? (
+                                <>
+                                    <p style={{ margin: '0 0 12px', fontWeight: 600, color: '#0f172a' }}>
+                                        {B2C_GOAL_SELECTION_PENSION_ADVICE.lead}
+                                    </p>
+                                    <p style={{ margin: '0 0 12px' }}>
+                                        {B2C_GOAL_SELECTION_PENSION_ADVICE.body}
+                                    </p>
+                                    <p style={{ margin: 0, color: '#475569', fontSize: '15px' }}>
+                                        {B2C_GOAL_SELECTION_PENSION_ADVICE.closing}
+                                    </p>
+                                </>
+                            ) : (
+                                AGENT_GOAL_SELECTION_DEFAULT_ADVICE
+                            )}
                         </div>
                     </div>
                 </div>

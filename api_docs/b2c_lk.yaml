@@ -1,0 +1,723 @@
+openapi: 3.0.0
+info:
+  title: B2C API (Личный кабинет клиента)
+  description: Единый API для фронтенда личного кабинета. Включает регистрацию, расчет плана, ИИ-чат и макроэкономические данные.
+  version: 2.0.0
+servers:
+  - url: /api
+    description: Main API server
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ==================== АВТОРИЗАЦИЯ И ПОЛЬЗОВАТЕЛЬ ====================
+  /auth/login:
+    post:
+      tags: [ "Авторизация" ]
+      summary: Клиент Логин
+      description: Авторизация клиента по email и паролю
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ email, password ]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: Успешный вход. Возвращает токен и профиль клиента
+          content:
+            application/json:
+              schema:
+                $ref: '../../openapi/pfpB2C.yaml#/components/schemas/AuthResponse'
+
+  /auth/register-client:
+    post:
+      tags: [ "Регистрация" ]
+      summary: Шаг 1. Инициация регистрации (отправка кода на email)
+      description: |
+        Опционально передайте `ref` (referral_slug агента) и UTM-поля — привязка к агенту сохраняется в payload верификации
+        и применяется при `POST /auth/verify-code` (`clients.agent_id`, `clients.referred_by_agent_id`).
+      parameters:
+        - $ref: '../../openapi/pfpB2C.yaml#/components/parameters/ProjectKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ email, name, project_key ]
+              properties:
+                email: { type: string, format: email }
+                name: { type: string, minLength: 2, maxLength: 255 }
+                project_key: { type: string }
+                ref: { type: string, maxLength: 128, description: "referral_slug агента из client-invite-link" }
+                utm_source: { type: string }
+                utm_medium: { type: string }
+                utm_campaign: { type: string }
+                utm_content: { type: string }
+                utm_term: { type: string }
+                utm_partner_finam: { type: string }
+
+  /auth/verify-code:
+    post:
+      tags: [ "Регистрация" ]
+      summary: Шаг 2. Подтверждение email и создание аккаунта
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ email, code ]
+              properties:
+                email: { type: string }
+                code: { type: string, description: "6-значный код из письма" }
+                password: { type: string, minLength: 6, description: "Пароль для нового аккаунта" }
+
+  /auth/client-referral/preview:
+    get:
+      tags: [ "Регистрация" ]
+      summary: Проверить ref агента (публично, без JWT)
+      security: []
+      parameters:
+        - name: ref
+          in: query
+          required: true
+          schema: { type: string }
+        - name: project_key
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Имя агента для UI «Вас пригласил …»
+
+  /auth/register-fast:
+    post:
+      tags: [ "Регистрация" ]
+      summary: Быстрая регистрация (без подтверждения email)
+      parameters:
+        - $ref: '../../openapi/pfpB2C.yaml#/components/parameters/ProjectKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ email, password ]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 6 }
+                fio: { type: string }
+                ref: { type: string, maxLength: 128 }
+                utm_source: { type: string }
+                utm_medium: { type: string }
+                utm_campaign: { type: string }
+                utm_partner_finam: { type: string }
+
+  /client/calculate:
+    post:
+      tags: [ "Гостевой CJM" ]
+      summary: Расчёт плана без логина (stateless)
+      security: []
+      parameters:
+        - $ref: '../../openapi/pfpB2C.yaml#/components/parameters/ProjectKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../openapi/pfpB2C.yaml#/components/schemas/CalculationRequest'
+      responses:
+        '200':
+          description: Результат расчёта (в БД не сохраняется)
+          content:
+            application/json:
+              schema:
+                $ref: '../../openapi/pfpB2C.yaml#/components/schemas/CalculationResponse'
+
+  /client/plan/save:
+    post:
+      tags: [ "Гостевой CJM" ]
+      summary: Расчёт + сохранение лида в CRM (без пароля)
+      description: |
+        Публичный endpoint. Заголовок `x-project-key`, в теле обязательны `ref`, `goals`, `client.email`.
+        Создаёт/обновляет `clients` (лид, `user_id IS NULL`), привязку к агенту по `ref`, `goals_summary`.
+        Возвращает `guest_token` (JWT, TTL ~30 дней, `guest: true`) для `GET /my/plan/report/html` и `/pdf`.
+        При последующем `verify-code` / `register-fast` с тем же email — claim лида без дубля.
+      security: []
+      parameters:
+        - $ref: '../../openapi/pfpB2C.yaml#/components/parameters/ProjectKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ ref, goals, client ]
+              properties:
+                ref:
+                  type: string
+                  description: referral_slug агента из invite-link
+                goals:
+                  type: array
+                  items:
+                    $ref: '../../openapi/pfpB2C.yaml#/components/schemas/CalculationGoal'
+                client:
+                  allOf:
+                    - $ref: '../../openapi/pfpB2C.yaml#/components/schemas/ClientData'
+                    - type: object
+                      required: [ email ]
+                      properties:
+                        email:
+                          type: string
+                          format: email
+      responses:
+        '200':
+          description: План сохранён
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ client_id, guest_token, plan_saved ]
+                properties:
+                  client_id: { type: integer }
+                  guest_token: { type: string }
+                  plan_saved: { type: boolean }
+                  summary: { type: object }
+                  goals: { type: array, items: { type: object } }
+
+  /client/risk-profile/questionnaire-v2:
+    get:
+      tags: [ "Гостевой CJM" ]
+      summary: Анкета риск-профиля для гостя (без JWT)
+      security: []
+      parameters:
+        - $ref: '../../openapi/pfpB2C.yaml#/components/parameters/ProjectKeyHeader'
+      responses:
+        '200':
+          description: Client-friendly анкета v2
+
+  /client/risk-profile/evaluate:
+    post:
+      tags: [ "Гостевой CJM" ]
+      summary: Оценка риск-профиля без сохранения в БД
+      security: []
+      parameters:
+        - $ref: '../../openapi/pfpB2C.yaml#/components/parameters/ProjectKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ risk_profile_answers ]
+              properties:
+                risk_profile_answers:
+                  type: object
+                  additionalProperties: true
+                goal:
+                  type: object
+                  properties:
+                    goal_type_id: { type: integer }
+                    term_months: { type: integer }
+                client:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '200':
+          description: risk_profile_result и risk_profile_explanation
+
+  /my/account:
+    delete:
+      tags: [ "Профиль" ]
+      summary: Удалить аккаунт
+      description: Полное удаление аккаунта пользователя и всех его данных
+
+  # ==================== ФИНАНСОВЫЙ ПЛАН И ЦЕЛИ ====================
+  /my/plan:
+    get:
+      tags: [ "Финансовый План" ]
+      summary: Получить текущий финансовый план
+      description: Возвращает сохраненный план для авторизованного клиента
+
+  /my/plan/report:
+    get:
+      tags: [ "Финансовый План" ]
+      summary: JSON отчёта (графики, pdf_summary_layout, ИИ-резюме)
+      description: |
+        Те же данные, что `GET /api/pfp/reports/:clientId` для агента, но только для клиента из JWT.
+        При включённой витрине в `projects.settings.comon_showcase` в ответе может быть поле `comon_showcase`.
+
+  /my/plan/comon-showcase:
+    get:
+      tags: [ "Финансовый План" ]
+      summary: Витрина стратегий Comon (без полного тела отчёта)
+      description: |
+        Тот же отбор и дисклеймер, что в `comon_showcase` внутри `GET /my/plan/report`.
+        Если витрина для проекта выключена — `{ "enabled": false }`.
+
+  /my/risk-profile/questionnaire:
+    get:
+      tags: [ "Финансовый План" ]
+      summary: Получить активную анкету риск-профиля
+      description: |
+        Возвращает структуру анкеты для frontend rendering:
+        вопросы, пояснения, варианты, баллы и версию анкеты.
+        Фронт не должен хардкодить тексты и score-логику.
+      responses:
+        '200':
+          description: Метаданные анкеты
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  questionnaire:
+                    $ref: '../../openapi/pfpB2C.yaml#/components/schemas/RiskQuestionnaire'
+
+  /my/risk-profile/questionnaire-v2:
+    get:
+      tags: [ "Финансовый План" ]
+      summary: Получить человекочитаемую анкету риск-профиля (v2)
+      description: |
+        Возвращает активную анкету в client-friendly формате для прямого рендера на фронте:
+        только человекочитаемые вопросы/варианты, без score и технических id.
+      responses:
+        '200':
+          description: Метаданные анкеты v2
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  questionnaire:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      code:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                        nullable: true
+                      questions:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            code:
+                              type: string
+                            title:
+                              type: string
+                            description:
+                              type: string
+                              nullable: true
+                            help_text:
+                              type: string
+                              nullable: true
+                            sort_order:
+                              type: integer
+                            options:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  code:
+                                    type: string
+                                  label:
+                                    type: string
+                                  sort_order:
+                                    type: integer
+
+  /my/risk-profile/answers:
+    get:
+      tags: [ "Финансовый План" ]
+      summary: Получить сохраненные ответы риск-анкеты
+      responses:
+        '200':
+          description: Ответы и последний расчет риск-профиля
+          content:
+            application/json:
+              schema:
+                $ref: '../../openapi/pfpB2C.yaml#/components/schemas/RiskProfileAnswersPayload'
+    post:
+      tags: [ "Финансовый План" ]
+      summary: Сохранить ответы риск-анкеты
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../openapi/pfpB2C.yaml#/components/schemas/RiskProfileAnswersPayload'
+      responses:
+        '200':
+          description: Ответы сохранены
+
+  /my/plan/first-run:
+    post:
+      tags: [ "Финансовый План" ]
+      summary: Создать/Обновить финансовый план (Первичный расчет)
+      description: Выполняет полный расчет плана и сохраняет его для авторизованного клиента
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../openapi/pfpB2C.yaml#/components/schemas/CalculationRequest'
+      responses:
+        '200':
+          description: Расчет успешен
+          content:
+            application/json:
+              schema:
+                $ref: '../../openapi/pfpB2C.yaml#/components/schemas/CalculationResponse'
+
+  /my/plan/{goalId}/recalculate:
+    post:
+      tags: [ "Цели" ]
+      summary: Пересчет конкретной финансовой цели
+      description: |
+        Тело — поля цели (см. `CalculationGoal` в `openapi/pfpB2C.yaml`): обычно патч изменённых полей.
+        **Ручной риск:** `risk_profile` (CONSERVATIVE | BALANCED | AGGRESSIVE); для UI с 5 уровнями — также **`risk_profile_extended`**
+        (CONSERVATIVE, MODERATELY_CONSERVATIVE, BALANCED, MODERATELY_AGGRESSIVE, AGGRESSIVE), иначе срез портфеля может взяться только по тройке.
+        Если в запросе явно переданы `risk_profile` и/или `risk_profile_extended`, они **имеют приоритет** над автоматическим профилем из анкеты для этой цели.
+        Опционально в том же JSON: **`client`** — фрагмент `ClientData` (например `risk_profile_answers`), как при first-run.
+      parameters:
+        - name: goalId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../openapi/pfpB2C.yaml#/components/schemas/CalculationGoal'
+      responses:
+        '200':
+          description: Пересчет успешен
+          content:
+            application/json:
+              schema:
+                $ref: '../../openapi/pfpB2C.yaml#/components/schemas/CalculationResponse'
+
+  /my/plan/goals:
+    post:
+      tags: [ "Цели" ]
+      summary: Добавить новую цель в план
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../openapi/pfpB2C.yaml#/components/schemas/CalculationGoal'
+      responses:
+        '200':
+          description: Цель добавлена
+          content:
+            application/json:
+              schema:
+                $ref: '../../openapi/pfpB2C.yaml#/components/schemas/CalculationResponse'
+
+  /my/plan/goals/{goalId}:
+    delete:
+      tags: [ "Цели" ]
+      summary: Удалить цель из финансового плана
+      parameters:
+        - name: goalId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Цель удалена
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+
+  # ==================== ПОРТФЕЛЬ ====================
+  /my/portfolio:
+    get:
+      tags: [ "Портфель" ]
+      summary: Получить состав текущего портфеля
+      description: Заглушка. Возвращает мок-данные.
+
+  # ==================== ИИ ЧАТ (AI B2C) ====================
+  /my/ai-b2c/chat:
+    post:
+      tags: [ "AI B2C" ]
+      summary: Отправить сообщение ИИ (Обычный ответ)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message: { type: string }
+                stage: { type: string, description: "Стейдж чата (например, PFP1)" }
+  
+  /my/ai-b2c/chat/stream:
+    post:
+      tags: [ "AI B2C" ]
+      summary: Отправить сообщение ИИ (Стриминг SSE)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message: { type: string }
+                stage: { type: string }
+
+  /my/ai-b2c/chat_AI/stream:
+    post:
+      tags: [ "AI B2C" ]
+      summary: Отправить сообщение в отдельный chat_AI поток (Стриминг SSE)
+      description: |
+        Отдельный 2-шаговый поток chat_AI с собственной историей/контекстами.
+        Если классификатор выбрал `/calc` (или `/recalc`, `/recalculate`), сервер выполняет реальный пересчёт цели:
+        extraction patch -> recalculate -> persist -> goals_summary -> PDF URL.
+        SSE-события в этом кейсе: `pdf_url` (опционально), затем `text`, затем `done`.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ message ]
+              properties:
+                message: { type: string }
+
+  /my/ai-b2c/history:
+    get:
+      tags: [ "AI B2C" ]
+      summary: Получить историю чата
+      parameters:
+        - in: query
+          name: stage
+          schema: { type: string }
+    delete:
+      tags: [ "AI B2C" ]
+      summary: Очистить историю чата
+      parameters:
+        - in: query
+          name: stage
+          schema: { type: string }
+
+  /my/ai-b2c/stages:
+    get:
+      tags: [ "AI B2C" ]
+      summary: Получить доступные Stages (Этапы) для клиента
+
+  /my/ai-b2c/settings:
+    get:
+      tags: [ "AI B2C" ]
+      summary: Получить настройки ассистента (имя, аватар, описание)
+      description: Возвращает фронту отображаемые настройки ассистента в рамках текущего проекта клиента.
+      responses:
+        '200':
+          description: Настройки ассистента или null, если ещё не настроены
+          content:
+            application/json:
+              schema:
+                $ref: '../../docs/api/aiB2c.yaml#/components/schemas/AiB2cSettingsPublic'
+
+  # ==================== МАКРОЭКОНОМИКА ====================
+  /pfp/macro/latest:
+    get:
+      tags: [ "Макро" ]
+      summary: Текущие макроэкономические данные
+      description: |
+        Банковские ставки, макропоказатели для виджетов.
+        ИПЦ г/г для UI — поле **inflation_yoy** (slug `russia_cpi_inflation_yoy`, источник ЦБ Excel).
+
+  /pfp/macro/history/{slug}:
+    get:
+      tags: [ "Макро" ]
+      summary: История показателей
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string, example: "inflation-ru" }
+
+  # ==================== СТРАТЕГИИ COMON (ЛК КЛИЕНТА) ====================
+  /my/comon-strategies:
+    get:
+      tags: [ "Стратегии консультанта (Comon)" ]
+      summary: Список стратегий агента клиента
+      description: |
+        Только role=client (в токене есть clientId). Данные — из карточек агента (`clients.agent_id`).
+        Если агента нет — пустой `strategies`, `has_linked_agent: false`, текст в `disclaimer_ru`.
+        См. docs/COMON_STRATEGIES_LK.md
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientComonStrategyListResponse"
+        "403":
+          description: Нет clientId в токене
+
+  /my/comon-strategies/{id}:
+    get:
+      tags: [ "Стратегии консультанта (Comon)" ]
+      summary: Одна карточка для клиента
+      description: |
+        `id` — внутренний id записи agent_comon_strategies, не id Comon.
+        Проверяется, что карточка принадлежит агенту клиента.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientComonStrategyOneResponse"
+        "404":
+          description: Нет доступа или запись не найдена
+
+  /my/comon-strategies/{id}/profit:
+    get:
+      tags: [ "Стратегии консультанта (Comon)" ]
+      summary: Ряд для графика (прокси Comon)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: success, data — как у Comon
+        "502":
+          description: Ошибка Comon
+
+  /my/comon-strategies/{id}/profit/metrics:
+    get:
+      tags: [ "Стратегии консультанта (Comon)" ]
+      summary: Метрики доходности + disclaimer_ru
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: success, data.metrics, data.disclaimer_ru
+        "502":
+          description: Ошибка Comon
+
+  # ==================== ОТЧЕТЫ ====================
+  /my/reports/{clientId}:
+    get:
+      tags: [ "Отчеты" ]
+      summary: Получить данные для отчета
+      description: Специфичный метод фронта для генерации отчетов.
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema: { type: string }
+
+components:
+  schemas:
+    ClientComonPortfolioItem:
+      type: object
+      properties:
+        instrument:
+          type: string
+        share_percent:
+          type: number
+
+    ClientComonStrategyCard:
+      type: object
+      description: Карточка без agent_id; есть risk_profile_label_ru
+      properties:
+        id:
+          type: integer
+          format: int64
+        comon_strategy_id:
+          type: string
+        comon_url:
+          type: string
+          nullable: true
+        comon_profit_api_url:
+          type: string
+          nullable: true
+        name:
+          type: string
+        min_contribution:
+          type: number
+          nullable: true
+        risk_profile:
+          type: string
+        risk_profile_label_ru:
+          type: string
+          example: "Сбалансированный"
+        description:
+          type: string
+          nullable: true
+        portfolio:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientComonPortfolioItem"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ClientComonStrategyListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            strategies:
+              type: array
+              items:
+                $ref: "#/components/schemas/ClientComonStrategyCard"
+            has_linked_agent:
+              type: boolean
+            disclaimer_ru:
+              type: string
+
+    ClientComonStrategyOneResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            strategy:
+              $ref: "#/components/schemas/ClientComonStrategyCard"
+            disclaimer_ru:
+              type: string
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
