@@ -6,7 +6,7 @@
 
 Спеки: [`api_docs/b2c_lk.yaml`](../api_docs/b2c_lk.yaml)
 
-**Передача агентам (свой контур, кастомизация `/plan`):** см. [`B2C_PLAN_HANDOFF.md`](./B2C_PLAN_HANDOFF.md) и Cursor skill [`.cursor/skills/b2c-plan-handoff/SKILL.md`](../.cursor/skills/b2c-plan-handoff/SKILL.md).
+**Передача агентам (свой контур, кастомизация `/plan`):** ветка [`conomy`](https://github.com/viss1913/PFP_FRONT_ver3/tree/conomy) — см. [`B2C_PLAN_HANDOFF.md`](./B2C_PLAN_HANDOFF.md) и Cursor skill [`.cursor/skills/b2c-plan-handoff/SKILL.md`](../.cursor/skills/b2c-plan-handoff/SKILL.md). Пуш обратно в `conomy` ок.
 
 ---
 
