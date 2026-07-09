@@ -6,6 +6,8 @@
 
 Спеки: [`api_docs/b2c_lk.yaml`](../api_docs/b2c_lk.yaml)
 
+**Передача агентам (свой контур, кастомизация `/plan`):** см. [`B2C_PLAN_HANDOFF.md`](./B2C_PLAN_HANDOFF.md) и Cursor skill [`.cursor/skills/b2c-plan-handoff/SKILL.md`](../.cursor/skills/b2c-plan-handoff/SKILL.md).
+
 ---
 
 ## Целевой флоу

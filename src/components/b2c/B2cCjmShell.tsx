@@ -12,10 +12,26 @@ interface B2cCjmShellProps {
     currentStep: number;
     steps: B2cCjmShellStep[];
     inviterName?: string;
+    clientAge?: number;
+    mainVariant?: 'form' | 'goals' | 'assets' | 'reserve' | 'life' | 'risk';
     children: ReactNode;
 }
 
-const B2cCjmShell: React.FC<B2cCjmShellProps> = ({ currentStep, steps, inviterName, children }) => {
+const B2cCjmShell: React.FC<B2cCjmShellProps> = ({
+    currentStep,
+    steps,
+    inviterName,
+    clientAge,
+    mainVariant = 'form',
+    children,
+}) => {
+    const isWideMain =
+        mainVariant === 'goals' ||
+        mainVariant === 'assets' ||
+        mainVariant === 'reserve' ||
+        mainVariant === 'life' ||
+        mainVariant === 'risk';
+    const isLightWide = mainVariant === 'risk';
     return (
         <div className="b2c-cjm">
             <nav className="b2c-cjm__stepper" aria-label="Шаги анкеты">
@@ -30,7 +46,7 @@ const B2cCjmShell: React.FC<B2cCjmShellProps> = ({ currentStep, steps, inviterNa
                         >
                             <div className="b2c-cjm__step-icon-wrap">
                                 <span className="b2c-cjm__step-icon" aria-hidden>
-                                    <Icon size={20} strokeWidth={2} />
+                                    <Icon size={18} strokeWidth={2} />
                                 </span>
                                 {index < steps.length - 1 ? (
                                     <span className="b2c-cjm__step-line" aria-hidden />
@@ -42,10 +58,14 @@ const B2cCjmShell: React.FC<B2cCjmShellProps> = ({ currentStep, steps, inviterNa
                 })}
             </nav>
 
-            <div className="b2c-cjm__workspace">
-                <B2cCjmSidebar step={currentStep} inviterName={inviterName} />
-                <div className="b2c-cjm__main">
-                    <div className="b2c-cjm__card">{children}</div>
+            <div className={`b2c-cjm__workspace${isWideMain ? ' b2c-cjm__workspace--goals' : ''}`}>
+                <B2cCjmSidebar step={currentStep} inviterName={inviterName} clientAge={clientAge} />
+                <div className={`b2c-cjm__main${isWideMain ? ' b2c-cjm__main--goals' : ''}`}>
+                    <div
+                        className={`b2c-cjm__card${isWideMain ? ' b2c-cjm__card--goals' : ''}${isLightWide ? ' b2c-cjm__card--risk' : ''}`}
+                    >
+                        {children}
+                    </div>
                 </div>
             </div>
         </div>

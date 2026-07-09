@@ -19,7 +19,7 @@ import ipoteka from '../assets/goals/pervyy_vznos_na_ipoteku.webp';
 import pereezd from '../assets/goals/pereezd.webp';
 import business from '../assets/goals/svoybiznes.webp';
 import other from '../assets/goals/drugoe.webp';
-import inheritanceImg from '../../assets/INHERITANCE.webp';
+import inheritanceImg from '../assets/goals/inheritance.webp';
 
 // Goal Type IDs
 export const GOAL_TYPE_PENSION = 1;

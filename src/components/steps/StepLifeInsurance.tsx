@@ -2,19 +2,27 @@ import React, { useState, useEffect } from 'react';
 import type { CJMData } from '../CJMFlow';
 import avatarImage from '../../assets/avatar_full.png';
 import { rangeFillStyle } from '../../utils/rangeInputStyle';
+import B2cStepLifeInsurance from '../b2c/B2cStepLifeInsurance';
 
 interface StepLifeInsuranceProps {
     data: CJMData;
     setData: React.Dispatch<React.SetStateAction<CJMData>>;
     onNext: () => void;
     onPrev: () => void;
+    guestMode?: boolean;
 }
 
 const CAPITAL_FLOOR = 500_000;
 const LIFE_CAP_CEILING = 10_000_000;
 const STEP = 50_000;
 
-const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, onNext, onPrev }) => {
+const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({
+    data,
+    setData,
+    onNext,
+    onPrev,
+    guestMode = false,
+}) => {
     /** Тот же пул, что в StepFinReserve: активы или ввод по «Сохранить и преумножить» / Рента (без подмешивания финрезерва). */
     const assetsCapital = (data.assets || []).reduce((sum, a) => sum + (a.current_value || 0), 0);
     const investmentOrRentGoalCapital = (data.goals || [])
@@ -64,6 +72,20 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
 
     if (!showLifeInsuranceUi) {
         return null;
+    }
+
+    if (guestMode) {
+        return (
+            <B2cStepLifeInsurance
+                limit={limit}
+                minLimit={MIN_LIMIT}
+                maxLimit={MAX_LIMIT}
+                step={STEP}
+                onLimitChange={setLimit}
+                onNext={onNext}
+                onPrev={onPrev}
+            />
+        );
     }
 
     return (

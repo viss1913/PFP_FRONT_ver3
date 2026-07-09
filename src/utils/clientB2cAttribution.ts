@@ -96,22 +96,18 @@ export function navigateToB2cPlan(): void {
     window.location.assign(buildB2cPlanPath());
 }
 
-/** Бэк отдаёт CLIENT_LANDING_BASE_URL/?ref=… — для клиента нужен /plan. */
+/**
+ * Бэк отдаёт url вида …/plan?ref=… — для CDN нужен /plan/ (со слэшем).
+ * Query не трогаем: project_key / UTM не дописываем от себя.
+ */
 export function normalizeClientInviteUrl(url: string): string {
     try {
         const parsed = new URL(url, window.location.origin);
         const ref = parsed.searchParams.get('ref')?.trim();
         if (!ref) return url;
 
-        const attribution: ClientB2cAttribution = {
-            project_key: parsed.searchParams.get('project_key')?.trim() || PROJECT_KEY,
-            ref,
-        };
-        for (const key of UTM_KEYS) {
-            const value = parsed.searchParams.get(key)?.trim();
-            if (value) attribution[key] = value;
-        }
-        return `${parsed.origin}${buildB2cPlanPath(attribution)}`;
+        const qs = parsed.searchParams.toString();
+        return `${parsed.origin}/plan/${qs ? `?${qs}` : ''}`;
     } catch {
         return url;
     }

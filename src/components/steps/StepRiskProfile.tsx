@@ -4,6 +4,7 @@ import { CheckCircle2, Loader2 } from 'lucide-react';
 import type { CJMData } from '../CJMFlow';
 import avatarImage from '../../assets/avatar_full.png';
 import type { RiskQuestionnaire } from '../../api/clientApi';
+import B2cStepRiskProfile from '../b2c/B2cStepRiskProfile';
 
 const HANDOFF_MS = 640;
 const MOTION_EASE = [0.4, 0, 0.2, 1] as const;
@@ -16,6 +17,7 @@ interface StepProps {
     loading: boolean;
     questionnaire: RiskQuestionnaire | null;
     isQuestionnaireLoading: boolean;
+    guestMode?: boolean;
 }
 
 const StepRiskProfile: React.FC<StepProps> = ({
@@ -26,6 +28,7 @@ const StepRiskProfile: React.FC<StepProps> = ({
     loading,
     questionnaire,
     isQuestionnaireLoading,
+    guestMode = false,
 }) => {
     const questions = React.useMemo(() => {
         const source = questionnaire?.questions || [];
@@ -45,8 +48,10 @@ const StepRiskProfile: React.FC<StepProps> = ({
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(firstUnansweredIndex >= 0 ? firstUnansweredIndex : 0);
     /** После последнего ответа — короткий экран «готово», потом вызов расчёта (чтобы data успел обновиться). */
     const [handoffAfterLastAnswer, setHandoffAfterLastAnswer] = useState(false);
+    const guestIndexSeededForLength = React.useRef<number | null>(null);
 
     useEffect(() => {
+        if (guestMode) return;
         const nextIndex =
             firstUnansweredIndex >= 0
                 ? firstUnansweredIndex
@@ -54,15 +59,32 @@ const StepRiskProfile: React.FC<StepProps> = ({
                   ? questions.length - 1
                   : 0;
         setCurrentQuestionIndex(nextIndex);
-    }, [firstUnansweredIndex, questions.length]);
+    }, [firstUnansweredIndex, questions.length, guestMode]);
 
     useEffect(() => {
+        if (!guestMode) {
+            guestIndexSeededForLength.current = null;
+            return;
+        }
+        if (guestIndexSeededForLength.current === questions.length) return;
+        guestIndexSeededForLength.current = questions.length;
+        const nextIndex =
+            firstUnansweredIndex >= 0
+                ? firstUnansweredIndex
+                : questions.length > 0
+                  ? questions.length - 1
+                  : 0;
+        setCurrentQuestionIndex(nextIndex);
+    }, [guestMode, questions.length, firstUnansweredIndex]);
+
+    useEffect(() => {
+        if (guestMode) return;
         if (allAnswered || questions.length === 0) return;
         if (typeof answers[questions[currentQuestionIndex]?.code] === 'string') {
             const nextIdx = questions.findIndex((q) => typeof answers[q.code] !== 'string');
             if (nextIdx >= 0) setCurrentQuestionIndex(nextIdx);
         }
-    }, [answers, currentQuestionIndex, allAnswered, questions]);
+    }, [answers, currentQuestionIndex, allAnswered, questions, guestMode]);
 
     useEffect(() => {
         if (loading) {
@@ -78,7 +100,9 @@ const StepRiskProfile: React.FC<StepProps> = ({
         return () => window.clearTimeout(t);
     }, [handoffAfterLastAnswer, allAnswered, loading, onComplete]);
 
-    const setAnswer = (questionCode: string, optionCode: string) => {
+    const setAnswer = (questionCode: string, optionCode: string, opts?: { autoAdvance?: boolean }) => {
+        const autoAdvance = opts?.autoAdvance !== false;
+
         setData((prev) => {
             const nextAnswers = {
                 ...prev.riskProfileAnswers,
@@ -90,9 +114,15 @@ const StepRiskProfile: React.FC<StepProps> = ({
             };
         });
 
+        if (!autoAdvance) return;
+
         const currentIdx = questions.findIndex((q) => q.code === questionCode);
         const nextIdx = questions.findIndex((q, idx) => idx > currentIdx && typeof answers[q.code] !== 'string');
-        if (nextIdx >= 0) setCurrentQuestionIndex(nextIdx);
+        if (nextIdx >= 0) {
+            setCurrentQuestionIndex(nextIdx);
+        } else if (guestMode && currentIdx >= 0 && currentIdx < questions.length - 1) {
+            setCurrentQuestionIndex(currentIdx + 1);
+        }
 
         const wasAllAnswered = questions.every((q) => typeof answers[q.code] === 'string');
         const willCompleteAll = questions.every((q) =>
@@ -108,6 +138,42 @@ const StepRiskProfile: React.FC<StepProps> = ({
 
     const phase: 'form' | 'handoff' | 'loading' = loading ? 'loading' : handoffAfterLastAnswer ? 'handoff' : 'form';
     const blockBusy = loading || handoffAfterLastAnswer;
+
+    const goNextQuestion = () => {
+        setCurrentQuestionIndex((prev) => Math.min(prev + 1, Math.max(questions.length - 1, 0)));
+    };
+
+    const goPrevQuestion = () => {
+        setCurrentQuestionIndex((prev) => Math.max(0, prev - 1));
+    };
+
+    const triggerComplete = () => {
+        if (!allAnswered || blockBusy || questions.length === 0) return;
+        if (guestMode) {
+            setHandoffAfterLastAnswer(true);
+            return;
+        }
+        onComplete();
+    };
+
+    if (guestMode) {
+        return (
+            <B2cStepRiskProfile
+                questions={questions}
+                answers={answers}
+                currentQuestionIndex={currentQuestionIndex}
+                phase={phase}
+                isQuestionnaireLoading={isQuestionnaireLoading}
+                blockBusy={blockBusy}
+                allAnswered={allAnswered}
+                onSelectAnswer={(code, option) => setAnswer(code, option, { autoAdvance: true })}
+                onPrevQuestion={goPrevQuestion}
+                onNextQuestion={goNextQuestion}
+                onPrevStep={onPrev}
+                onComplete={triggerComplete}
+            />
+        );
+    }
 
     const loaderBlock = (
         <motion.div

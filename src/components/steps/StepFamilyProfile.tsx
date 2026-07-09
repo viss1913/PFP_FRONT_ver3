@@ -4,6 +4,13 @@ import { Banknote, GraduationCap, HandCoins, HeartHandshake, Home, Landmark, Tra
 import type { CJMData, ClientCreditType, FamilyObligation, FamilyRealEstateStatus } from '../CJMFlow';
 import { clientApi } from '../../api/clientApi';
 import { getRussianPhoneDigits, hasCompleteRussianPhone } from '../../utils/phone';
+import B2cStepFamilyForm from '../b2c/B2cStepFamilyForm';
+
+function isValidClientEmail(value: string): boolean {
+    const t = value.trim();
+    if (!t) return false;
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t);
+}
 
 function isValidNdaEmail(value: string): boolean {
     const t = value.trim();
@@ -65,6 +72,8 @@ interface StepFamilyProfileProps {
     onNext: () => void;
     onPrev: () => void;
     hideNda?: boolean;
+    variant?: 'default' | 'b2c';
+    showBack?: boolean;
 }
 
 const maritalOptions = [
@@ -113,12 +122,59 @@ const creditTypeOptions: Array<{ value: ClientCreditType; label: string }> = [
     { value: 'OTHER', label: 'Другое' }
 ];
 
-const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, onNext, onPrev, hideNda = false }) => {
+const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({
+    data,
+    setData,
+    onNext,
+    onPrev,
+    hideNda = false,
+    variant = 'default',
+    showBack = true,
+}) => {
     const family = data.familyProfile;
     const [childBirthDateDrafts, setChildBirthDateDrafts] = useState<Record<number, string>>({});
+    const [clientBirthDateDraft, setClientBirthDateDraft] = useState('');
     const [ndaLoading, setNdaLoading] = useState(false);
     const [ndaError, setNdaError] = useState<string | null>(null);
     const [ndaOkMessage, setNdaOkMessage] = useState<string | null>(null);
+    const [openSections, setOpenSections] = useState({
+        expenses: false,
+        real_estate: false,
+        credits: false,
+        children: false,
+        income: true,
+    });
+    const toggleSection = (key: keyof typeof openSections) => {
+        setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+    };
+
+    const handleClientFieldChange = (field: 'fio' | 'email', value: string) => {
+        setData((prev) => ({ ...prev, [field]: value }));
+    };
+
+    const handleClientBirthDateChange = (value: string) => {
+        const normalized = normalizeRuDateInput(value);
+        setClientBirthDateDraft(normalized);
+        if (!normalized) {
+            setData((prev) => ({ ...prev, birthDate: undefined }));
+            return;
+        }
+        const iso = parseRuDateToIso(normalized);
+        if (!iso) return;
+        const age = calculateAge(iso);
+        setData((prev) => ({ ...prev, birthDate: iso, age }));
+    };
+
+    const calculateAge = (birthDate: string): number => {
+        const today = new Date();
+        const dob = new Date(birthDate);
+        let age = today.getFullYear() - dob.getFullYear();
+        const monthDiff = today.getMonth() - dob.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+            age -= 1;
+        }
+        return age;
+    };
     const panelStyle: React.CSSProperties = {
         borderRadius: 18,
         border: '1px solid rgba(148, 163, 184, 0.26)',
@@ -341,6 +397,12 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
         return `${yyyy}-${mm}-${dd}`;
     };
 
+    useEffect(() => {
+        if (variant === 'b2c') {
+            setClientBirthDateDraft(formatIsoToRuDate(data.birthDate));
+        }
+    }, [data.birthDate, variant]);
+
     const formatMoneyInput = (value: number): string => {
         if (!value) return '';
         return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
@@ -355,6 +417,11 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
         family.children.length === 0 ||
         family.children.every((c) => (c.first_name || '').trim().length > 0);
     const isValid = Boolean(family.marital_status) && everyChildHasName;
+    const b2cFormValid =
+        isValid &&
+        !!(data.fio || '').trim() &&
+        !!data.birthDate &&
+        isValidClientEmail(data.email || '');
     const isMarried = family.marital_status === 'married' || family.marital_status === 'civil_union';
     const spouseIncomeLabel = data.gender === 'male' ? 'Доход супруги (в месяц)' : 'Доход супруга (в месяц)';
 
@@ -430,6 +497,48 @@ const StepFamilyProfile: React.FC<StepFamilyProfileProps> = ({ data, setData, on
             setNdaLoading(false);
         }
     };
+
+    if (variant === 'b2c') {
+        return (
+            <B2cStepFamilyForm
+                data={data}
+                family={family}
+                openSections={openSections}
+                toggleSection={toggleSection}
+                clientBirthDateDraft={clientBirthDateDraft}
+                childBirthDateDrafts={childBirthDateDrafts}
+                onClientFieldChange={handleClientFieldChange}
+                onClientBirthDateChange={handleClientBirthDateChange}
+                onNext={onNext}
+                onPrev={onPrev}
+                showBack={showBack}
+                formValid={b2cFormValid}
+                isMarried={isMarried}
+                spouseIncomeLabel={spouseIncomeLabel}
+                obligations={obligations}
+                obligationIcon={obligationIcon}
+                estateStatuses={estateStatuses}
+                realEstateTypeOptions={realEstateTypeOptions}
+                creditTypeOptions={creditTypeOptions}
+                formatMoneyInput={formatMoneyInput}
+                parseMoneyInput={parseMoneyInput}
+                updateObligationByType={updateObligationByType}
+                updateEstate={updateEstate}
+                addEstate={addEstate}
+                updateCredit={updateCredit}
+                addCredit={addCredit}
+                removeCredit={removeCredit}
+                updateChild={updateChild}
+                addChild={addChild}
+                removeChild={removeChild}
+                setChildBirthDateDrafts={setChildBirthDateDrafts}
+                setData={setData}
+                normalizeRuDateInput={normalizeRuDateInput}
+                parseRuDateToIso={parseRuDateToIso}
+                formatIsoToRuDate={formatIsoToRuDate}
+            />
+        );
+    }
 
     return (
         <div style={{

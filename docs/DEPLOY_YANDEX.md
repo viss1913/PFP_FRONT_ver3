@@ -59,7 +59,18 @@ SEO (Вебмастер, Метрика, чеклист): [`docs/SEO_WEBMASTER.m
 - **Чтение объектов** — для всех (публичная статика).
 - **Запись** — только сервисный аккаунт (ключи в `.env`).
 - Website hosting: главная и ошибка = `index.html` (SPA).
-- Для вложенных path (`/sber`, `/invite/activate`, `/register`, `/atb_mass`, `/atb_bank`) после `npm run build` скрипт `scripts/copy-spa-fallbacks.mjs` кладёт `index.html` в соответствующие папки в `dist/` — иначе CDN может отдавать 404 без загрузки React.
+- Для вложенных path (`/sber`, `/invite/activate`, `/register`, `/atb_mass`, `/atb_bank`, `/plan`) после `npm run build` скрипт `scripts/copy-spa-fallbacks.mjs` кладёт `index.html` в соответствующие папки в `dist/` — иначе CDN может отдавать 404 без загрузки React.
+
+### Partner widgets: `/rostech` и `/npf`
+
+Отдельные static HTML + `widget.js` (constructor `site-chat/stream`), **не** React SPA и **не** AI B2C / `/plan`.
+
+- Исходники: `partner-widgets/constructor-chat/` (из `frontRostech` ветка `AI_NPF_Rostech`)
+- Сборка: `scripts/build-partner-widgets.mjs` → `dist/rostech/`, `dist/npf/`
+- В `.env`: `ROSTECH_PROJECT_KEY`, `RENESSANS_PROJECT_KEY` (+ опционально `*_API_BASE_URL`)
+- Upload: main `s3 sync --delete` **не трогает** `rostech/*` и `npf/*` (exclude); после sync заливает эти префиксы отдельно из `dist/`
+
+Прод: https://family-office.bank-future.com/rostech · https://family-office.bank-future.com/npf
 
 ## Отчёт проверки (2026-05-19)
 

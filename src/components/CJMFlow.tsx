@@ -170,6 +170,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({
 
     const nextStep = () => {
         setStep((s) => {
+            if (isGuestMode && s === 1) return 3;
             if (s === 3 && shouldSkipAssetsStep()) return 5;
             if (s === 5 && shouldSkipLifeInsuranceStep()) return 7;
             return s + 1;
@@ -177,6 +178,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({
     };
     const prevStep = () => {
         setStep((s) => {
+            if (isGuestMode && s === 3) return 1;
             if (s === 5 && shouldSkipAssetsStep()) return 3;
             if (s === 7 && shouldSkipLifeInsuranceStep()) return 5;
             return s - 1;
@@ -735,21 +737,34 @@ const CJMFlow: React.FC<CJMFlowProps> = ({
     const renderStepContent = () => (
         <>
             {step === 1 && (
-                <StepClientData
-                    data={data}
-                    setData={setData}
-                    onNext={nextStep}
-                    emailOnly={isGuestMode}
-                    variant={isGuestMode ? 'b2c' : 'default'}
-                />
+                isGuestMode ? (
+                    <StepFamilyProfile
+                        data={data}
+                        setData={setData}
+                        onNext={nextStep}
+                        onPrev={prevStep}
+                        hideNda
+                        variant="b2c"
+                        showBack={false}
+                    />
+                ) : (
+                    <StepClientData
+                        data={data}
+                        setData={setData}
+                        onNext={nextStep}
+                        emailOnly={isGuestMode}
+                        variant={isGuestMode ? 'b2c' : 'default'}
+                    />
+                )
             )}
-            {step === 2 && (
+            {step === 2 && !isGuestMode && (
                 <StepFamilyProfile
                     data={data}
                     setData={setData}
                     onNext={nextStep}
                     onPrev={prevStep}
                     hideNda={isGuestMode}
+                    variant="default"
                 />
             )}
             {step === 3 && (
@@ -761,9 +776,33 @@ const CJMFlow: React.FC<CJMFlowProps> = ({
                     guestMode={isGuestMode}
                 />
             )}
-            {step === 4 && <StepAssets data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
-            {step === 5 && <StepFinReserve data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
-            {step === 6 && <StepLifeInsurance data={data} setData={setData} onNext={nextStep} onPrev={prevStep} />}
+            {step === 4 && (
+                <StepAssets
+                    data={data}
+                    setData={setData}
+                    onNext={nextStep}
+                    onPrev={prevStep}
+                    guestMode={isGuestMode}
+                />
+            )}
+            {step === 5 && (
+                <StepFinReserve
+                    data={data}
+                    setData={setData}
+                    onNext={nextStep}
+                    onPrev={prevStep}
+                    guestMode={isGuestMode}
+                />
+            )}
+            {step === 6 && (
+                <StepLifeInsurance
+                    data={data}
+                    setData={setData}
+                    onNext={nextStep}
+                    onPrev={prevStep}
+                    guestMode={isGuestMode}
+                />
+            )}
             {step === 7 && (
                 <StepRiskProfile
                     data={data}
@@ -773,6 +812,7 @@ const CJMFlow: React.FC<CJMFlowProps> = ({
                     loading={loading}
                     questionnaire={riskQuestionnaire}
                     isQuestionnaireLoading={riskQuestionnaireLoading}
+                    guestMode={isGuestMode}
                 />
             )}
         </>
@@ -795,7 +835,25 @@ const CJMFlow: React.FC<CJMFlowProps> = ({
 
     if (isGuestMode) {
         return (
-            <B2cCjmShell currentStep={step} steps={b2cShellSteps} inviterName={inviterName}>
+            <B2cCjmShell
+                currentStep={step}
+                steps={b2cShellSteps}
+                inviterName={inviterName}
+                clientAge={data.age}
+                mainVariant={
+                    step === 3
+                        ? 'goals'
+                        : step === 4
+                          ? 'assets'
+                          : step === 5
+                            ? 'reserve'
+                            : step === 6
+                              ? 'life'
+                              : step === 7
+                                ? 'risk'
+                                : 'form'
+                }
+            >
                 {stepMotion}
             </B2cCjmShell>
         );

@@ -4,6 +4,7 @@ import CJMFlow, { type CJMCompleteContext } from '../../components/CJMFlow';
 import B2cClientWelcome from '../../components/b2c/B2cClientWelcome';
 import { b2cVisualAssets } from '../../content/b2cAssets';
 import B2cClientPlanSaveModal from '../../components/b2c/B2cClientPlanSaveModal';
+import B2cResultDashboard from '../../components/b2c/B2cResultDashboard';
 import ResultPage from '../../components/ResultPage';
 import { b2cApi, parseGuestCalculateLead, type ClientReferralPreviewResponse } from '../../api/b2cApi';
 import { captureClientB2cAttributionFromUrl } from '../../utils/clientB2cAttribution';
@@ -17,6 +18,24 @@ import { wrapReportHtmlForMobile } from '../../utils/reportHtmlSrcdoc';
 import '../../styles/b2c-guest-plan.css';
 
 type GuestView = 'welcome' | 'cjm' | 'result';
+
+const DESKTOP_RESULT_MQ = '(min-width: 1024px)';
+
+function useDesktopResultLayout(): boolean {
+    const [isDesktop, setIsDesktop] = useState(() =>
+        typeof window !== 'undefined' ? window.matchMedia(DESKTOP_RESULT_MQ).matches : true,
+    );
+
+    useEffect(() => {
+        const mq = window.matchMedia(DESKTOP_RESULT_MQ);
+        const onChange = () => setIsDesktop(mq.matches);
+        onChange();
+        mq.addEventListener('change', onChange);
+        return () => mq.removeEventListener('change', onChange);
+    }, []);
+
+    return isDesktop;
+}
 
 function restoreGuestSessionFromDraft(): boolean {
     if (getClientB2cToken()) return isGuestPlanSaved();
@@ -32,6 +51,7 @@ function restoreGuestSessionFromDraft(): boolean {
 
 const B2cGuestPlanPage: React.FC = () => {
     const attribution = useMemo(() => captureClientB2cAttributionFromUrl(), []);
+    const isDesktopResult = useDesktopResultLayout();
     const [view, setView] = useState<GuestView>('welcome');
     const [calculationResult, setCalculationResult] = useState<unknown>(() => loadB2cPlanDraft()?.calculationResult ?? null);
     const [referralPreview, setReferralPreview] = useState<ClientReferralPreviewResponse | null>(null);
@@ -39,6 +59,7 @@ const B2cGuestPlanPage: React.FC = () => {
     const [saveNotice, setSaveNotice] = useState<string | null>(null);
     const [planSaveOpen, setPlanSaveOpen] = useState(false);
     const [isPlanSaved, setIsPlanSaved] = useState(() => restoreGuestSessionFromDraft());
+    const showDesktopResult = view === 'result' && isDesktopResult;
 
     useEffect(() => {
         const ref = attribution.ref?.trim();
@@ -179,34 +200,43 @@ const B2cGuestPlanPage: React.FC = () => {
             .trim();
 
     return (
-        <div className={`b2c-guest-plan${view === 'welcome' ? ' b2c-guest-plan--welcome' : ''}${view === 'cjm' ? ' b2c-guest-plan--cjm' : ''}`}>
-            <header className="b2c-guest-plan__header">
-                <div className="b2c-guest-plan__brand">
-                    <img
-                        src={b2cVisualAssets.familyOfficeLogo}
-                        alt=""
-                        className="b2c-guest-plan__brand-logo"
-                        width={40}
-                        height={40}
-                    />
-                    <span className="b2c-guest-plan__brand-title">Family Office</span>
-                </div>
-                <div className="b2c-guest-plan__header-end">
-                    {inviterName && view !== 'welcome' ? (
-                        <div className="b2c-guest-plan__invite">
-                            Вас пригласил <strong>{inviterName}</strong>
-                        </div>
-                    ) : null}
-                    <button type="button" className="b2c-guest-plan__login" disabled title="Скоро">
-                        <User size={18} strokeWidth={2} aria-hidden />
-                        <span className="b2c-guest-plan__login-text">Войти в кабинет</span>
-                    </button>
-                </div>
-                {referralError ? <div className="b2c-guest-plan__invite-error">{referralError}</div> : null}
-            </header>
+        <div
+            className={`b2c-guest-plan${view === 'welcome' ? ' b2c-guest-plan--welcome' : ''}${view === 'cjm' ? ' b2c-guest-plan--cjm' : ''}${showDesktopResult ? ' b2c-guest-plan--result' : ''}`}
+        >
+            {!showDesktopResult ? (
+                <header className="b2c-guest-plan__header">
+                    <div className="b2c-guest-plan__brand">
+                        <img
+                            src={b2cVisualAssets.familyOfficeLogo}
+                            alt=""
+                            className="b2c-guest-plan__brand-logo"
+                            width={40}
+                            height={40}
+                        />
+                        <span className="b2c-guest-plan__brand-title">Family Office</span>
+                    </div>
+                    <div className="b2c-guest-plan__header-end">
+                        {inviterName && view !== 'welcome' ? (
+                            <div className="b2c-guest-plan__invite">
+                                Вас пригласил <strong>{inviterName}</strong>
+                            </div>
+                        ) : null}
+                        <button type="button" className="b2c-guest-plan__login" disabled title="Скоро">
+                            <User size={18} strokeWidth={2} aria-hidden />
+                            <span className="b2c-guest-plan__login-text">Войти в кабинет</span>
+                        </button>
+                    </div>
+                    {referralError ? <div className="b2c-guest-plan__invite-error">{referralError}</div> : null}
+                </header>
+            ) : null}
 
             <main className="b2c-guest-plan__main">
                 {saveNotice ? <div className="b2c-guest-plan__notice">{saveNotice}</div> : null}
+                {showDesktopResult && referralError ? (
+                    <div className="b2c-guest-plan__invite-error" style={{ margin: '12px 28px 0' }}>
+                        {referralError}
+                    </div>
+                ) : null}
 
                 {view === 'welcome' ? (
                     <B2cClientWelcome
@@ -223,6 +253,20 @@ const B2cGuestPlanPage: React.FC = () => {
                         inviterName={inviterName || undefined}
                         onComplete={handleCjmComplete}
                         onBack={() => setView('welcome')}
+                    />
+                ) : showDesktopResult ? (
+                    <B2cResultDashboard
+                        data={calculationResult}
+                        inviterName={inviterName || undefined}
+                        isPlanSaved={isPlanSaved}
+                        onSavePlan={isPlanSaved ? undefined : handleSavePlan}
+                        onOpenHtmlReport={isPlanSaved ? handleOpenClientHtmlReport : undefined}
+                        onOpenPdfReport={isPlanSaved ? handleOpenClientPdfReport : undefined}
+                        onRestart={() => {
+                            setSaveNotice(null);
+                            setView('welcome');
+                        }}
+                        restartLabel="Изменить анкету"
                     />
                 ) : (
                     <ResultPage

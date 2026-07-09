@@ -108,8 +108,9 @@ export const SEO = {
         robots: 'noindex, nofollow',
     },
     b2cPlan: {
-        title: 'Ваш финансовый план — Family Office',
-        description: 'Составьте персональный финансовый план онлайн в Family Office BankFuture.',
+        title: 'Ваш Family Office — будущее вашей семьи',
+        description:
+            'Семейный капитал под контролем: защита, рост и понятный план. Family Office — пространство, где финансы семьи собираются в одну систему.',
         canonicalPath: '/plan',
         robots: 'noindex, nofollow',
     },

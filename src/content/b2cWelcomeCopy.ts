@@ -1,29 +1,43 @@
-export type B2cWelcomeOutcome = {
+export type B2cWelcomeFeature = {
+    id: string;
     title: string;
+    icon: 'target' | 'clock' | 'shield' | 'chart';
 };
 
-export function buildB2cWelcomeStreamText(inviterName?: string): string {
+/** Одно приветственное сообщение Виктории — всё по порядку в одном bubble. */
+export function buildB2cWelcomeChatMessage(inviterName?: string): string {
     const inviteLine = inviterName
         ? ` Вас пригласил ${inviterName} — он будет вашим консультантом, когда вы сохраните план.`
         : '';
 
     return [
-        'Здравствуйте! 👋',
+        `Здравствуйте! Я — Виктория, ваш AI-консультант и финансовый советник.${inviteLine}`,
         '',
-        `Я — Виктория, ваш AI-консультант и финансовый советник.${inviteLine}`,
+        'Я помогу создать персональный финансовый план за несколько минут: спрошу о целях, ситуации и приоритетах — без сложных терминов.',
         '',
-        'Я помогу вам открыть ваш Family Office и создать персональный финансовый план для вас и вашей семьи.',
+        'На платформе собраны лучшие продукты для вас и вашей семьи. Есть и инвестиционные стратегии, которые показывают феноменальные результаты — до 98% годовых.',
         '',
-        'Это займёт всего несколько минут. Я задам несколько простых вопросов, чтобы понять ваши цели, финансовую ситуацию и приоритеты.',
-        '',
-        'В результате вы получите:',
+        'Всё по порядку: сначала цели и план, потом подбор решений. Готовы начать?',
     ].join('\n');
 }
 
-export const B2C_WELCOME_OUTCOMES: B2cWelcomeOutcome[] = [
-    { title: 'Чёткое понимание ваших целей и сроков' },
-    { title: 'Персональный финансовый план' },
-    { title: 'Рекомендации по защите и резерву' },
-    { title: 'Инвестиционную стратегию' },
-    { title: 'Финансовую уверенность для всей семьи' },
+/** @deprecated используйте buildB2cWelcomeChatMessage */
+export function buildB2cWelcomeChatMessages(inviterName?: string): string[] {
+    return [buildB2cWelcomeChatMessage(inviterName)];
+}
+
+export const B2C_WELCOME_HERO = {
+    brand: 'FAMILY OFFICE',
+    headlineBefore: 'Откройте двери в ваш',
+    headlineAccent: 'Family Office',
+    subtitle: 'Персональный финансовый план, созданный для вас и вашей семьи.',
+    cta: 'Открыть свой Family Office',
+    trust: 'Ваши данные под защитой',
+} as const;
+
+export const B2C_WELCOME_FEATURES: B2cWelcomeFeature[] = [
+    { id: 'goals', title: 'Понимание целей и сроков', icon: 'target' },
+    { id: 'plan', title: 'Персональный финансовый план', icon: 'clock' },
+    { id: 'protect', title: 'Рекомендации по защите и резерву', icon: 'shield' },
+    { id: 'invest', title: 'Инвестиционную стратегию', icon: 'chart' },
 ];

@@ -68,6 +68,10 @@ const result = spawnSync(
     '--delete',
     '--exclude',
     '.DS_Store',
+    '--exclude',
+    'rostech/*',
+    '--exclude',
+    'npf/*',
   ],
   { stdio: 'inherit', env: awsEnv },
 );
@@ -104,6 +108,39 @@ if (existsSync(planRedirectHtml)) {
   );
   if (redirectResult.status !== 0) {
     process.exit(redirectResult.status ?? 1);
+  }
+}
+
+/** Constructor widgets: отдельный sync префиксов (main sync их exclude'ит). */
+const partnerLanes = ['rostech', 'npf'];
+for (const lane of partnerLanes) {
+  const laneDir = resolve(distDir, lane);
+  const laneIndex = resolve(laneDir, 'index.html');
+  if (!existsSync(laneIndex)) {
+    console.warn(
+      `Пропуск ${lane}/: нет dist/${lane}/index.html (сначала npm run build)`,
+    );
+    continue;
+  }
+  const laneDest = `${destination}${lane}/`;
+  console.log(`Синхронизация partner-widget ${laneDir} → ${laneDest}`);
+  const laneResult = spawnSync(
+    'aws',
+    [
+      's3',
+      'sync',
+      laneDir,
+      laneDest,
+      '--endpoint-url',
+      endpoint,
+      '--delete',
+      '--exclude',
+      '.DS_Store',
+    ],
+    { stdio: 'inherit', env: awsEnv },
+  );
+  if (laneResult.status !== 0) {
+    process.exit(laneResult.status ?? 1);
   }
 }
 

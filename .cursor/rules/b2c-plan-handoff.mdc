@@ -1,0 +1,21 @@
+---
+description: Guest B2C /plan — white-label, welcome/CJM/result, handoff агентам
+globs:
+  - src/components/b2c/**
+  - src/pages/b2c/**
+  - src/content/b2c*
+  - src/styles/b2c-guest-plan.css
+  - docs/B2C_PLAN_HANDOFF.md
+alwaysApply: false
+---
+
+# B2C `/plan` handoff / white-label
+
+Полный контекст — skill `.cursor/skills/b2c-plan-handoff/SKILL.md` и `docs/B2C_PLAN_HANDOFF.md`.
+
+**Коротко**
+
+- Кастомизация: сначала `src/content/b2c*`, `src/assets/b2c|goals`, `b2c-guest-plan.css` — не `CJMFlow` / API без нужды.
+- Не трогать Sber / ATB / agent LK / partner-widgets, если задача не про них.
+- CDN: `/plan/` со слэшем; SEO — `SEO.b2cPlan` + `copy-spa-fallbacks.mjs`.
+- Внешние агенты: ветка `conomy`, пуш обратно в `conomy` ок; не в `main` без договорённости.

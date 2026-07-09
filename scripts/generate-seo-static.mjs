@@ -26,6 +26,9 @@ Disallow: /invite/
 Disallow: /register/
 Disallow: /atb_mass
 Disallow: /atb_bank
+Disallow: /plan
+Disallow: /rostech
+Disallow: /npf
 
 # Служебные и личный кабинет — noindex через meta в SPA
 Disallow: /*?page=login

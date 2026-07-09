@@ -21,8 +21,10 @@ import { rangeFillStyle } from '../../utils/rangeInputStyle';
 import avatarImage from '../../assets/avatar_full.png';
 import {
     AGENT_GOAL_SELECTION_DEFAULT_ADVICE,
-    B2C_GOAL_SELECTION_PENSION_ADVICE,
+    B2C_GUEST_GOAL_GRID_IDS,
+    getB2cFeaturedGoalGalleryId,
 } from '../../content/b2cGoalSelectionCopy';
+import B2cStepGoalSelection from '../b2c/B2cStepGoalSelection';
 
 const INVEST_SAVE_TITLE = 'Сохранить и преумножить';
 
@@ -266,75 +268,99 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({
     const desiredIncomeRange = modalConfig?.bounds.desiredIncome ?? { min: 10000, max: 1000000, step: 5000 };
     const initialCapitalRange = modalConfig?.bounds.initialCapital ?? { min: 0, max: 10000000, step: 100000 };
 
+    const b2cFeaturedKind = getB2cFeaturedGoalGalleryId(clientAge);
+    const b2cFeaturedItemRaw = GOAL_GALLERY_ITEMS.find((i) => i.id === b2cFeaturedKind) ?? null;
+    const b2cFeaturedItem =
+        b2cFeaturedItemRaw && !incomeGoalPairLocked && !goals.some((g) => g.goal_type_id === b2cFeaturedItemRaw.typeId)
+            ? b2cFeaturedItemRaw
+            : null;
+
+    const b2cExcludedGalleryIds = new Set<string>([
+        b2cFeaturedKind,
+        ...(incomeGoalPairLocked ? ['passive', 'pension'] : []),
+    ]);
+    const selectedGoalNames = new Set(goals.map((g) => g.name));
+
+    const b2cGridItems: GoalGalleryItem[] = [
+        ...educationVisible.filter((item) => !selectedGoalNames.has(item.title)),
+        ...B2C_GUEST_GOAL_GRID_IDS.map((id) => GOAL_GALLERY_ITEMS.find((item) => item.id === id)).filter(
+            (item): item is GoalGalleryItem => {
+                if (!item) return false;
+                if (b2cExcludedGalleryIds.has(item.id)) return false;
+                if (item.id === 'rent' && hasRentGoal) return false;
+                if (item.id === 'invest_save' && hasInvestSaveGoal) return false;
+                if (item.id === 'inheritance' && hasInheritanceGoal) return false;
+                if (selectedGoalNames.has(item.title)) return false;
+                return true;
+            },
+        ),
+    ];
+
     return (
-        <div style={{ paddingBottom: '40px' }}>
-
-            <div className="goalsContainer">
-                {/* Header Section: Spanning full width */}
-                <div style={{ gridColumn: '1 / -1', marginBottom: '40px' }}>
-                    <div style={{
-                        display: 'flex',
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '32px'
-                    }}>
-                        {/* Avatar Image */}
-                        <div style={{
-                            width: '120px',
-                            height: '120px',
-                            minWidth: '120px',
-                            borderRadius: '24px',
-                            overflow: 'hidden',
-                            boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
-                            background: '#fff'
-                        }}>
-                            <img
-                                src={avatarImage}
-                                alt="AI Assistant"
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            />
+        <>
+            {guestMode ? (
+                <B2cStepGoalSelection
+                    goals={goals}
+                    featuredItem={b2cFeaturedItem}
+                    featuredKind={b2cFeaturedKind}
+                    gridItems={b2cGridItems}
+                    onFeaturedClick={() => b2cFeaturedItem && handleCardClick(b2cFeaturedItem)}
+                    onGridItemClick={handleCardClick}
+                    onRemoveGoal={removeGoal}
+                    onPrev={onPrev}
+                    onNext={onNext}
+                    formatCurrency={formatCurrency}
+                />
+            ) : (
+                <div style={{ paddingBottom: '40px' }}>
+                    <div className="goalsContainer">
+                        <div style={{ gridColumn: '1 / -1', marginBottom: '40px' }}>
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '32px',
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        width: '120px',
+                                        height: '120px',
+                                        minWidth: '120px',
+                                        borderRadius: '24px',
+                                        overflow: 'hidden',
+                                        boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+                                        background: '#fff',
+                                    }}
+                                >
+                                    <img
+                                        src={avatarImage}
+                                        alt="AI Assistant"
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    />
+                                </div>
+                                <div
+                                    style={{
+                                        background: '#fff',
+                                        borderRadius: '24px',
+                                        borderTopLeftRadius: '4px',
+                                        padding: '28px 32px',
+                                        fontSize: '18px',
+                                        lineHeight: '1.65',
+                                        color: '#1F2937',
+                                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                                        maxWidth: '640px',
+                                        fontWeight: 400,
+                                    }}
+                                >
+                                    {AGENT_GOAL_SELECTION_DEFAULT_ADVICE}
+                                </div>
+                            </div>
                         </div>
 
-                        {/* Speech Bubble */}
-                        <div style={{
-                            background: guestMode
-                                ? 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)'
-                                : '#fff',
-                            borderRadius: '24px',
-                            borderTopLeftRadius: '4px',
-                            padding: '28px 32px',
-                            fontSize: guestMode ? '17px' : '18px',
-                            lineHeight: '1.65',
-                            color: '#1F2937',
-                            boxShadow: guestMode
-                                ? '0 8px 32px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255,255,255,0.9)'
-                                : '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
-                            maxWidth: '640px',
-                            fontWeight: 400,
-                            border: guestMode ? '1px solid rgba(148, 163, 184, 0.25)' : 'none',
-                        }}>
-                            {guestMode ? (
-                                <>
-                                    <p style={{ margin: '0 0 12px', fontWeight: 600, color: '#0f172a' }}>
-                                        {B2C_GOAL_SELECTION_PENSION_ADVICE.lead}
-                                    </p>
-                                    <p style={{ margin: '0 0 12px' }}>
-                                        {B2C_GOAL_SELECTION_PENSION_ADVICE.body}
-                                    </p>
-                                    <p style={{ margin: 0, color: '#475569', fontSize: '15px' }}>
-                                        {B2C_GOAL_SELECTION_PENSION_ADVICE.closing}
-                                    </p>
-                                </>
-                            ) : (
-                                AGENT_GOAL_SELECTION_DEFAULT_ADVICE
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Selected Goals (Basket): Spanning full width */}
-                {goals.length > 0 && (
+                        {goals.length > 0 && (
                     <div style={{
                         gridColumn: '1 / -1',
                         marginBottom: '12px',
@@ -509,8 +535,9 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({
                     </div>
                 </div>
             </div>
+                </div>
+            )}
 
-            {/* Modal: portal + viewport centering — fixed внутри transform у предков ломался */}
             {selectedGalleryItem &&
                 createPortal(
                     <div
@@ -999,7 +1026,7 @@ const StepGoalSelection: React.FC<StepGoalSelectionProps> = ({
                     </div>,
                     document.body
                 )}
-        </div>
+        </>
     );
 };
 

@@ -14,7 +14,9 @@ You are a domain specialist for the **B2C client cabinet** (Family Office referr
 | Backend branch | `finam` |
 | Front branch | `finam` |
 | Default project key | [`src/api/projectKey.ts`](../../src/api/projectKey.ts) |
-| **Handoff doc** | [`docs/FRONT_B2C_REFERRAL_MVP.md`](../../docs/FRONT_B2C_REFERRAL_MVP.md) |
+| **Handoff doc (API / referral)** | [`docs/FRONT_B2C_REFERRAL_MVP.md`](../../docs/FRONT_B2C_REFERRAL_MVP.md) |
+| **Handoff kit (передача `/plan` агентам)** | [`docs/B2C_PLAN_HANDOFF.md`](../../docs/B2C_PLAN_HANDOFF.md) |
+| **Cursor skill (кастомизация `/plan`)** | [`.cursor/skills/b2c-plan-handoff/SKILL.md`](../skills/b2c-plan-handoff/SKILL.md) |
 
 **Rule:** Guest/client JWT ≠ agent JWT. Storage: `client_token` + `client_user` in localStorage ([`clientB2cAuth.ts`](../../src/utils/clientB2cAuth.ts)). Never clobber agent `localStorage.token`.
 
@@ -111,11 +113,12 @@ Route `/plan` before agent `<App />` — same pattern as `/sber`, `/atb` ([`publ
 
 ## When invoked — workflow
 
-1. Read [`docs/FRONT_B2C_REFERRAL_MVP.md`](../../docs/FRONT_B2C_REFERRAL_MVP.md).
-2. Confirm: referral MVP vs full client LK vs AI B2C (post-MVP).
+1. Read [`docs/FRONT_B2C_REFERRAL_MVP.md`](../../docs/FRONT_B2C_REFERRAL_MVP.md). For white-label / handoff to external agents: also [`docs/B2C_PLAN_HANDOFF.md`](../../docs/B2C_PLAN_HANDOFF.md) and skill `b2c-plan-handoff`.
+2. Confirm: referral MVP vs full client LK vs AI B2C (post-MVP) vs **external handoff** (ветка `conomy`: кастомизация `/plan`, пуш обратно в `conomy` ок).
 3. Guest API: `x-project-key` only; client reports: Bearer `guest_token`.
-4. `npm run build`; smoke agent LK + `/plan` + reports.
-5. Deploy: `npm run deploy:yandex` when user asks.
+4. Prefer editing `src/content/b2c*`, `src/assets/b2c|goals`, `b2c-guest-plan.css` before touching `CJMFlow` / API.
+5. `npm run build`; smoke agent LK + `/plan` + reports.
+6. Deploy: `npm run deploy:yandex` when user asks.
 
 ## Constraints
 

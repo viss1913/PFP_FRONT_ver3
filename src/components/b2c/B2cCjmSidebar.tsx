@@ -1,15 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Send } from 'lucide-react';
 import { b2cVisualAssets } from '../../content/b2cAssets';
 import { getB2cCjmCoachMessage } from '../../content/b2cCjmCoachCopy';
 
 interface B2cCjmSidebarProps {
     step: number;
     inviterName?: string;
+    clientAge?: number;
 }
 
-const B2cCjmSidebar: React.FC<B2cCjmSidebarProps> = ({ step, inviterName }) => {
-    const fullMessage = useMemo(() => getB2cCjmCoachMessage(step, inviterName), [step, inviterName]);
+const B2cCjmSidebar: React.FC<B2cCjmSidebarProps> = ({ step, inviterName, clientAge = 39 }) => {
+    const fullMessage = useMemo(
+        () => getB2cCjmCoachMessage(step, inviterName, clientAge),
+        [step, inviterName, clientAge],
+    );
     const [visibleText, setVisibleText] = useState('');
     const [streamDone, setStreamDone] = useState(false);
 
@@ -50,19 +53,6 @@ const B2cCjmSidebar: React.FC<B2cCjmSidebarProps> = ({ step, inviterName }) => {
                         {!streamDone ? <span className="b2c-cjm-sidebar__caret" aria-hidden /> : null}
                     </p>
                 </div>
-            </div>
-
-            <div className="b2c-cjm-sidebar__composer">
-                <input
-                    type="text"
-                    className="b2c-cjm-sidebar__input"
-                    placeholder="Напишите сообщение..."
-                    disabled
-                    aria-label="Сообщение консультанту"
-                />
-                <button type="button" className="b2c-cjm-sidebar__send" disabled aria-label="Отправить">
-                    <Send size={18} strokeWidth={2} />
-                </button>
             </div>
         </aside>
     );
