@@ -133,20 +133,48 @@
 
 ### 5. Управление AI B2C из ЛК Агента (`/pfp/ai-b2c/*`)
 
-Это агентский "хаб" настроек B2C-ИИ: контексты (мозг) и стейджи (сценарии).
+Это агентский "хаб" настроек B2C-ИИ: **оркестраторы (flows)**, контексты (мозг), стейджи (сценарии) и настройки ассистента.
 Те же сущности, что и в `/admin/ai-b2c`, но в скоупе проекта агента.
+
+На один проект может быть **несколько site-flow** (`flow_key`: `default`, `plan`, …). Клиентский маршрут `/plan` использует `flow_key=plan` и endpoint `POST /my/ai-b2c/chat/dynamic/stream` (контракт SSE — `b2c_plan_orchestrator_frontend.md`).
+
+Query-параметр **`flow_key`** (default `default`) — для `GET` brain-contexts, stages, settings.
+
+#### Flows (оркестраторы)
+
+- **Список flows**
+  - `GET /api/pfp/ai-b2c/flows`
+  - Массив `AiB2cFlow`: `flow_key`, `title`, `description`, `is_active`.
+
+- **Создать flow**
+  - `POST /api/pfp/ai-b2c/flows`
+  - Тело (см. `aiB2c.yaml` → `AiB2cFlowCreate`):
+    ```json
+    {
+      "flow_key": "plan",
+      "title": "Сценарий /plan",
+      "description": "B2C-оркестратор для маршрута /plan",
+      "clone_from": "default"
+    }
+    ```
+  - `clone_from` копирует brain-contexts, stages и settings из указанного flow.
+
+Рекомендуемый экран:
+- "ИИ – Оркестраторы":
+  - список flows, кнопка «Создать» (с клонированием из `default`), переключатель активности.
 
 #### Brain-contexts
 
 - **Список brain-contexts**
-  - `GET /api/pfp/ai-b2c/brain-contexts`
-  - Возвращает массив контекстов для текущего проекта (и глобальных, если такие есть).
+  - `GET /api/pfp/ai-b2c/brain-contexts?flow_key=default`
+  - Возвращает массив контекстов для текущего проекта и выбранного flow.
 
 - **Создать brain-context**
   - `POST /api/pfp/ai-b2c/brain-contexts`
   - Тело (ориентир, уточняется по `aiB2c.yaml`):
     ```json
     {
+      "flow_key": "plan",
       "title": "Продажи инвестпродуктов",
       "content": "Подробный промпт для ассистента...",
       "is_active": true,
@@ -162,21 +190,23 @@
 
 Рекомендуемый экран:
 - "ИИ – Мозг":
-  - список контекстов, переключатели активен/не активен, приоритет, формы создания/редактирования.
+  - селектор flow (`default` / `plan` / …), список контекстов, переключатели активен/не активен, приоритет, формы создания/редактирования.
 
 #### Stages (сценарии/этапы)
 
 - **Список стейджей**
-  - `GET /api/pfp/ai-b2c/stages`
+  - `GET /api/pfp/ai-b2c/stages?flow_key=plan`
 
 - **Создать стейдж**
   - `POST /api/pfp/ai-b2c/stages`
   - Тело (ориентир, уточняется по `aiB2c.yaml`):
     ```json
     {
-      "stage_key": "PFP1",
-      "title": "Первичный сбор данных по клиенту",
-      "content": "Описание сценария и подсказки для ИИ...",
+      "flow_key": "plan",
+      "stage_key": "/test23_pensia",
+      "title": "Пенсия",
+      "content": "Промпт второго ИИ — ответ пользователю...",
+      "command_context_text": "Правила первого ИИ-роутера на этой стадии...",
       "is_active": true,
       "priority": 100
     }
@@ -190,7 +220,19 @@
 
 Рекомендуемый экран:
 - "ИИ – Сценарии":
-  - список стейджей, формы создания/редактирования, включение/отключение сценариев.
+  - селектор flow, список стейджей, поля `content` и `command_context_text`, включение/отключение сценариев.
+
+#### Settings (бренд и роутер)
+
+- **Получить настройки**
+  - `GET /api/pfp/ai-b2c/settings?flow_key=plan`
+  - `display_name`, `avatar_url`, `tagline`, **`dynamic_context_text`** — fallback для первого ИИ, если у стадии пустой `command_context_text`.
+
+- **Обновить настройки**
+  - `PUT /api/pfp/ai-b2c/settings?flow_key=plan`
+
+- **Аватар**
+  - `POST /api/pfp/ai-b2c/avatar-upload` (отдельно от PUT settings)
 
 ---
 

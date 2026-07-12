@@ -398,20 +398,44 @@ export interface PassiveIncomeYieldSettings {
 
 // --- AI B2C (настройки ИИ для B2C) ---
 
+export interface AiB2cFlow {
+    id?: number;
+    project_id?: number;
+    flow_key: string;
+    title: string;
+    description?: string | null;
+    is_active?: boolean;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface AiB2cFlowCreate {
+    flow_key: string;
+    title: string;
+    description?: string | null;
+    is_active?: boolean;
+    clone_from?: string;
+}
+
 export interface AiB2cSettings {
     id?: number;
     project_id?: number | null;
+    flow_key?: string;
     display_name: string;
     avatar_url?: string | null;
     tagline?: string | null;
+    dynamic_context_text?: string | null;
+    openrouter_model?: string | null;
     created_at?: string;
     updated_at?: string;
 }
 
 export interface AiB2cSettingsPayload {
-    display_name: string;
+    display_name?: string;
     avatar_url?: string | null;
     tagline?: string | null;
+    dynamic_context_text?: string | null;
+    openrouter_model?: string | null;
 }
 
 export interface AiB2cUploadImageResponse {
@@ -432,6 +456,7 @@ export interface AiB2cBrainContext {
 export interface AiB2cBrainContextCreate {
     title: string;
     content: string;
+    flow_key?: string;
     is_active?: boolean;
     priority?: number;
 }
@@ -460,6 +485,7 @@ export interface AiB2cStageCreate {
     stage_key: string;
     title: string;
     content: string;
+    flow_key?: string;
     command_context_text?: string | null;
     is_active?: boolean;
     priority?: number;
@@ -1271,11 +1297,27 @@ export const agentLkApi = {
         return response.data;
     },
 
+    // --- AI B2C: flows ---
+    getAiB2cFlows: async (): Promise<AiB2cFlow[]> => {
+        const response = await axios.get<AiB2cFlow[]>(`${API_BASE}/ai-b2c/flows`, {
+            headers: getHeaders(),
+        });
+        return response.data ?? [];
+    },
+
+    createAiB2cFlow: async (payload: AiB2cFlowCreate): Promise<AiB2cFlow> => {
+        const response = await axios.post<AiB2cFlow>(`${API_BASE}/ai-b2c/flows`, payload, {
+            headers: getHeaders(),
+        });
+        return response.data;
+    },
+
     // --- AI B2C: настройки ассистента ---
-    getAiB2cSettings: async (): Promise<AiB2cSettings | null> => {
+    getAiB2cSettings: async (flowKey = 'default'): Promise<AiB2cSettings | null> => {
         try {
             const response = await axios.get<AiB2cSettings | null>(`${API_BASE}/ai-b2c/settings`, {
                 headers: getHeaders(),
+                params: { flow_key: flowKey },
             });
             return response.data;
         } catch (e: any) {
@@ -1284,9 +1326,10 @@ export const agentLkApi = {
         }
     },
 
-    putAiB2cSettings: async (payload: AiB2cSettingsPayload): Promise<AiB2cSettings> => {
+    putAiB2cSettings: async (payload: AiB2cSettingsPayload, flowKey = 'default'): Promise<AiB2cSettings> => {
         const response = await axios.put<AiB2cSettings>(`${API_BASE}/ai-b2c/settings`, payload, {
             headers: getHeaders(),
+            params: { flow_key: flowKey },
         });
         return response.data;
     },
@@ -1305,9 +1348,10 @@ export const agentLkApi = {
 
     // --- AI B2C: brain-contexts ---
 
-    getBrainContexts: async (): Promise<AiB2cBrainContext[]> => {
+    getBrainContexts: async (flowKey = 'default'): Promise<AiB2cBrainContext[]> => {
         const response = await axios.get(`${API_BASE}/ai-b2c/brain-contexts`, {
             headers: getHeaders(),
+            params: { flow_key: flowKey },
         });
         return response.data;
     },
@@ -1336,9 +1380,10 @@ export const agentLkApi = {
     },
 
     // --- AI B2C: stages ---
-    getStages: async (): Promise<AiB2cStage[]> => {
+    getStages: async (flowKey = 'default'): Promise<AiB2cStage[]> => {
         const response = await axios.get(`${API_BASE}/ai-b2c/stages`, {
             headers: getHeaders(),
+            params: { flow_key: flowKey },
         });
         return response.data;
     },

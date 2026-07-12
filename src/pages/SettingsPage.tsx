@@ -35,6 +35,8 @@ import {
     type ChatBrainContextDocument,
     type AiB2cStage,
     type AiB2cStageCreate,
+    type AiB2cFlow,
+    type AiB2cFlowCreate,
     type ConstructorCommand,
     type ConstructorCommandCreate,
     type ConstructorCommandMediaItem,
@@ -86,6 +88,13 @@ const DEFAULT_PDF_FORM_FIELDS: PdfCoverEditorField[] = [
     { key: 'title_band_color', type: 'color', label: 'Цвет плашки' },
     { key: 'date_preview', type: 'readonly', label: 'Дата на обложке' },
 ];
+
+/** Превью длинного промпта в списках B2C site admin. */
+function previewPromptText(value: string | null | undefined, max = 120): string {
+    const t = (value ?? '').replace(/\s+/g, ' ').trim();
+    if (!t) return '';
+    return t.length > max ? `${t.slice(0, max)}…` : t;
+}
 
 type PdfEditorTemplateBlock = { id: string; label?: string; fields: PdfCoverEditorField[] };
 type ReportEditorTemplateItem = {
@@ -1389,38 +1398,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
     }, [activeTab, products, portfolios, portfolioClasses, productTypes]);
 
     useEffect(() => {
-        if (activeTab !== 'ai-b2c-site') return;
-        const load = async () => {
-            try {
-                setAiB2cLoading(true);
-                setError(null);
-                const [settings, ctx, st] = await Promise.all([
-                    agentLkApi.getAiB2cSettings(),
-                    agentLkApi.getBrainContexts(),
-                    agentLkApi.getStages(),
-                ]);
-                if (settings) {
-                    setAiB2cDisplayName(settings.display_name ?? '');
-                    setAiB2cAvatarUrl(settings.avatar_url ?? '');
-                    setAiB2cTagline(settings.tagline ?? '');
-                } else {
-                    setAiB2cDisplayName('AI-ассистент');
-                    setAiB2cAvatarUrl('');
-                    setAiB2cTagline('');
-                }
-                setBrainContexts(ctx);
-                setStages(st);
-            } catch (e) {
-                console.error('Failed to load AI B2C:', e);
-                setError('Не удалось загрузить настройки ИИ. Проверьте API.');
-            } finally {
-                setAiB2cLoading(false);
-            }
-        };
-        void load();
-    }, [activeTab]);
-
-    useEffect(() => {
         if (activeTab !== 'ai-b2c-chat') return;
         const load = async () => {
             try {
@@ -1761,6 +1738,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
     const [aiB2cDisplayName, setAiB2cDisplayName] = useState<string>('');
     const [aiB2cAvatarUrl, setAiB2cAvatarUrl] = useState<string>('');
     const [aiB2cTagline, setAiB2cTagline] = useState<string>('');
+    const [aiB2cDynamicContextText, setAiB2cDynamicContextText] = useState<string>('');
+    const [selectedAiB2cFlowKey, setSelectedAiB2cFlowKey] = useState<string>('default');
+    const [aiB2cFlows, setAiB2cFlows] = useState<AiB2cFlow[]>([]);
+    const [flowCreateModalOpen, setFlowCreateModalOpen] = useState(false);
+    const [flowCreateForm, setFlowCreateForm] = useState<{ flow_key: string; title: string; clone_from: string }>({
+        flow_key: '',
+        title: '',
+        clone_from: 'default',
+    });
     const [savingAiB2cSettings, setSavingAiB2cSettings] = useState(false);
     const [uploadingAiB2cAvatar, setUploadingAiB2cAvatar] = useState(false);
     const [brainContexts, setBrainContexts] = useState<AiB2cBrainContext[] | null>(null);
@@ -1782,12 +1768,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
         stage_key: string;
         title: string;
         content: string;
+        command_context_text: string;
         is_active: boolean;
         priority: string;
     }>({
         stage_key: '',
         title: '',
         content: '',
+        command_context_text: '',
         is_active: true,
         priority: '100',
     });
@@ -1824,6 +1812,43 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
     const chatStageMediaInputRef = useRef<HTMLInputElement | null>(null);
     const [savingAiB2c, setSavingAiB2c] = useState(false);
     const [deletingAiB2cId, setDeletingAiB2cId] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (activeTab !== 'ai-b2c-site') return;
+        const load = async () => {
+            try {
+                setAiB2cLoading(true);
+                setError(null);
+                const flows = await agentLkApi.getAiB2cFlows().catch(() => [] as AiB2cFlow[]);
+                setAiB2cFlows(flows);
+                const flowKey = selectedAiB2cFlowKey || 'default';
+                const [settings, ctx, st] = await Promise.all([
+                    agentLkApi.getAiB2cSettings(flowKey),
+                    agentLkApi.getBrainContexts(flowKey),
+                    agentLkApi.getStages(flowKey),
+                ]);
+                if (settings) {
+                    setAiB2cDisplayName(settings.display_name ?? '');
+                    setAiB2cAvatarUrl(settings.avatar_url ?? '');
+                    setAiB2cTagline(settings.tagline ?? '');
+                    setAiB2cDynamicContextText(settings.dynamic_context_text ?? '');
+                } else {
+                    setAiB2cDisplayName('AI-ассистент');
+                    setAiB2cAvatarUrl('');
+                    setAiB2cTagline('');
+                    setAiB2cDynamicContextText('');
+                }
+                setBrainContexts(ctx);
+                setStages(st);
+            } catch (e) {
+                console.error('Failed to load AI B2C:', e);
+                setError('Не удалось загрузить настройки ИИ. Проверьте API.');
+            } finally {
+                setAiB2cLoading(false);
+            }
+        };
+        void load();
+    }, [activeTab, selectedAiB2cFlowKey]);
 
     const [comonStrategies, setComonStrategies] = useState<AgentComonStrategyCard[] | null>(null);
     const [comonRiskProfiles, setComonRiskProfiles] = useState<string[]>(['conservative', 'balanced', 'aggressive']);
@@ -2066,8 +2091,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
                 display_name: aiB2cDisplayName.trim(),
                 avatar_url: aiB2cAvatarUrl.trim() || null,
                 tagline: aiB2cTagline.trim() || null,
+                dynamic_context_text: aiB2cDynamicContextText.trim() || null,
             };
-            await agentLkApi.putAiB2cSettings(payload);
+            await agentLkApi.putAiB2cSettings(payload, selectedAiB2cFlowKey);
         } catch (e) {
             console.error('Failed to save AI B2C settings:', e);
             setError('Не удалось сохранить настройки ассистента B2C.');
@@ -2861,6 +2887,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
             const payload: AiB2cBrainContextCreate = {
                 title: brainForm.title.trim(),
                 content: brainForm.content.trim(),
+                flow_key: selectedAiB2cFlowKey,
                 is_active: brainForm.is_active,
                 priority: Number(brainForm.priority) || 0,
             };
@@ -2881,6 +2908,36 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
             setSavingAiB2c(false);
         }
     };
+
+    const createAiB2cFlow = async () => {
+        const flowKey = flowCreateForm.flow_key.trim();
+        const title = flowCreateForm.title.trim();
+        if (!flowKey || !title) {
+            setError('Введите flow_key и название сценария.');
+            return;
+        }
+        try {
+            setSavingAiB2c(true);
+            setError(null);
+            const payload: AiB2cFlowCreate = {
+                flow_key: flowKey,
+                title,
+                clone_from: flowCreateForm.clone_from.trim() || 'default',
+            };
+            const created = await agentLkApi.createAiB2cFlow(payload);
+            const flows = await agentLkApi.getAiB2cFlows().catch(() => [created]);
+            setAiB2cFlows(flows);
+            setSelectedAiB2cFlowKey(created.flow_key);
+            setFlowCreateModalOpen(false);
+            setFlowCreateForm({ flow_key: '', title: '', clone_from: 'default' });
+        } catch (e) {
+            console.error('Failed to create AI B2C flow:', e);
+            setError('Не удалось создать flow. Проверьте flow_key и API.');
+        } finally {
+            setSavingAiB2c(false);
+        }
+    };
+
     const deleteBrainContext = async (id: number | string) => {
         try {
             setDeletingAiB2cId(String(id));
@@ -2896,7 +2953,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
 
     const openStageCreate = () => {
         setEditingStageId(null);
-        setStageForm({ stage_key: '', title: '', content: '', is_active: true, priority: '100' });
+        setStageForm({
+            stage_key: '',
+            title: '',
+            content: '',
+            command_context_text: '',
+            is_active: true,
+            priority: '100',
+        });
         setStageModalOpen(true);
     };
     const openStageEdit = (s: AiB2cStage) => {
@@ -2905,6 +2969,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
             stage_key: (s.stage_key ?? '').toString(),
             title: (s.title ?? '').toString(),
             content: (s.content ?? '').toString(),
+            command_context_text: (s.command_context_text ?? '').toString(),
             is_active: s.is_active !== false,
             priority: String(s.priority ?? 100),
         });
@@ -2912,7 +2977,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
     };
     const saveStage = async () => {
         if (!stageForm.stage_key.trim() || !stageForm.title.trim()) {
-            setError('Введите ключ и название сценария.');
+            setError('Введите ключ команды (stage_key) и название.');
+            return;
+        }
+        if (!stageForm.content.trim()) {
+            setError('Поле «Ответ клиенту» (content) обязательно — промпт 2-го ИИ.');
             return;
         }
         try {
@@ -2922,6 +2991,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
                 stage_key: stageForm.stage_key.trim(),
                 title: stageForm.title.trim(),
                 content: stageForm.content.trim(),
+                flow_key: selectedAiB2cFlowKey,
+                command_context_text: stageForm.command_context_text.trim() || null,
                 is_active: stageForm.is_active,
                 priority: Number(stageForm.priority) || 0,
             };
@@ -3538,11 +3609,63 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
                     {activeTab === 'ai-b2c-site' && (
                         <>
                             <h1 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '8px', color: '#111' }}>
-                                Настройка ИИ (B2C)
+                                B2C site — оркестратор
                             </h1>
-                            <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '24px' }}>
-                                Контексты «мозга» и сценарии для B2C-ассистента в вашем проекте.
+                            <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '16px' }}>
+                                Flows, настройки ассистента, brain-contexts и команды (стадии) site-оркестратора.
+                                Для клиентского <code>/plan</code> используйте flow <code>plan</code>.
                             </p>
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                    alignItems: 'center',
+                                    gap: '12px',
+                                    marginBottom: '20px',
+                                }}
+                            >
+                                <label style={{ fontSize: '13px', color: '#374151', fontWeight: 500 }}>
+                                    Flow (оркестратор):
+                                </label>
+                                <select
+                                    value={selectedAiB2cFlowKey}
+                                    onChange={(e) => setSelectedAiB2cFlowKey(e.target.value)}
+                                    style={{
+                                        padding: '8px 12px',
+                                        borderRadius: '10px',
+                                        border: '1px solid #d1d5db',
+                                        fontSize: '14px',
+                                        minWidth: '180px',
+                                    }}
+                                >
+                                    {(aiB2cFlows.length > 0
+                                        ? aiB2cFlows
+                                        : [{ flow_key: 'default', title: 'default' }]
+                                    ).map((f) => (
+                                        <option key={f.flow_key} value={f.flow_key}>
+                                            {f.flow_key}
+                                            {f.title && f.title !== f.flow_key ? ` — ${f.title}` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                                <button
+                                    type="button"
+                                    onClick={() => setFlowCreateModalOpen(true)}
+                                    style={{
+                                        padding: '8px 14px',
+                                        borderRadius: '999px',
+                                        border: '1px solid #d1d5db',
+                                        background: '#fff',
+                                        fontSize: '13px',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    + Создать flow
+                                </button>
+                                <span style={{ fontSize: '12px', color: '#9ca3af' }}>
+                                    Для `/plan` используйте flow_key <code>plan</code>
+                                </span>
+                            </div>
                             {error && (
                                 <div style={{ padding: '12px', borderRadius: '12px', background: '#fef2f2', color: '#b91c1c', marginBottom: '16px', fontSize: '14px' }}>
                                     {error}
@@ -3701,6 +3824,25 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
                                                     }}
                                                 />
                                             </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                <label style={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>
+                                                    Глобальный роутер (dynamic_context_text)
+                                                </label>
+                                                <textarea
+                                                    value={aiB2cDynamicContextText}
+                                                    onChange={(e) => setAiB2cDynamicContextText(e.target.value)}
+                                                    placeholder="Правила первого ИИ для всех стадий, если у стадии пустой command_context_text"
+                                                    style={{
+                                                        padding: '10px 12px',
+                                                        borderRadius: '10px',
+                                                        border: '1px solid #d1d5db',
+                                                        fontSize: '14px',
+                                                        lineHeight: 1.5,
+                                                        minHeight: '120px',
+                                                        resize: 'vertical',
+                                                    }}
+                                                />
+                                            </div>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
                                             <button
@@ -3729,7 +3871,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
                                     <section>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                                             <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#374151', margin: 0 }}>
-                                                ИИ — Мозг (контексты)
+                                                Мозг (brain-contexts)
                                             </h2>
                                             <button
                                                 type="button"
@@ -3752,7 +3894,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
                                             <p style={{ fontSize: '14px', color: '#9ca3af' }}>Нет контекстов. Добавьте первый.</p>
                                         ) : (
                                             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                {(brainContexts ?? []).map((c) => (
+                                                {(brainContexts ?? []).map((c) => {
+                                                    const contentPreview = previewPromptText(c.content);
+                                                    return (
                                                     <li
                                                         key={String(c.id)}
                                                         style={{
@@ -3761,22 +3905,45 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
                                                             borderRadius: '12px',
                                                             border: '1px solid #e5e7eb',
                                                             display: 'flex',
-                                                            alignItems: 'center',
+                                                            alignItems: 'flex-start',
                                                             justifyContent: 'space-between',
                                                             flexWrap: 'wrap',
                                                             gap: '8px',
                                                         }}
                                                     >
-                                                        <div>
-                                                            <span style={{ fontWeight: 600, color: '#111' }}>{c.title ?? 'Без названия'}</span>
-                                                            {c.priority != null && (
-                                                                <span style={{ marginLeft: '8px', fontSize: '12px', color: '#6b7280' }}>приоритет {c.priority}</span>
-                                                            )}
-                                                            {c.is_active === false && (
-                                                                <span style={{ marginLeft: '8px', fontSize: '12px', color: '#9ca3af' }}>неактивен</span>
+                                                        <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+                                                            <div>
+                                                                <span style={{ fontWeight: 600, color: '#111' }}>{c.title ?? 'Без названия'}</span>
+                                                                {c.priority != null && (
+                                                                    <span style={{ marginLeft: '8px', fontSize: '12px', color: '#6b7280' }}>приоритет {c.priority}</span>
+                                                                )}
+                                                                {c.is_active === false && (
+                                                                    <span style={{ marginLeft: '8px', fontSize: '12px', color: '#9ca3af' }}>неактивен</span>
+                                                                )}
+                                                            </div>
+                                                            {contentPreview ? (
+                                                                <p
+                                                                    style={{
+                                                                        margin: '6px 0 0',
+                                                                        fontSize: '12px',
+                                                                        color: '#6b7280',
+                                                                        lineHeight: 1.45,
+                                                                        display: '-webkit-box',
+                                                                        WebkitLineClamp: 2,
+                                                                        WebkitBoxOrient: 'vertical',
+                                                                        overflow: 'hidden',
+                                                                    }}
+                                                                    title={(c.content ?? '').toString()}
+                                                                >
+                                                                    {contentPreview}
+                                                                </p>
+                                                            ) : (
+                                                                <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#9ca3af' }}>
+                                                                    Нет content
+                                                                </p>
                                                             )}
                                                         </div>
-                                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                                        <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => openBrainEdit(c)}
@@ -3810,16 +3977,17 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
                                                             </button>
                                                         </div>
                                                     </li>
-                                                ))}
+                                                    );
+                                                })}
                                             </ul>
                                         )}
                                     </section>
 
-                                    {/* Сценарии — stages */}
+                                    {/* Команды / стадии */}
                                     <section>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                                             <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#374151', margin: 0 }}>
-                                                ИИ — Сценарии (этапы)
+                                                Команды / стадии
                                             </h2>
                                             <button
                                                 type="button"
@@ -3835,14 +4003,18 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
                                                     cursor: 'pointer',
                                                 }}
                                             >
-                                                + Сценарий
+                                                + Команда
                                             </button>
                                         </div>
                                         {(stages ?? []).length === 0 ? (
-                                            <p style={{ fontSize: '14px', color: '#9ca3af' }}>Нет сценариев. Добавьте первый.</p>
+                                            <p style={{ fontSize: '14px', color: '#9ca3af' }}>Нет команд. Добавьте первую (stage_key + content).</p>
                                         ) : (
                                             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                {(stages ?? []).map((s) => (
+                                                {(stages ?? []).map((s) => {
+                                                    const hasOwnRouter = Boolean((s.command_context_text ?? '').toString().trim());
+                                                    const contentPreview = previewPromptText(s.content);
+                                                    const routerPreview = previewPromptText(s.command_context_text);
+                                                    return (
                                                     <li
                                                         key={String(s.id)}
                                                         style={{
@@ -3851,25 +4023,89 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
                                                             borderRadius: '12px',
                                                             border: '1px solid #e5e7eb',
                                                             display: 'flex',
-                                                            alignItems: 'center',
+                                                            alignItems: 'flex-start',
                                                             justifyContent: 'space-between',
                                                             flexWrap: 'wrap',
-                                                            gap: '8px',
+                                                            gap: '10px',
                                                         }}
                                                     >
-                                                        <div>
-                                                            <span style={{ fontWeight: 600, color: '#111' }}>{s.title ?? 'Без названия'}</span>
-                                                            {s.stage_key && (
-                                                                <span style={{ marginLeft: '8px', fontSize: '12px', color: '#6b7280' }}>({s.stage_key})</span>
-                                                            )}
-                                                            {s.priority != null && (
-                                                                <span style={{ marginLeft: '8px', fontSize: '12px', color: '#6b7280' }}>приоритет {s.priority}</span>
-                                                            )}
-                                                            {s.is_active === false && (
-                                                                <span style={{ marginLeft: '8px', fontSize: '12px', color: '#9ca3af' }}>неактивен</span>
-                                                            )}
+                                                        <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+                                                                {s.stage_key ? (
+                                                                    <code
+                                                                        style={{
+                                                                            fontSize: '12px',
+                                                                            fontWeight: 600,
+                                                                            color: '#3730a3',
+                                                                            background: '#eef2ff',
+                                                                            border: '1px solid #c7d2fe',
+                                                                            borderRadius: '6px',
+                                                                            padding: '2px 8px',
+                                                                        }}
+                                                                    >
+                                                                        {s.stage_key}
+                                                                    </code>
+                                                                ) : null}
+                                                                <span style={{ fontWeight: 600, color: '#111' }}>{s.title ?? 'Без названия'}</span>
+                                                                <span
+                                                                    style={{
+                                                                        fontSize: '11px',
+                                                                        fontWeight: 600,
+                                                                        borderRadius: '999px',
+                                                                        padding: '2px 8px',
+                                                                        border: hasOwnRouter ? '1px solid #bbf7d0' : '1px solid #e5e7eb',
+                                                                        background: hasOwnRouter ? '#f0fdf4' : '#f3f4f6',
+                                                                        color: hasOwnRouter ? '#166534' : '#6b7280',
+                                                                    }}
+                                                                    title={
+                                                                        hasOwnRouter
+                                                                            ? 'У стадии свой command_context_text (роутер 1-го ИИ)'
+                                                                            : 'Пустой command_context_text — роутер из dynamic_context_text flow'
+                                                                    }
+                                                                >
+                                                                    {hasOwnRouter ? 'роутер: свой' : 'роутер: глобальный'}
+                                                                </span>
+                                                                {s.priority != null && (
+                                                                    <span style={{ fontSize: '12px', color: '#6b7280' }}>приоритет {s.priority}</span>
+                                                                )}
+                                                                {s.is_active === false && (
+                                                                    <span style={{ fontSize: '12px', color: '#9ca3af' }}>неактивен</span>
+                                                                )}
+                                                            </div>
+                                                            <p
+                                                                style={{
+                                                                    margin: '8px 0 0',
+                                                                    fontSize: '12px',
+                                                                    color: '#374151',
+                                                                    lineHeight: 1.45,
+                                                                    display: '-webkit-box',
+                                                                    WebkitLineClamp: 2,
+                                                                    WebkitBoxOrient: 'vertical',
+                                                                    overflow: 'hidden',
+                                                                }}
+                                                                title={(s.content ?? '').toString()}
+                                                            >
+                                                                <span style={{ color: '#9ca3af' }}>content: </span>
+                                                                {contentPreview || '—'}
+                                                            </p>
+                                                            <p
+                                                                style={{
+                                                                    margin: '4px 0 0',
+                                                                    fontSize: '12px',
+                                                                    color: '#374151',
+                                                                    lineHeight: 1.45,
+                                                                    display: '-webkit-box',
+                                                                    WebkitLineClamp: 2,
+                                                                    WebkitBoxOrient: 'vertical',
+                                                                    overflow: 'hidden',
+                                                                }}
+                                                                title={(s.command_context_text ?? '').toString()}
+                                                            >
+                                                                <span style={{ color: '#9ca3af' }}>router: </span>
+                                                                {hasOwnRouter ? routerPreview : 'из dynamic_context_text flow'}
+                                                            </p>
                                                         </div>
-                                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                                        <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => openStageEdit(s)}
@@ -3903,7 +4139,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
                                                             </button>
                                                         </div>
                                                     </li>
-                                                ))}
+                                                    );
+                                                })}
                                             </ul>
                                         )}
                                     </section>
@@ -8564,6 +8801,139 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
                     </div>
                 )}
 
+                {/* Модалка создания flow */}
+                {flowCreateModalOpen && (
+                    <div
+                        onClick={() => !savingAiB2c && setFlowCreateModalOpen(false)}
+                        style={{
+                            position: 'fixed',
+                            inset: 0,
+                            background: 'rgba(15,23,42,0.45)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 1300,
+                            padding: '16px',
+                        }}
+                    >
+                        <div
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                                width: 'min(520px, 95vw)',
+                                background: '#fff',
+                                borderRadius: '20px',
+                                boxShadow: '0 24px 80px rgba(15,23,42,0.35)',
+                                padding: '24px',
+                            }}
+                        >
+                            <h2 style={{ margin: '0 0 16px', fontSize: '18px', fontWeight: 600 }}>Новый B2C flow</h2>
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    void createAiB2cFlow();
+                                }}
+                                style={{ display: 'grid', gap: '12px' }}
+                            >
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
+                                        flow_key
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={flowCreateForm.flow_key}
+                                        onChange={(e) =>
+                                            setFlowCreateForm((prev) => ({ ...prev, flow_key: e.target.value }))
+                                        }
+                                        placeholder="plan"
+                                        required
+                                        style={{
+                                            width: '100%',
+                                            padding: '8px 10px',
+                                            borderRadius: '10px',
+                                            border: '1px solid #e5e7eb',
+                                            fontSize: '13px',
+                                        }}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
+                                        Название
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={flowCreateForm.title}
+                                        onChange={(e) =>
+                                            setFlowCreateForm((prev) => ({ ...prev, title: e.target.value }))
+                                        }
+                                        placeholder="Сценарий /plan"
+                                        required
+                                        style={{
+                                            width: '100%',
+                                            padding: '8px 10px',
+                                            borderRadius: '10px',
+                                            border: '1px solid #e5e7eb',
+                                            fontSize: '13px',
+                                        }}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
+                                        Клонировать из
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={flowCreateForm.clone_from}
+                                        onChange={(e) =>
+                                            setFlowCreateForm((prev) => ({ ...prev, clone_from: e.target.value }))
+                                        }
+                                        placeholder="default"
+                                        style={{
+                                            width: '100%',
+                                            padding: '8px 10px',
+                                            borderRadius: '10px',
+                                            border: '1px solid #e5e7eb',
+                                            fontSize: '13px',
+                                        }}
+                                    />
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => !savingAiB2c && setFlowCreateModalOpen(false)}
+                                        style={{
+                                            padding: '8px 16px',
+                                            borderRadius: '10px',
+                                            border: '1px solid #e5e7eb',
+                                            background: '#fff',
+                                            fontSize: '13px',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        Отмена
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={savingAiB2c}
+                                        style={{
+                                            padding: '8px 20px',
+                                            borderRadius: '10px',
+                                            border: 'none',
+                                            background: 'linear-gradient(135deg, #6366F1, #4F46E5)',
+                                            color: '#fff',
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                            opacity: savingAiB2c ? 0.7 : 1,
+                                        }}
+                                    >
+                                        {savingAiB2c ? 'Создание…' : 'Создать'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
                 {/* Модалка сценария ИИ */}
                 {stageModalOpen && (
                     <div
@@ -8605,13 +8975,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
                             </div>
                             <form onSubmit={(e) => { e.preventDefault(); saveStage(); }} style={{ display: 'grid', gap: '12px' }}>
                                 <div>
-                                    <label style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Ключ сценария</label>
+                                    <label style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
+                                        Команда / route (stage_key)
+                                    </label>
                                     <input
                                         type="text"
                                         value={stageForm.stage_key}
                                         onChange={(e) => setStageForm((prev) => ({ ...prev, stage_key: e.target.value }))}
                                         style={{ width: '100%', padding: '8px 10px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '13px' }}
-                                        placeholder="Напр. PFP1"
+                                        placeholder="/vybor_celi2"
                                         required
                                     />
                                 </div>
@@ -8622,17 +8994,33 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, contentOnly = f
                                         value={stageForm.title}
                                         onChange={(e) => setStageForm((prev) => ({ ...prev, title: e.target.value }))}
                                         style={{ width: '100%', padding: '8px 10px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '13px' }}
-                                        placeholder="Напр. Первичный сбор данных по клиенту"
+                                        placeholder="Напр. Выбор цели"
                                         required
                                     />
                                 </div>
                                 <div>
-                                    <label style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Описание / подсказки для ИИ</label>
+                                    <label style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
+                                        Ответ клиенту (content — 2-й ИИ) *
+                                    </label>
                                     <textarea
                                         value={stageForm.content}
                                         onChange={(e) => setStageForm((prev) => ({ ...prev, content: e.target.value }))}
-                                        style={{ width: '100%', padding: '12px 14px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '15px', lineHeight: 1.5, minHeight: '300px', resize: 'vertical' }}
-                                        placeholder="Описание сценария и подсказки для ИИ..."
+                                        style={{ width: '100%', padding: '12px 14px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '15px', lineHeight: 1.5, minHeight: '220px', resize: 'vertical' }}
+                                        placeholder="Промпт второго ИИ — как отвечать пользователю на этой стадии..."
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
+                                        Роутер (command_context_text — 1-й ИИ)
+                                    </label>
+                                    <textarea
+                                        value={stageForm.command_context_text}
+                                        onChange={(e) =>
+                                            setStageForm((prev) => ({ ...prev, command_context_text: e.target.value }))
+                                        }
+                                        style={{ width: '100%', padding: '12px 14px', borderRadius: '10px', border: '1px solid #e5e7eb', fontSize: '14px', lineHeight: 1.5, minHeight: '160px', resize: 'vertical' }}
+                                        placeholder="Правила команд /… для перехода. Пусто — берётся dynamic_context_text из настроек flow."
                                     />
                                 </div>
                                 <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
