@@ -79,8 +79,19 @@ components:
           description: |
             Периодичность взноса для котировки Резолюта: 0 — единовременно, 1 — ежегодно, 2 — раз в полгода, 4 — ежеквартально, 12 — ежемесячно.
             Имплицитная годовая доходность из ответа `quote` в расчётах портфеля сейчас поддерживается для `0`; иначе используется матрица `lines`/`yields`, если заполнена.
+        commission_schema:
+          allOf:
+            - $ref: '#/components/schemas/CommissionSchema'
+          nullable: true
+          description: |
+            Правила прогноза комиссий для CRM на уровне конкретного продукта.
     ProductYield:
       type: object
+      description: |
+        Нормализованная линия доходности (из `products.lines` при отдаче в API).
+        Для обычных продуктов — только срок/сумма/`yield_percent`.
+        Для **ИСЖ** (матрица рисков в цели «Наследство») дополнительно: `risk_name`, возрастной коридор, `payment_ratio`;
+        `yield_percent` обязателен минимум у строки риска **«Дожитие»** (с неё берётся годовая доходность в симуляции).
       properties:
         term_from_months:
           type: integer
@@ -92,6 +103,24 @@ components:
           type: number
         yield_percent:
           type: number
+          nullable: true
+          description: Годовая доходность %; для строк матрицы ИСЖ без доходности может быть null (кроме «Дожитие»).
+        risk_name:
+          type: string
+          nullable: true
+          description: Название риска в матрице ИСЖ (например «Дожитие», «Уход из жизни»).
+        age_from:
+          type: integer
+          nullable: true
+          description: Нижняя граница возраста клиента (полных лет), включительно.
+        age_to:
+          type: integer
+          nullable: true
+          description: Верхняя граница возраста клиента (полных лет), включительно.
+        payment_ratio:
+          type: number
+          nullable: true
+          description: Коэффициент/доля платежа для UI и отчёта (не смешивать с `yield_percent`).
     ProductCreate:
       type: object
       required:
@@ -121,7 +150,9 @@ components:
           example: RUB
         lines:
           type: array
-          description: Массив линий доходности продукта
+          description: |
+            Массив линий доходности продукта.
+            Для **ISZH** (ИСЖ в цели «Наследство») — матрица рисков с полем `risk_name` и обязательной строкой «Дожитие» с `yield_percent` (см. `ProductLine`).
           items:
             $ref: '#/components/schemas/ProductLine'
         resolut_pfp_code:
@@ -137,15 +168,132 @@ components:
           enum: [0, 1, 2, 4, 12]
           description: |
             Периодичность для `quote`; для расчёта доходности из котировки в портфеле — задайте `0` или оставьте пустым (дефолт 0 / env `RESOLUT_PORTFOLIO_QUOTE_PTYPE`).
+        commission_schema:
+          allOf:
+            - $ref: '#/components/schemas/CommissionSchema'
+          nullable: true
+          description: |
+            Правила прогноза комиссий в CRM для этого продукта.
+            Если не задано, прогноз по продукту считается равным 0.
+    CommissionSchema:
+      type: object
+      required: [rules]
+      properties:
+        version:
+          type: integer
+          minimum: 1
+          default: 1
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommissionRule'
+    CommissionRule:
+      type: object
+      required: [rule_type]
+      properties:
+        rule_type:
+          type: string
+          enum:
+            - ONE_TIME_FIXED
+            - ONE_TIME_PERCENT_OF_PREMIUM
+            - FIRST_YEAR_PERCENT_OF_PREMIUMS
+            - ANNUAL_PERCENT_OF_PREMIUM
+            - AUM_MANAGEMENT_FEE
+            - TIERED_BY_YEAR
+        name:
+          type: string
+          nullable: true
+        base:
+          type: string
+          enum: [INITIAL, FLOW, INITIAL_PLUS_FLOW, AUM_AVG]
+        frequency:
+          type: string
+          enum: [ONE_TIME, MONTHLY, YEARLY]
+        rate_percent:
+          type: number
+          minimum: 0
+          nullable: true
+        fixed_amount_rub:
+          type: number
+          minimum: 0
+          nullable: true
+        years:
+          type: object
+          properties:
+            start: { type: integer, minimum: 1 }
+            end: { type: integer, minimum: 1 }
+        tiers:
+          type: array
+          items:
+            type: object
+            required: [year_from, year_to, rate_percent]
+            properties:
+              year_from: { type: integer, minimum: 1 }
+              year_to: { type: integer, minimum: 1 }
+              rate_percent: { type: number, minimum: 0 }
+    CommissionSchemaMeta:
+      type: object
+      properties:
+        version:
+          type: integer
+          example: 1
+        rule_types:
+          type: array
+          items:
+            type: object
+            properties:
+              code: { type: string }
+              label: { type: string }
+              description: { type: string }
+              required_fields:
+                type: array
+                items: { type: string }
+              optional_fields:
+                type: array
+                items: { type: string }
+              allowed_base:
+                type: array
+                items: { type: string }
+              allowed_frequency:
+                type: array
+                items: { type: string }
+              supports_years: { type: boolean }
+              supports_tiers: { type: boolean }
+        field_constraints:
+          type: object
+          additionalProperties: true
+    ValidationErrorDetail:
+      type: object
+      properties:
+        code: { type: string }
+        field_path: { type: string }
+        message: { type: string }
+    ValidationErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          example: Invalid commission_schema
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationErrorDetail'
     ProductLine:
       type: object
-      description: Линия доходности продукта
+      description: |
+        Линия доходности продукта в теле создания/обновления (`lines`).
+        Для **ИСЖ** с типом продукта `ISZH` в проекте с наследственными портфелями — матрица по `risk_name`
+        (обязательно хотя бы одна строка с названием риска «Дожитие» и числовой `yield_percent`).
+        Остальные риски могут иметь только `payment_ratio` без `yield_percent`.
+        Допустимы алиасы полей срока/суммы: `term_from_months`/`term_to_months`, `amount_from`/`amount_to` (см. бэкенд `productLineSchema`).
       required:
         - min_term_months
         - max_term_months
         - min_amount
         - max_amount
-        - yield_percent
       properties:
         min_term_months:
           type: number
@@ -161,7 +309,22 @@ components:
           description: Максимальная сумма (включительно)
         yield_percent:
           type: number
-          description: Доходность в процентах годовых (%)
+          nullable: true
+          description: Доходность в % годовых; для ИСЖ обязательна у строки «Дожитие», у остальных рисков — опционально.
+        risk_name:
+          type: string
+          nullable: true
+          description: Риск матрицы ИСЖ (обязателен для каждой строки матрицы при `product_type` = ISZH).
+        age_from:
+          type: integer
+          nullable: true
+        age_to:
+          type: integer
+          nullable: true
+        payment_ratio:
+          type: number
+          nullable: true
+          description: Коэффициент платежа для отображения (UI/отчёт).
     ProductType:
       type: object
       description: Тип продукта
@@ -765,15 +928,15 @@ components:
           enum: [male, female, null]
           description: |
             Пол для строки матрицы (пенсия). NULL или отсутствие — строка для любого пола
-            (цели без демографии, например «Пассивный доход»).
+            (используется целями без демографии, например «Пассивный доход»).
         age:
           type: integer
           nullable: true
           minimum: 18
           maximum: 120
           description: |
-            Возраст на момент наступления цели (лет). В справочнике НПФ обычно 60/65.
-            В PENSION бэкенд подставляет age_at_goal = текущий возраст + лет до пенсии (М 65 / Ж 60).
+            Возраст клиента на момент наступления цели (лет), не пенсионный возраст по умолчанию.
+            В PENSION бэкенд передаёт age_at_goal = текущий возраст + лет до выхода на пенсию.
             NULL в строке — для любого возраста.
     PassiveIncomeYieldSettings:
       type: object
@@ -852,14 +1015,16 @@ components:
 
     AiB2cSettings:
       type: object
-      description: Настройки внешнего вида AI B2C ассистента на уровне проекта
+      description: Настройки AI B2C ассистента на уровне проекта и flow
       properties:
         id: { type: integer }
         project_id: { type: integer }
+        flow_key: { type: string, default: default }
         display_name: { type: string, description: 'Имя ассистента, отображаемое на фронте (например, Виктория)' }
         avatar_url: { type: string, nullable: true, description: 'URL аватарки ассистента' }
-        tagline: { type: string, nullable: true, description: 'Короткое зелёное зелёное описание/подпись' }
-        dynamic_context_text: { type: string, nullable: true, description: 'Динамический контекст для 1-го шага B2C AIchat (определение команды /consulting, /startPFP, /start)' }
+        tagline: { type: string, nullable: true, description: 'Короткое зелёное описание/подпись' }
+        dynamic_context_text: { type: string, nullable: true, description: 'Глобальный промпт оркестратора (1-й LLM)' }
+        openrouter_model: { type: string, nullable: true, description: 'Модель OpenRouter для flow' }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
     
@@ -925,6 +1090,18 @@ components:
           type: string
           format: uri
           description: Публичный URL изображения подписи (после загрузки через POST .../signature-upload или вручную)
+        partner_agent_id:
+          type: string
+          nullable: true
+          description: Внешний ID агента у партнёра (для Finam — Finam ID)
+        parent_agent_id:
+          type: integer
+          nullable: true
+          description: ID родительского агента (субагентская сеть PFP)
+        referral_slug:
+          type: string
+          nullable: true
+          description: Slug для реферальной ссылки приглашения субагентов
         created_at:
           type: string
           format: date-time
@@ -988,6 +1165,13 @@ components:
           type: string
           nullable: true
           description: Локальная часть корпоративного ящика (см. Agent.email_corp)
+        partner_agent_id:
+          type: string
+        partner_ref_url:
+          type: string
+          description: Ссылка партнёра для извлечения partner_agent_id (только create)
+        parent_agent_id:
+          type: integer
 
     AgentUpdate:
       type: object
@@ -1039,6 +1223,12 @@ components:
           type: string
           nullable: true
           description: Локальная часть корпоративного ящика (см. Agent.email_corp)
+        partner_agent_id:
+          type: string
+          nullable: true
+        parent_agent_id:
+          type: integer
+          nullable: true
 
     Project:
       type: object
@@ -1397,6 +1587,44 @@ paths:
                   agentId:
                     type: integer
 
+  /auth/verify-agent-registration:
+    post:
+      summary: Регистрация агента, шаг 2 — код и пароль
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code, password]
+              properties:
+                email: { type: string, format: email }
+                code: { type: string, minLength: 6, maxLength: 6 }
+                password: { type: string, minLength: 6 }
+      responses:
+        '201':
+          description: Created
+
+  /auth/parse-partner-agent:
+    post:
+      summary: Извлечь partner_agent_id из ссылки или текста
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_key]
+              properties:
+                project_key: { type: string }
+                partner_agent_id: { type: string }
+                partner_ref_url: { type: string }
+      responses:
+        '200':
+          description: OK
+
   # ==================== Admin: Projects (Super Admin) ====================
   /admin/projects:
     get:
@@ -1526,6 +1754,12 @@ paths:
                 $ref: '#/components/schemas/Product'
         '400':
           description: Validation error (например, неверный product_type)
+        '422':
+          description: Validation error for commission_schema
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
           
   /pfp/products/{id}:
     get:
@@ -1566,6 +1800,12 @@ paths:
                 $ref: '#/components/schemas/Product'
         '400':
           description: Validation error (например, неверный product_type)
+        '422':
+          description: Validation error for commission_schema
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
         '404':
           description: Product not found
     delete:
@@ -1635,6 +1875,20 @@ paths:
           description: Validation error or code already exists
         '403':
           description: Forbidden (admin only)
+
+  /pfp/commission-schema/meta:
+    get:
+      summary: Метаданные commission_schema
+      description: |
+        Формализованный контракт для динамической формы правил комиссий на фронте:
+        rule_type, обязательные/опциональные поля и диапазоны.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommissionSchemaMeta'
 
   /pfp/product-types/{id}:
     get:
@@ -2353,20 +2607,14 @@ paths:
 
   /pfp/settings/passive-income/yield:
     get:
-      summary: Матрица доходности (срок × сумма × пол × возраст)
+      summary: Получить линии доходности для пассивного дохода
       tags:
         - Settings
       description: |
-        Матрица доходности фазы выплат (`passive_income_yield`).
-        Каждая строка: диапазоны срока и суммы, опционально **gender** и **age**, **yield_percent** (% годовых).
-
-        В расчёте **PENSION** строка подбирается по сроку до пенсии, капиталу, полу клиента и
-        **age_at_goal** = текущий возраст + лет до выхода на пенсию (М 65 / Ж 60).
-
-        Строки без gender/age — универсальные (цель «Пассивный доход» и fallback для пенсии).
-
-        В `summary` цели PENSION: `payout_yield_percent`, `payout_yield_percent_planning`,
-        `payout_age_at_goal`, `payout_coefficient_gender`, `payout_coefficient_age`, `payout_coefficient_value`.
+        Матрица доходности фазы выплат: каждая строка — диапазоны срока и суммы,
+        опционально **gender** и **age** (для пенсии), **yield_percent** (% годовых).
+        В расчёте PENSION строка подбирается по сроку до пенсии, капиталу, полу и возрасту на пенсии.
+        Строки без gender/age — fallback / цели «Пассивный доход».
       responses:
         '200':
           description: OK
@@ -2377,16 +2625,13 @@ paths:
         '404':
           description: Passive income yield settings not found
     put:
-      summary: Сохранить матрицу доходности (admin only)
+      summary: Обновить линии доходности для пассивного дохода (admin only)
       tags:
         - Settings
       description: |
-        Полная замена массива `lines`. Пример строки для НПФ:
-        `{ "min_term_months": 0, "max_term_months": 360, "min_amount": 0, "max_amount": 10000000,
-        "gender": "female", "age": 60, "yield_percent": 3.4 }`
-
-        Поля: min_term_months, max_term_months, min_amount, max_amount, yield_percent;
-        опционально gender (male/female) и age (возраст на момент цели). Пустой gender/age — универсальная строка.
+        Полностью заменяет матрицу линий. Поля строки: min_term_months, max_term_months,
+        min_amount, max_amount, yield_percent; опционально gender (male/female) и age (лет на пенсии).
+        Пустой gender/age — универсальная строка.
       requestBody:
         required: true
         content:
@@ -2558,6 +2803,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Agent'
+
+    delete:
+      summary: Деактивировать агента (админка)
+      description: |
+        Мягкое удаление (is_active=false у agents; email пользователя освобождается для повторной регистрации).
+        Только admin / super_admin. Клиенты и субагенты в БД не удаляются и не переназначаются.
+        Один email можно завести в другом project_id (уникальность users: email + project_id).
+      tags: [Agents]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '204': { description: Агент деактивирован }
+        '403': { description: Forbidden }
+        '404': { description: Agent not found }
+
+  /pfp/agents/me/subagents:
+    get:
+      summary: Список прямых субагентов текущего агента
+      tags: [Agents]
+      responses:
+        '200':
+          description: OK
+
+  /pfp/agents/me/invite-link:
+    get:
+      summary: Реферальная ссылка для приглашения субагентов
+      tags: [Agents]
+      responses:
+        '200':
+          description: OK
+
+  /pfp/agents/{id}/subagents:
+    get:
+      summary: Список субагентов агента (admin)
+      tags: [Agents]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: OK
 
   /pfp/agents/{id}/signature-upload:
     post:
@@ -3151,11 +3442,13 @@ paths:
     get:
       summary: Получить настройки B2C AI ассистента (агент)
       description: |
-        Возвращает настройки ассистента в рамках проекта агента.
-        Включая `dynamic_context_text` (для динамического переключения стадий).
+        Возвращает настройки ассистента в рамках проекта агента и **flow_key** (query, default `default`).
+        Включая `dynamic_context_text` (глобальный роутер оркестратора).
       tags: [AiB2C, Agents]
       security:
         - bearerAuth: []
+      parameters:
+        - $ref: '../docs/api/aiB2c.yaml#/components/parameters/flowKeyQuery'
       responses:
         '200':
           description: Текущие настройки или null, если ещё не заданы
@@ -3166,24 +3459,19 @@ paths:
     put:
       summary: Обновить настройки B2C AI ассистента (агент)
       description: |
-        Обновляет `display_name`, `tagline` и `dynamic_context_text`.
-        `avatar_url` контролируется отдельным эндпоинтом `POST /pfp/ai-b2c/avatar-upload`.
+        Обновляет `display_name`, `tagline`, `dynamic_context_text`, `openrouter_model` для выбранного flow.
+        `avatar_url` — через `POST /pfp/ai-b2c/avatar-upload`.
       tags: [AiB2C, Agents]
       security:
         - bearerAuth: []
+      parameters:
+        - $ref: '../docs/api/aiB2c.yaml#/components/parameters/flowKeyQuery'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                display_name:
-                  type: string
-                tagline:
-                  type: string
-                dynamic_context_text:
-                  type: string
+              $ref: '../docs/api/aiB2c.yaml#/components/schemas/AiB2cSettingsUpdate'
       responses:
         '200':
           description: Настройки обновлены
@@ -3197,6 +3485,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AiB2cSettings'
+
+  /pfp/ai-b2c/flows:
+    get:
+      summary: Список B2C-оркестраторов (flows) проекта
+      tags: [AiB2C, Agents]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Список flows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '../docs/api/aiB2c.yaml#/components/schemas/AiB2cFlow'
+    post:
+      summary: Создать новый flow (оркестратор)
+      tags: [AiB2C, Agents]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../docs/api/aiB2c.yaml#/components/schemas/AiB2cFlowCreate'
+      responses:
+        '201':
+          description: Flow создан
+          content:
+            application/json:
+              schema:
+                $ref: '../docs/api/aiB2c.yaml#/components/schemas/AiB2cFlow'
 
   /pfp/ai-b2c-chat/brain-contexts:
     get:
@@ -3480,14 +3802,14 @@ paths:
 
   /my/ai-b2c/chat/dynamic/stream:
     post:
-      summary: B2C_AIchat dynamic flow (SSE стрим, 2 шага)
+      summary: B2C-оркестратор (SSE стрим, 2 шага)
       description: |
-        Новый метод для динамического диалога.
-        1) Первое сообщение: финальный ответ генерится на стадии `start` (1-й ИИ не вызывается).
-        2) Каждое следующее сообщение:
-        - 1-й ИИ по `dynamic_context_text` выбирает команду маршрутизации (`/consulting`, `/startPFP`, `/start`)
-        - команда мапится в `stage_key`
-        - 2-й ИИ генерит ответ на выбранной стадии с учётом глобальной истории диалога
+        Поток для `/plan` и site dynamic-flow:
+        1) Оркестратор (1-й LLM) выбирает команду из whitelist `stage_key` flow.
+        2) Генератор (2-й LLM) отвечает по `content` стадии + данные клиента.
+
+        **SSE (формат PFP):** `classifier_command` → `text` → `done`.
+        См. `docs/api/aiB2c.yaml` — `AiB2cOrchestratorTurn`, `AiB2cSse*`.
       tags: [AiB2C]
       security:
         - bearerAuth: []
@@ -3496,13 +3818,10 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [message]
-              properties:
-                message: { type: string, description: 'Сообщение клиента на входе dynamic flow' }
+              $ref: '../docs/api/aiB2c.yaml#/components/schemas/AiB2cOrchestratorTurn'
       responses:
         '200':
-          description: Streaming response (text/event-stream)
+          description: Streaming response (text/event-stream, PFP JSON events)
           content:
             text/event-stream:
               schema:

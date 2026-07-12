@@ -6,13 +6,16 @@ interface B2cCjmSidebarProps {
     step: number;
     inviterName?: string;
     clientAge?: number;
+    /** Живое сообщение из SSE оркестратора (fallback — статичный coach copy) */
+    liveMessage?: string;
 }
 
-const B2cCjmSidebar: React.FC<B2cCjmSidebarProps> = ({ step, inviterName, clientAge = 39 }) => {
-    const fullMessage = useMemo(
+const B2cCjmSidebar: React.FC<B2cCjmSidebarProps> = ({ step, inviterName, clientAge = 39, liveMessage }) => {
+    const fallbackMessage = useMemo(
         () => getB2cCjmCoachMessage(step, inviterName, clientAge),
         [step, inviterName, clientAge],
     );
+    const fullMessage = liveMessage?.trim() || fallbackMessage;
     const [visibleText, setVisibleText] = useState('');
     const [streamDone, setStreamDone] = useState(false);
 
@@ -29,7 +32,7 @@ const B2cCjmSidebar: React.FC<B2cCjmSidebarProps> = ({ step, inviterName, client
             }
         }, 14);
         return () => window.clearInterval(interval);
-    }, [fullMessage, step]);
+    }, [fullMessage, step, liveMessage]);
 
     return (
         <aside className="b2c-cjm-sidebar" aria-label="AI-консультант">

@@ -1,8 +1,10 @@
 openapi: 3.0.0
 info:
-  title: PFP B2C API (Client Cabinet)
+  title: PFP B2C Schemas (Client Cabinet)
   version: 1.0.0
-  description: API for client self-registration and personal financial cabinet.
+  description: |
+    Shared schemas and parameters for B2C Client Cabinet. Endpoints are documented in docs/api/b2c_lk.yaml.
+    Стратегии Comon для клиента — также в openapi/pfp-api.yaml (paths /my/comon-strategies, тег Comon Client LK).
 servers:
   - url: /api
     description: Main API server
@@ -11,144 +13,61 @@ security:
   - bearerAuth: []
 
 paths:
-  # --- AUTHENTICATION (Public) ---
-  /auth/register-client:
-    post:
-      tags:
-        - Registration
-      summary: Step 1: Initiate client registration
-      description: Sends a 6-digit verification code to the client's email.
-      parameters:
-        - $ref: '#/components/parameters/ProjectKeyHeader'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - email
-                - name
-                - project_key
-              properties:
-                email:
-                  type: string
-                  format: email
-                  example: client@example.com
-                name:
-                  type: string
-                  example: "Иван Иванов"
-                project_key:
-                  type: string
-                  description: Public key of the project (e.g., pk_...)
-                  example: pk_9cfe10dcec21667bd5c557ea
+  /my/risk-profile/questionnaire:
+    get:
+      tags: [ClientPlan]
+      summary: Get active risk-profile questionnaire
       responses:
         '200':
-          description: Verification code sent
+          description: Questionnaire metadata and answer options
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  message:
-                    type: string
-                  email:
-                    type: string
-                  expires_in_minutes:
-                    type: integer
-        '400':
-          description: Invalid input or project not found
-        '409':
-          description: User already exists
+                  questionnaire:
+                    $ref: '#/components/schemas/RiskQuestionnaire'
 
-  /auth/verify-code:
-    post:
-      tags:
-        - Registration
-      summary: Step 2: Verify code and create account
-      description: Verifies the email code and creates a user (role 'client') and a client profile.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - email
-                - code
-                - password
-              properties:
-                email:
-                  type: string
-                  format: email
-                code:
-                  type: string
-                  minLength: 6
-                  maxLength: 6
-                  example: "123456"
-                password:
-                  type: string
-                  minLength: 6
-                  example: "secret123"
-      responses:
-        '201':
-          description: Account created successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '400':
-          description: Invalid code or password
-
-  /auth/login:
-    post:
-      tags:
-        - Authentication
-      summary: Client Login
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - email
-                - password
-              properties:
-                email:
-                  type: string
-                  format: email
-                password:
-                  type: string
-      responses:
-        '200':
-          description: Login successful
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-
-  # --- CLIENT CABINET (Protected) ---
-  /my/plan:
+  /my/risk-profile/answers:
     get:
-      tags:
-        - Cabinet
-      summary: Get my financial plan
-      description: Returns the authenticated client's full profile and financial plan.
+      tags: [ClientPlan]
+      summary: Get saved risk-profile answers for current client
       responses:
         '200':
-          description: Client profile data
+          description: Saved answers and latest risk-profile result
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ClientFullData'
-    
+                $ref: '#/components/schemas/RiskProfileAnswersPayload'
+    post:
+      tags: [ClientPlan]
+      summary: Save risk-profile answers for current client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RiskProfileAnswersPayload'
+      responses:
+        '200':
+          description: Answers saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  risk_profile_answers:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  risk_questionnaire_version_id:
+                    type: integer
+
   /my/plan/first-run:
     post:
-      tags:
-        - Cabinet
-      summary: Create or update initial financial plan
-      description: Performs full calculation and saves the plan for the authenticated client.
+      tags: [ClientPlan]
+      summary: Create or update financial plan (first run)
       requestBody:
         required: true
         content:
@@ -157,17 +76,16 @@ paths:
               $ref: '#/components/schemas/CalculationRequest'
       responses:
         '200':
-          description: Calculation result and plan saved
+          description: Calculation completed
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CalculationResult'
+                $ref: '#/components/schemas/CalculationResponse'
 
   /my/plan/{goalId}/recalculate:
     post:
-      tags:
-        - Cabinet
-      summary: Recalculate specific goal
+      tags: [ClientPlan]
+      summary: Recalculate one goal
       parameters:
         - name: goalId
           in: path
@@ -179,25 +97,55 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                target_amount:
-                  type: number
-                term_months:
-                  type: integer
-                risk_profile:
-                  type: string
-                  enum: [CONSERVATIVE, BALANCED, AGGRESSIVE]
-                client:
-                  type: object
-                  description: Personal data updates
+              $ref: '#/components/schemas/CalculationGoal'
       responses:
         '200':
-          description: Recalculation successful
+          description: Recalculation completed
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CalculationResult'
+                $ref: '#/components/schemas/CalculationResponse'
+
+  /my/plan/goals:
+    post:
+      tags: [ClientPlan]
+      summary: Add a new goal to plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CalculationGoal'
+      responses:
+        '200':
+          description: Goal added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalculationResponse'
+
+  /my/plan/goals/{goalId}:
+    delete:
+      tags: [ClientPlan]
+      summary: Delete goal from plan
+      parameters:
+        - name: goalId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Goal deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
 
 components:
   securitySchemes:
@@ -274,6 +222,30 @@ components:
           items:
             $ref: '#/components/schemas/CalculationGoal'
           description: Array of goals to calculate
+        ref:
+          type: string
+          maxLength: 128
+          description: referral_slug агента — при client.email лид сохранится в CRM
+        assets:
+          type: array
+          description: Активы в корне (альтернатива client.assets)
+          items:
+            type: object
+            required: [type]
+            properties:
+              type:
+                type: string
+                example: CASH
+              amount:
+                type: number
+              current_value:
+                type: number
+              unlock_month:
+                type: integer
+              sell_month:
+                type: integer
+              name:
+                type: string
         client:
           $ref: '#/components/schemas/ClientData'
 
@@ -282,7 +254,6 @@ components:
       required:
         - goal_type_id
         - name
-        - risk_profile
       properties:
         goal_type_id:
           type: integer
@@ -299,6 +270,15 @@ components:
         risk_profile:
           type: string
           enum: [CONSERVATIVE, BALANCED, AGGRESSIVE]
+        risk_profile_extended:
+          type: string
+          nullable: true
+          enum:
+            - CONSERVATIVE
+            - MODERATELY_CONSERVATIVE
+            - BALANCED
+            - MODERATELY_AGGRESSIVE
+            - AGGRESSIVE
         initial_capital:
           type: number
           default: 0
@@ -345,19 +325,247 @@ components:
         email:
           type: string
           format: email
+        avg_monthly_income:
+          type: number
+          description: Доход до НДФЛ (₽/мес)
+        total_liquid_capital:
+          type: number
+          description: Ликвидный капитал / «бассейн» для смарт-аллокации между целями
+        assets:
+          type: array
+          description: Активы клиента (CASH, DEPOSIT, REAL_ESTATE и т.д.)
+          items:
+            type: object
+            required: [type]
+            properties:
+              type:
+                type: string
+                example: CASH
+              amount:
+                type: number
+              current_value:
+                type: number
+              unlock_month:
+                type: integer
+                description: Месяц, когда актив становится ликвидным (0 = сейчас)
+              sell_month:
+                type: integer
+              name:
+                type: string
         risk_profile_answers:
           type: object
-          description: Answers to risk profiling questionnaire (Dengina method). Q1 is calculated automatically.
-          properties:
-            q2: { type: integer, minimum: 1, maximum: 5 }
-            q3: { type: integer, minimum: 1, maximum: 5 }
-            q4: { type: integer, minimum: 1, maximum: 5 }
-            q5: { type: integer, minimum: 1, maximum: 5 }
-            q6: { type: integer, minimum: 1, maximum: 5 }
-            q7: { type: integer, minimum: 1, maximum: 5 }
-            q8: { type: integer, minimum: 1, maximum: 5 }
-            q9: { type: integer, minimum: 1, maximum: 5 }
-            q10: { type: integer, minimum: 1, maximum: 5 }
+          description: Answers map (question code -> selected option code/legacy score)
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: integer
+        risk_questionnaire_version_id:
+          type: integer
+          description: Questionnaire version used to collect answers
+        family_profile:
+          $ref: '#/components/schemas/FamilyProfile'
+
+    RiskProfileAnswersPayload:
+      type: object
+      properties:
+        risk_profile_answers:
+          type: object
+          additionalProperties:
+            oneOf:
+              - type: string
+              - type: integer
+        risk_questionnaire_version_id:
+          type: integer
+        risk_profile_result:
+          type: object
+          additionalProperties: true
+        risk_profile_explanation:
+          $ref: '#/components/schemas/RiskProfileExplanation'
+
+    RiskProfileExplanation:
+      type: object
+      properties:
+        version:
+          type: string
+          example: v1
+        generated_at:
+          type: string
+          format: date-time
+        source_hash:
+          type: string
+          example: sha256:9b7e...
+        title:
+          type: string
+        summary:
+          type: string
+        key_factors:
+          type: array
+          items:
+            type: string
+        recommendations:
+          type: array
+          items:
+            type: string
+        caution:
+          type: string
+        agent_note:
+          type: string
+
+    RiskQuestionnaire:
+      type: object
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RiskQuestionnaireQuestion'
+
+    RiskQuestionnaireQuestion:
+      type: object
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        help_text: { type: string, nullable: true }
+        category: { type: string }
+        sort_order: { type: integer }
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/RiskQuestionnaireOption'
+
+    RiskQuestionnaireOption:
+      type: object
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        label: { type: string }
+        score: { type: number }
+        sort_order: { type: integer }
+
+    FamilyProfile:
+      type: object
+      description: Reference family profile metadata, not used in calculations.
+      properties:
+        marital_status:
+          type: string
+          enum: [single, married, divorced, widowed, civil_union]
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/FamilyChild'
+        contacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/FamilyContact'
+        spouse:
+          $ref: '#/components/schemas/FamilySpouse'
+        family_obligations:
+          type: array
+          items:
+            $ref: '#/components/schemas/FamilyObligation'
+        real_estate:
+          type: array
+          items:
+            $ref: '#/components/schemas/FamilyRealEstateItem'
+        confidentiality:
+          $ref: '#/components/schemas/FamilyConfidentiality'
+      example:
+        marital_status: married
+        children:
+          - first_name: Anna
+            birth_date: '2017-05-10'
+        contacts:
+          - name: Elena Petrova
+            relation: spouse
+            phone: '+7-900-000-00-00'
+            email: 'elena@example.com'
+        spouse:
+          employment_status: employed
+          monthly_income: 120000
+        family_obligations:
+          - type: mortgage
+            amount_monthly: 85000
+          - type: education
+            amount_monthly: 25000
+        real_estate:
+          - name: Main apartment
+            estimated_value: 14500000
+            status: mortgage
+        confidentiality:
+          allow_spouse_access: true
+          allow_family_contact: false
+          notes: ''
+
+    FamilyChild:
+      type: object
+      required: [first_name, birth_date]
+      properties:
+        first_name:
+          type: string
+        birth_date:
+          type: string
+          format: date
+
+    FamilyContact:
+      type: object
+      required: [name, relation]
+      properties:
+        name:
+          type: string
+        relation:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+
+    FamilySpouse:
+      type: object
+      properties:
+        employment_status:
+          type: string
+          enum: [employed, self_employed, unemployed, retired, other]
+        monthly_income:
+          type: number
+          nullable: true
+
+    FamilyRealEstateItem:
+      type: object
+      required: [estimated_value, status]
+      properties:
+        name:
+          type: string
+        estimated_value:
+          type: number
+        status:
+          type: string
+          enum: [owned, mortgage]
+
+    FamilyConfidentiality:
+      type: object
+      properties:
+        allow_spouse_access:
+          type: boolean
+        allow_family_contact:
+          type: boolean
+        notes:
+          type: string
+
+    FamilyObligation:
+      type: object
+      required: [type, amount_monthly]
+      properties:
+        type:
+          type: string
+          enum: [loans, mortgage, rent, alimony, education, elder_support, other]
+        amount_monthly:
+          type: number
 
     CalculationResponse:
       type: object
@@ -417,3 +625,167 @@ components:
           properties:
             required_capital: { type: number }
             yield_percent: { type: number }
+
+  # ==================== AI B2C Chat ====================
+
+  /my/ai-b2c/chat:
+    post:
+      summary: Отправить сообщение ИИ-ассистенту (обычный ответ)
+      tags: [AiB2C]
+      description: |
+        Отправляет сообщение ИИ-ассистенту на конкретном этапе.
+        ИИ учитывает:
+        - Базовые знания (Brain Contexts)
+        - Контекст текущего этапа (Stage Context)
+        - Данные клиента (финплан, цели, активы)
+        - Историю чата на этом этапе
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stage, message]
+              properties:
+                stage:
+                  type: string
+                  description: Ключ этапа/страницы (любая строка, заданная в админке)
+                  example: AI_B2C_site
+                message:
+                  type: string
+                  description: Сообщение от пользователя
+                  example: "Хочу накопить на квартиру за 5 лет"
+      responses:
+        '200':
+          description: Ответ ИИ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stage: { type: string }
+                  response: { type: string, description: 'Ответ ИИ в формате Markdown' }
+
+  /my/ai-b2c/chat/stream:
+    post:
+      summary: Отправить сообщение ИИ-ассистенту (стриминг SSE)
+      tags: [AiB2C]
+      description: |
+        То же самое, что /my/ai-b2c/chat, но ответ идёт потоково (Server-Sent Events).
+        На фронте используйте fetch + ReadableStream для получения ответа по частям.
+        
+        **Формат ответа:** text/event-stream (SSE)
+        ```
+        data: {"choices":[{"delta":{"content":"Прив"}}]}
+        data: {"choices":[{"delta":{"content":"ет!"}}]}
+        data: [DONE]
+        ```
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stage, message]
+              properties:
+                stage: { type: string, example: chooseTarget }
+                message: { type: string }
+      responses:
+        '200':
+          description: SSE stream с ответом ИИ
+
+  /my/ai-b2c/chat/dynamic/stream:
+    post:
+      summary: B2C-оркестратор (SSE, 2 шага) — для /plan
+      tags: [AiB2C]
+      description: |
+        Оркестратор выбирает команду страницы, генератор отвечает в чат.
+        SSE: `classifier_command` → `text` → `done`. См. `docs/api/b2c_plan_orchestrator_frontend.md`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../docs/api/aiB2c.yaml#/components/schemas/AiB2cOrchestratorTurn'
+      responses:
+        '200':
+          description: SSE stream (PFP JSON events)
+
+  /my/ai-b2c/history:
+    get:
+      summary: Получить историю чата
+      tags: [AiB2C]
+      parameters:
+        - name: flow_key
+          in: query
+          schema:
+            type: string
+            default: default
+        - name: stage
+          in: query
+          description: Фильтр по этапу (опционально)
+          schema:
+            type: string
+            example: chooseTarget
+      responses:
+        '200':
+          description: История сообщений
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: integer }
+                    stage_key: { type: string }
+                    role: { type: string, enum: [user, assistant] }
+                    content: { type: string }
+                    created_at: { type: string, format: date-time }
+    delete:
+      summary: Очистить историю чата
+      tags: [AiB2C]
+      parameters:
+        - name: flow_key
+          in: query
+          schema:
+            type: string
+            default: default
+        - name: stage
+          in: query
+          description: Очистить только конкретный этап (опционально, без параметра очистит всё)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: История очищена
+
+  /my/ai-b2c/stages:
+    get:
+      summary: Список активных стадий flow для клиента
+      tags: [AiB2C]
+      parameters:
+        - name: flow_key
+          in: query
+          schema:
+            type: string
+            default: default
+      responses:
+        '200':
+          description: stage_key + title
+
+  /my/ai-b2c/settings:
+    get:
+      summary: Получить настройки ассистента (имя, аватар, описание)
+      tags: [AiB2C]
+      description: |
+        Возвращает настройки AI B2C ассистента в рамках проекта клиента.
+        Используется фронтом ЛК клиента для отображения имени, аватара и зелёной подписи ассистента.
+      responses:
+        '200':
+          description: Настройки ассистента или null, если ещё не настроены
+          content:
+            application/json:
+              schema:
+                $ref: '../docs/api/aiB2c.yaml#/components/schemas/AiB2cSettingsPublic'
+

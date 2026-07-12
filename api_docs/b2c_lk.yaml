@@ -123,7 +123,12 @@ paths:
   /client/calculate:
     post:
       tags: [ "Гостевой CJM" ]
-      summary: Расчёт плана без логина (stateless)
+      summary: Расчёт плана; при client.email + ref — авто-сохранение лида
+      description: |
+        Stateless-расчёт. Если в теле есть **`client.email`** (и опционально **`ref`**), бэкенд **сразу сохраняет**
+        план в `clients` (лид без пароля), привязывает к агенту и в ответе отдаёт `client_id`, `guest_token`, `plan_saved: true`.
+        Повторный расчёт с тем же email **обновляет** карточку (телефон, активы и т.д.).
+        **Активы:** `client.assets` или корневой `assets`; ликвидный пул — `client.total_liquid_capital`.
       security: []
       parameters:
         - $ref: '../../openapi/pfpB2C.yaml#/components/parameters/ProjectKeyHeader'
@@ -135,62 +140,20 @@ paths:
               $ref: '../../openapi/pfpB2C.yaml#/components/schemas/CalculationRequest'
       responses:
         '200':
-          description: Результат расчёта (в БД не сохраняется)
+          description: Расчёт; при email — также client_id, guest_token, plan_saved
           content:
             application/json:
               schema:
-                $ref: '../../openapi/pfpB2C.yaml#/components/schemas/CalculationResponse'
-
-  /client/plan/save:
-    post:
-      tags: [ "Гостевой CJM" ]
-      summary: Расчёт + сохранение лида в CRM (без пароля)
-      description: |
-        Публичный endpoint. Заголовок `x-project-key`, в теле обязательны `ref`, `goals`, `client.email`.
-        Создаёт/обновляет `clients` (лид, `user_id IS NULL`), привязку к агенту по `ref`, `goals_summary`.
-        Возвращает `guest_token` (JWT, TTL ~30 дней, `guest: true`) для `GET /my/plan/report/html` и `/pdf`.
-        При последующем `verify-code` / `register-fast` с тем же email — claim лида без дубля.
-      security: []
-      parameters:
-        - $ref: '../../openapi/pfpB2C.yaml#/components/parameters/ProjectKeyHeader'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [ ref, goals, client ]
-              properties:
-                ref:
-                  type: string
-                  description: referral_slug агента из invite-link
-                goals:
-                  type: array
-                  items:
-                    $ref: '../../openapi/pfpB2C.yaml#/components/schemas/CalculationGoal'
-                client:
-                  allOf:
-                    - $ref: '../../openapi/pfpB2C.yaml#/components/schemas/ClientData'
-                    - type: object
-                      required: [ email ]
-                      properties:
-                        email:
-                          type: string
-                          format: email
-      responses:
-        '200':
-          description: План сохранён
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [ client_id, guest_token, plan_saved ]
-                properties:
-                  client_id: { type: integer }
-                  guest_token: { type: string }
-                  plan_saved: { type: boolean }
-                  summary: { type: object }
-                  goals: { type: array, items: { type: object } }
+                allOf:
+                  - $ref: '../../openapi/pfpB2C.yaml#/components/schemas/CalculationResponse'
+                  - type: object
+                    properties:
+                      client_id:
+                        type: integer
+                      guest_token:
+                        type: string
+                      plan_saved:
+                        type: boolean
 
   /client/risk-profile/questionnaire-v2:
     get:
@@ -232,6 +195,60 @@ paths:
       responses:
         '200':
           description: risk_profile_result и risk_profile_explanation
+
+  /client/plan/save:
+    post:
+      tags: [ "Гостевой CJM" ]
+      summary: Сохранить план без регистрации (лид + guest_token)
+      description: |
+        Публичный эндпоинт после гостевого расчёта. Создаёт/обновляет запись в `clients` без `users`
+        (лид), привязывает к агенту по `ref`, сохраняет `goals_summary`. В ответе — `guest_token`
+        (JWT, `guest: true`, TTL ~30 дней) для `Authorization: Bearer` на `/my/plan/report/html` и `/pdf`.
+        Позже тот же email можно «заклеймить» через `register-client` → `verify-code`.
+      security: []
+      parameters:
+        - $ref: '../../openapi/pfpB2C.yaml#/components/parameters/ProjectKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../../openapi/pfpB2C.yaml#/components/schemas/CalculationRequest'
+                - type: object
+                  required: [ client ]
+                  properties:
+                    ref:
+                      type: string
+                      maxLength: 128
+                      description: referral_slug или UUID агента (как в register-client)
+                    client:
+                      type: object
+                      required: [ email ]
+                      properties:
+                        email:
+                          type: string
+                          format: email
+      responses:
+        '200':
+          description: Расчёт + client_id + guest_token + plan_saved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '../../openapi/pfpB2C.yaml#/components/schemas/CalculationResponse'
+                  - type: object
+                    required: [ client_id, guest_token, plan_saved ]
+                    properties:
+                      client_id:
+                        type: integer
+                      guest_token:
+                        type: string
+                        description: Bearer JWT для отчётов без полной регистрации
+                      plan_saved:
+                        type: boolean
+        '400':
+          description: Нет email, email уже зарегистрирован, или validation error
 
   /my/account:
     delete:
@@ -481,6 +498,29 @@ paths:
                 message: { type: string }
                 stage: { type: string }
 
+  /my/ai-b2c/chat/dynamic/stream:
+    post:
+      tags: [ "AI B2C" ]
+      summary: Оркестратор B2C — классификатор + ответ по стадии (SSE)
+      description: |
+        Двухшаговый поток для `/plan`: 1-й ИИ (оркестратор) выбирает команду из `ai_b2c_stage_contexts` выбранного `flow_key`,
+        2-й ИИ отвечает по `content` стадии + данные клиента.
+
+        Вход: текст чата **или** UI-событие (выбор цели, данные страницы).
+
+        **SSE-события (формат PFP):**
+        - `classifier_command` — `{ command, stage_key, classifierSkipped }` (фронт по `command`/`stage_key` переключает экран)
+        - `text` — чанки ответа ассистента
+        - `done` — конец потока
+
+        Whitelist команд: активные `stage_key` flow + команды из `dynamic_context_text` / `command_context_text`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: './aiB2c.yaml#/components/schemas/AiB2cOrchestratorTurn'
+
   /my/ai-b2c/chat_AI/stream:
     post:
       tags: [ "AI B2C" ]
@@ -504,6 +544,7 @@ paths:
       tags: [ "AI B2C" ]
       summary: Получить историю чата
       parameters:
+        - $ref: './aiB2c.yaml#/components/parameters/flowKeyQuery'
         - in: query
           name: stage
           schema: { type: string }
@@ -511,6 +552,7 @@ paths:
       tags: [ "AI B2C" ]
       summary: Очистить историю чата
       parameters:
+        - $ref: './aiB2c.yaml#/components/parameters/flowKeyQuery'
         - in: query
           name: stage
           schema: { type: string }
@@ -519,6 +561,8 @@ paths:
     get:
       tags: [ "AI B2C" ]
       summary: Получить доступные Stages (Этапы) для клиента
+      parameters:
+        - $ref: './aiB2c.yaml#/components/parameters/flowKeyQuery'
 
   /my/ai-b2c/settings:
     get:

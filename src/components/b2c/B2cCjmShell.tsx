@@ -15,6 +15,8 @@ interface B2cCjmShellProps {
     clientAge?: number;
     mainVariant?: 'form' | 'goals' | 'assets' | 'reserve' | 'life' | 'risk';
     children: ReactNode;
+    hideSidebar?: boolean;
+    liveCoachMessage?: string;
 }
 
 const B2cCjmShell: React.FC<B2cCjmShellProps> = ({
@@ -24,6 +26,8 @@ const B2cCjmShell: React.FC<B2cCjmShellProps> = ({
     clientAge,
     mainVariant = 'form',
     children,
+    hideSidebar = false,
+    liveCoachMessage,
 }) => {
     const isWideMain =
         mainVariant === 'goals' ||
@@ -58,8 +62,15 @@ const B2cCjmShell: React.FC<B2cCjmShellProps> = ({
                 })}
             </nav>
 
-            <div className={`b2c-cjm__workspace${isWideMain ? ' b2c-cjm__workspace--goals' : ''}`}>
-                <B2cCjmSidebar step={currentStep} inviterName={inviterName} clientAge={clientAge} />
+            <div className={`b2c-cjm__workspace${isWideMain ? ' b2c-cjm__workspace--goals' : ''}${hideSidebar ? ' b2c-cjm__workspace--no-sidebar' : ''}`}>
+                {hideSidebar ? null : (
+                    <B2cCjmSidebar
+                        step={currentStep}
+                        inviterName={inviterName}
+                        clientAge={clientAge}
+                        liveMessage={liveCoachMessage}
+                    />
+                )}
                 <div className={`b2c-cjm__main${isWideMain ? ' b2c-cjm__main--goals' : ''}`}>
                     <div
                         className={`b2c-cjm__card${isWideMain ? ' b2c-cjm__card--goals' : ''}${isLightWide ? ' b2c-cjm__card--risk' : ''}`}

@@ -27,6 +27,14 @@ export interface CJMCompleteContext {
     };
 }
 
+export interface CJMFlowOrchestratorConfig {
+    page: string;
+    controlledStep?: number;
+    liveCoachMessage?: string;
+    onPageSubmit: (page: string, pageData: Record<string, unknown>) => void;
+    onGoalSelected?: (payload: { goal_type_id: number; goal_name: string; page: string }) => void;
+}
+
 interface CJMFlowProps {
     onComplete: (result: any, context?: CJMCompleteContext) => void;
     initialData?: {
@@ -41,6 +49,10 @@ interface CJMFlowProps {
     mode?: 'agent' | 'guest';
     projectKey?: string;
     inviterName?: string;
+    /** B2C plan orchestrator: UI events вместо линейного step++ */
+    orchestrator?: CJMFlowOrchestratorConfig;
+    /** Скрыть левый sidebar CJM — чат оркестратора слева */
+    hideGuestSidebar?: boolean;
 }
 
 export interface CJMData {
@@ -123,6 +135,8 @@ const CJMFlow: React.FC<CJMFlowProps> = ({
     mode = 'agent',
     projectKey: projectKeyProp,
     inviterName,
+    orchestrator,
+    hideGuestSidebar = false,
 }) => {
     const isGuestMode = mode === 'guest';
     const guestAttribution = getClientB2cAttribution();
@@ -168,13 +182,62 @@ const CJMFlow: React.FC<CJMFlowProps> = ({
     const shouldSkipLifeInsuranceStep = (): boolean =>
         clientPoolCapitalForLifeStep(data) < CAPITAL_FLOOR_LIFE_INSURANCE;
 
-    const nextStep = () => {
+    const buildPageDataForStep = (currentStep: number): Record<string, unknown> => {
+        switch (currentStep) {
+            case 1:
+                return {
+                    age: data.age,
+                    gender: data.gender,
+                    birth_date: data.birthDate,
+                    email: data.email,
+                    phone: data.phone,
+                    family_profile: data.familyProfile,
+                    avg_monthly_income: data.avgMonthlyIncome,
+                };
+            case 3:
+                return { goals: data.goals };
+            case 4:
+                return { assets: data.assets };
+            case 5:
+                return {
+                    initial_capital: data.initialCapital,
+                    monthly_replenishment: data.monthlyReplenishment,
+                };
+            case 6:
+                return { life_insurance_limit: data.lifeInsuranceLimit };
+            case 7:
+                return { risk_profile_answers: data.riskProfileAnswers };
+            default:
+                return { step: currentStep };
+        }
+    };
+
+    const advanceStep = () => {
+        if (orchestrator) {
+            if (orchestrator.controlledStep === 3 || step === 3) {
+                const primary = data.goals?.[0];
+                if (primary && orchestrator.onGoalSelected) {
+                    orchestrator.onGoalSelected({
+                        goal_type_id: primary.goal_type_id,
+                        goal_name: primary.name,
+                        page: orchestrator.page,
+                    });
+                    return;
+                }
+            }
+            orchestrator.onPageSubmit(orchestrator.page, buildPageDataForStep(step));
+            return;
+        }
         setStep((s) => {
             if (isGuestMode && s === 1) return 3;
             if (s === 3 && shouldSkipAssetsStep()) return 5;
             if (s === 5 && shouldSkipLifeInsuranceStep()) return 7;
             return s + 1;
         });
+    };
+
+    const nextStep = () => {
+        advanceStep();
     };
     const prevStep = () => {
         setStep((s) => {
@@ -184,6 +247,12 @@ const CJMFlow: React.FC<CJMFlowProps> = ({
             return s - 1;
         });
     };
+
+    useLayoutEffect(() => {
+        if (orchestrator?.controlledStep && orchestrator.controlledStep !== step) {
+            setStep(orchestrator.controlledStep);
+        }
+    }, [orchestrator?.controlledStep, orchestrator, step]);
 
     useLayoutEffect(() => {
         if (step === 6 && clientPoolCapitalForLifeStep(data) < CAPITAL_FLOOR_LIFE_INSURANCE) {
@@ -197,6 +266,9 @@ const CJMFlow: React.FC<CJMFlowProps> = ({
 
     const handleCalculate = async () => {
         setLoading(true);
+        if (orchestrator) {
+            orchestrator.onPageSubmit(orchestrator.page, buildPageDataForStep(7));
+        }
         try {
             // Split FIO into parts
             const fioParts = (data.fio || '').split(' ');
@@ -840,6 +912,8 @@ const CJMFlow: React.FC<CJMFlowProps> = ({
                 steps={b2cShellSteps}
                 inviterName={inviterName}
                 clientAge={data.age}
+                hideSidebar={hideGuestSidebar}
+                liveCoachMessage={orchestrator?.liveCoachMessage}
                 mainVariant={
                     step === 3
                         ? 'goals'

@@ -15,6 +15,8 @@ import {
 } from '../../utils/clientB2cAuth';
 import { saveB2cPlanDraft, loadB2cPlanDraft } from '../../utils/b2cPlanDraft';
 import { wrapReportHtmlForMobile } from '../../utils/reportHtmlSrcdoc';
+import { isB2cPlanOrchestratorEnabled } from '../../utils/b2cPlanOrchestratorFlag';
+import B2cPlanOrchestratorFlow from '../../components/b2c/B2cPlanOrchestratorFlow';
 import '../../styles/b2c-guest-plan.css';
 
 type GuestView = 'welcome' | 'cjm' | 'result';
@@ -51,6 +53,7 @@ function restoreGuestSessionFromDraft(): boolean {
 
 const B2cGuestPlanPage: React.FC = () => {
     const attribution = useMemo(() => captureClientB2cAttributionFromUrl(), []);
+    const orchestratorEnabled = useMemo(() => isB2cPlanOrchestratorEnabled(), []);
     const isDesktopResult = useDesktopResultLayout();
     const [view, setView] = useState<GuestView>('welcome');
     const [calculationResult, setCalculationResult] = useState<unknown>(() => loadB2cPlanDraft()?.calculationResult ?? null);
@@ -60,6 +63,8 @@ const B2cGuestPlanPage: React.FC = () => {
     const [planSaveOpen, setPlanSaveOpen] = useState(false);
     const [isPlanSaved, setIsPlanSaved] = useState(() => restoreGuestSessionFromDraft());
     const showDesktopResult = view === 'result' && isDesktopResult;
+    const showOrchestrator =
+        orchestratorEnabled && (view === 'welcome' || view === 'cjm' || (view === 'result' && !showDesktopResult));
 
     useEffect(() => {
         const ref = attribution.ref?.trim();
@@ -201,9 +206,9 @@ const B2cGuestPlanPage: React.FC = () => {
 
     return (
         <div
-            className={`b2c-guest-plan${view === 'welcome' ? ' b2c-guest-plan--welcome' : ''}${view === 'cjm' ? ' b2c-guest-plan--cjm' : ''}${showDesktopResult ? ' b2c-guest-plan--result' : ''}`}
+            className={`b2c-guest-plan${view === 'welcome' ? ' b2c-guest-plan--welcome' : ''}${view === 'cjm' || showOrchestrator ? ' b2c-guest-plan--cjm' : ''}${showDesktopResult ? ' b2c-guest-plan--result' : ''}${showOrchestrator ? ' b2c-guest-plan--orchestrator' : ''}`}
         >
-            {!showDesktopResult ? (
+            {!showDesktopResult && !showOrchestrator ? (
                 <header className="b2c-guest-plan__header">
                     <div className="b2c-guest-plan__brand">
                         <img
@@ -238,13 +243,29 @@ const B2cGuestPlanPage: React.FC = () => {
                     </div>
                 ) : null}
 
-                {view === 'welcome' ? (
+                {view === 'welcome' && !orchestratorEnabled ? (
                     <B2cClientWelcome
                         inviterName={inviterName || undefined}
                         onStart={() => {
                             setView('cjm');
                             window.scrollTo({ top: 0, behavior: 'smooth' });
                         }}
+                    />
+                ) : showOrchestrator ? (
+                    <B2cPlanOrchestratorFlow
+                        projectKey={attribution.project_key}
+                        inviterName={inviterName || undefined}
+                        isPlanSaved={isPlanSaved}
+                        calculationResult={calculationResult}
+                        onComplete={handleCjmComplete}
+                        onSavePlan={isPlanSaved ? undefined : handleSavePlan}
+                        onOpenHtmlReport={isPlanSaved ? handleOpenClientHtmlReport : undefined}
+                        onOpenPdfReport={isPlanSaved ? handleOpenClientPdfReport : undefined}
+                        onRestart={() => {
+                            setSaveNotice(null);
+                            setView('welcome');
+                        }}
+                        forceResultView={view === 'result'}
                     />
                 ) : view === 'cjm' ? (
                     <CJMFlow
