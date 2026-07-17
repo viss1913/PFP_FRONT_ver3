@@ -1,0 +1,50 @@
+---
+description: PFP monorepo architecture — lanes, routing, API map, JWT, partner handoff. Read before any cross-lane change.
+alwaysApply: true
+---
+
+# PFP Frontend — архитектура (lanes)
+
+**Индекс:** [`AGENTS.md`](../../AGENTS.md) · **Runbook партнёра:** [`docs/PARTNER_AI_ONBOARDING.md`](../../docs/PARTNER_AI_ONBOARDING.md)
+
+## Lanes — не смешивать
+
+| Lane | URL | Entry |
+|------|-----|-------|
+| B2C guest | `/plan` | `main.tsx` → `B2cGuestPlanPage` |
+| Landing | `/`, `?page=landing` | `App.tsx` → `LandingPage` |
+| Agent LK | `/` после login | `App.tsx` (`?page=list`, …) |
+| Sber | `/sber` | `main.tsx` → `SberLandingPage` |
+| ATB | `/atb_*` | `main.tsx` → `AtbMassEntryPage` |
+| Onboarding | `/invite/activate`, `/register` | `main.tsx` |
+
+Роутинг: **нет react-router**. Public — [`src/routing/publicRoutes.ts`](../../src/routing/publicRoutes.ts).
+
+## API clients
+
+- LK: `agentLkApi.ts`, `clientApi.ts`
+- B2C guest: `b2cApi.ts`, `b2cOrchestratorApi.ts`
+- Auth: `authApi.ts`
+- Key: `projectKey.ts` → `X-Project-Key`
+
+OpenAPI: `api_docs/`. JWT: agent `localStorage.token` ≠ guest `client_token`.
+
+## Cursor subagents
+
+- Scope unclear → `repo-architecture`
+- `/plan` → `b2c` + skill `b2c-plan-handoff`
+- LK → `agent-lk` (UI only → `lk-ui-agent`)
+- Landing → `landing`
+
+## Partner handoff
+
+- Ветка clone: **`partner-handoff`** (read-only snapshot)
+- **Их фронт → наш API:** `VITE_PARTNER_PROJECT_KEY` — [`docs/PARTNER_PROJECT_KEY_SETUP.md`](../../docs/PARTNER_PROJECT_KEY_SETUP.md)
+- Git: [`docs/PARTNER_GIT_ACCESS.md`](../../docs/PARTNER_GIT_ACCESS.md) — партнёрам push **запрещён**
+- `/plan/` **со слэшем** на CDN
+
+## Три AI (не путать)
+
+1. AI B2C orchestrator — `/plan` SSE
+2. AI B2C admin — LK Settings
+3. Constructor widget — `partner-widgets/` (не `/plan`)

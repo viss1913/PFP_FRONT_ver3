@@ -51,6 +51,29 @@ Content-Type: application/json
 }
 ```
 
+**С session_context (агент из referral `?ref=`)** — слать на **каждый** turn:
+
+```json
+{
+  "flow_key": "plan",
+  "message": "Хочу составить персональный финансовый план",
+  "page": "/welcome",
+  "session_context": {
+    "ref": "ab2def5798ae",
+    "agent": {
+      "id": 123,
+      "first_name": "Иван",
+      "last_name": "Петров",
+      "full_name": "Иван Петров",
+      "display_name": "Иван Петров"
+    }
+  }
+}
+```
+
+Плейсхолдеры в промптах ЛК (подстановка на **бэке**): `{{agent_full_name}}`, `{{agent_first_name}}`, `{{agent_last_name}}`.  
+Полный контракт: [`docs/B2C_PLAN_SESSION_CONTEXT.md`](../docs/B2C_PLAN_SESSION_CONTEXT.md).
+
 ## SSE (формат PFP)
 
 Парсить строки `data: {...}\n\n`.

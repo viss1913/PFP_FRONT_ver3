@@ -16,6 +16,7 @@ import {
 import { saveB2cPlanDraft, loadB2cPlanDraft } from '../../utils/b2cPlanDraft';
 import { wrapReportHtmlForMobile } from '../../utils/reportHtmlSrcdoc';
 import { isB2cPlanOrchestratorEnabled } from '../../utils/b2cPlanOrchestratorFlag';
+import { buildB2cPlanSessionContext } from '../../utils/b2cPlanSessionContext';
 import B2cPlanOrchestratorFlow from '../../components/b2c/B2cPlanOrchestratorFlow';
 import '../../styles/b2c-guest-plan.css';
 
@@ -204,6 +205,15 @@ const B2cGuestPlanPage: React.FC = () => {
             .join(' ')
             .trim();
 
+    const planSessionContext = useMemo(
+        () =>
+            buildB2cPlanSessionContext({
+                ref: attribution.ref,
+                preview: referralPreview,
+            }),
+        [attribution.ref, referralPreview],
+    );
+
     return (
         <div
             className={`b2c-guest-plan${view === 'welcome' ? ' b2c-guest-plan--welcome' : ''}${view === 'cjm' || showOrchestrator ? ' b2c-guest-plan--cjm' : ''}${showDesktopResult ? ' b2c-guest-plan--result' : ''}${showOrchestrator ? ' b2c-guest-plan--orchestrator' : ''}`}
@@ -255,6 +265,7 @@ const B2cGuestPlanPage: React.FC = () => {
                     <B2cPlanOrchestratorFlow
                         projectKey={attribution.project_key}
                         inviterName={inviterName || undefined}
+                        sessionContext={planSessionContext}
                         isPlanSaved={isPlanSaved}
                         calculationResult={calculationResult}
                         onComplete={handleCjmComplete}

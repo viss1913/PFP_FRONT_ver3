@@ -3510,6 +3510,33 @@
     color: #64748b;
 }
 
+.b2c-step-risk__hint-block {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.b2c-step-risk__retry {
+    border: 1px solid rgba(201, 162, 39, 0.45);
+    border-radius: 12px;
+    padding: 10px 16px;
+    background: rgba(255, 199, 80, 0.12);
+    color: #1f2937;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.b2c-step-risk__retry:hover:not(:disabled) {
+    background: rgba(255, 199, 80, 0.22);
+}
+
+.b2c-step-risk__retry:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
 .b2c-step-risk__question-block {
     display: flex;
     flex-direction: column;

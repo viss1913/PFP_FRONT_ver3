@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Target, ShieldCheck, Briefcase, PiggyBank, Heart, Users } from 'lucide-react';
 import StepClientData from './steps/StepClientData';
@@ -146,6 +146,8 @@ const CJMFlow: React.FC<CJMFlowProps> = ({
     const [loading, setLoading] = useState(false);
     const [riskQuestionnaire, setRiskQuestionnaire] = useState<RiskQuestionnaire | null>(null);
     const [riskQuestionnaireLoading, setRiskQuestionnaireLoading] = useState(false);
+    const [riskQuestionnaireError, setRiskQuestionnaireError] = useState<string | null>(null);
+    const riskQuestionnaireRetriedOnStep7 = React.useRef(false);
     const [data, setData] = useState<CJMData>({
         gender: 'male',
         age: 39,
@@ -734,26 +736,49 @@ const CJMFlow: React.FC<CJMFlowProps> = ({
         ? stepDefinitions.filter((s) => s.stepNumber !== 6)
         : stepDefinitions;
 
-    useEffect(() => {
-        const loadRiskQuestionnaire = async () => {
-            setRiskQuestionnaireLoading(true);
-            try {
-                const questionnaire = isGuestMode
-                    ? await b2cApi.getGuestRiskQuestionnaire(guestProjectKey)
-                    : await clientApi.getRiskQuestionnaireV2();
-                setRiskQuestionnaire(questionnaire);
-                setData((prev) => ({
-                    ...prev,
-                    riskQuestionnaireVersionId: questionnaire.id
-                }));
-            } catch (e) {
-                console.error('Failed to load risk questionnaire', e);
-            } finally {
-                setRiskQuestionnaireLoading(false);
+    const loadRiskQuestionnaire = useCallback(async () => {
+        setRiskQuestionnaireLoading(true);
+        setRiskQuestionnaireError(null);
+        try {
+            const questionnaire = isGuestMode
+                ? await b2cApi.getGuestRiskQuestionnaire(guestProjectKey)
+                : await clientApi.getRiskQuestionnaireV2();
+            if (!Array.isArray(questionnaire?.questions) || questionnaire.questions.length === 0) {
+                throw new Error('Сервер вернул пустую анкету риск-профиля');
             }
-        };
-        loadRiskQuestionnaire();
+            setRiskQuestionnaire(questionnaire);
+            setData((prev) => ({
+                ...prev,
+                riskQuestionnaireVersionId: questionnaire.id,
+            }));
+        } catch (e) {
+            console.error('Failed to load risk questionnaire', e);
+            setRiskQuestionnaire(null);
+            setRiskQuestionnaireError(
+                e instanceof Error && e.message
+                    ? e.message
+                    : 'Не удалось загрузить анкету риск-профиля',
+            );
+        } finally {
+            setRiskQuestionnaireLoading(false);
+        }
     }, [isGuestMode, guestProjectKey]);
+
+    useEffect(() => {
+        void loadRiskQuestionnaire();
+    }, [loadRiskQuestionnaire]);
+
+    useEffect(() => {
+        if (step !== 7) {
+            riskQuestionnaireRetriedOnStep7.current = false;
+            return;
+        }
+        if (riskQuestionnaireRetriedOnStep7.current) return;
+        if (riskQuestionnaireLoading) return;
+        if ((riskQuestionnaire?.questions?.length ?? 0) > 0) return;
+        riskQuestionnaireRetriedOnStep7.current = true;
+        void loadRiskQuestionnaire();
+    }, [step, riskQuestionnaireLoading, riskQuestionnaire?.questions?.length, loadRiskQuestionnaire]);
 
     useEffect(() => {
         // If editing, fetch client data
@@ -884,6 +909,8 @@ const CJMFlow: React.FC<CJMFlowProps> = ({
                     loading={loading}
                     questionnaire={riskQuestionnaire}
                     isQuestionnaireLoading={riskQuestionnaireLoading}
+                    questionnaireLoadError={riskQuestionnaireError}
+                    onRetryQuestionnaire={() => void loadRiskQuestionnaire()}
                     guestMode={isGuestMode}
                 />
             )}

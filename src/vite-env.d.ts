@@ -13,6 +13,12 @@ interface ImportMetaEnv {
     readonly VITE_GA_MEASUREMENT_ID?: string;
     /** Canonical origin для SEO (OG, sitemap, robots при build). */
     readonly VITE_SITE_URL?: string;
+    /** Partner tenant key — override DEFAULT_PROJECT_KEY without editing projectKey.ts */
+    readonly VITE_PARTNER_PROJECT_KEY?: string;
+    /** Partner tenant id — override DEFAULT_PROJECT_ID for LK endpoints */
+    readonly VITE_PARTNER_PROJECT_ID?: string;
+    /** Enable AI B2C orchestrator on /plan instead of linear CJM */
+    readonly VITE_B2C_PLAN_ORCHESTRATOR?: string;
 }
 
 interface ImportMeta {

@@ -20,9 +20,10 @@ description: Кастомизация guest B2C /plan — welcome, CJM, result, 
 
 ## Модель передачи
 
-- Рабочая ветка handoff: **`conomy`** (`origin/conomy`). Collaborator с Write может пушить туда обратно.
-- Не пушить в `main` / `b2c_ref` / `finam` без явной договорённости.
-- Реалистичный старт: весь репо как база, кастомизируют и деплоят **только `/plan`**.
+- Snapshot для партнёров: ветка **`partner-handoff`** (read-only clone, см. [`README.md`](../../README.md))
+- Партнёр работает в **своём** git — push в репо BankFuture **запрещён**
+- BankFuture обновляет `partner-handoff` из `conomy` / `main` по мере готовности
+- Реалистичный старт: весь репо как база, кастомизируют и деплоят **только `/plan`**
 - Сначала **content + assets + CSS vars**, не `CJMFlow` / API без нужды.
 
 ## Whitelist правок (кастомизация)
@@ -65,7 +66,7 @@ Core entry (трогать только если нужно для изоляц�
 3. `npm run build`.
 4. Smoke `/plan/` (со слэшем): `?ref=` → welcome → CJM → calculate → HTML/PDF при `guest_token`.
 5. Деплой на **свой** bucket/домен; CDN: URL `/plan/` со слэшем.
-6. Коммиты/пуш — в ветку `conomy` (см. §10 в HANDOFF).
+6. Коммиты — в **свой** репозиторий (не в BankFuture).
 
 ## Связанное Cursor rule
 

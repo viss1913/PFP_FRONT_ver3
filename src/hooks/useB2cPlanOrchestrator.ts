@@ -5,6 +5,7 @@ import { resolveStageFromCommand } from '../config/b2cPlanStageRegistry';
 import type {
     AiB2cSettingsPublic,
     B2cPlanChatMessage,
+    B2cPlanSessionContext,
     B2cPlanUiEventPayload,
 } from '../types/b2cOrchestrator';
 
@@ -18,6 +19,8 @@ export interface UseB2cPlanOrchestratorOptions {
     projectKey: string;
     flowKey?: string;
     initialStageKey?: string;
+    /** Referral agent etc. — merged into every stream turn. */
+    sessionContext?: B2cPlanSessionContext | null;
     onNavigate?: (stageKey: string) => void;
 }
 
@@ -25,6 +28,7 @@ export function useB2cPlanOrchestrator({
     projectKey,
     flowKey = B2C_PLAN_FLOW_KEY,
     initialStageKey = '/start',
+    sessionContext = null,
     onNavigate,
 }: UseB2cPlanOrchestratorOptions) {
     const [messages, setMessages] = useState<B2cPlanChatMessage[]>([]);
@@ -34,6 +38,8 @@ export function useB2cPlanOrchestrator({
     const [assistantSettings, setAssistantSettings] = useState<AiB2cSettingsPublic | null>(null);
     const abortRef = useRef<AbortController | null>(null);
     const assistantDraftIdRef = useRef<string | null>(null);
+    const sessionContextRef = useRef<B2cPlanSessionContext | null | undefined>(sessionContext);
+    sessionContextRef.current = sessionContext;
 
     useEffect(() => {
         let cancelled = false;
@@ -87,9 +93,14 @@ export function useB2cPlanOrchestrator({
             setMessages((prev) => [...prev, { id: assistantId, role: 'assistant', content: '', streaming: true }]);
 
             try {
+                const sc = sessionContextRef.current;
                 await b2cOrchestratorApi.streamPlanOrchestrator(
                     projectKey,
-                    { flow_key: flowKey, ...turn },
+                    {
+                        flow_key: flowKey,
+                        ...turn,
+                        ...(sc ? { session_context: sc } : {}),
+                    },
                     {
                         onClassifierCommand: (evt) => {
                             // Prefer stage_key; empty command = chat-only (no navigation).

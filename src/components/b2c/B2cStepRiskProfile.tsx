@@ -29,6 +29,8 @@ interface B2cStepRiskProfileProps {
     currentQuestionIndex: number;
     phase: B2cRiskPhase;
     isQuestionnaireLoading: boolean;
+    questionnaireLoadError?: string | null;
+    onRetryQuestionnaire?: () => void;
     blockBusy: boolean;
     allAnswered: boolean;
     onSelectAnswer: (questionCode: string, optionCode: string) => void;
@@ -57,6 +59,8 @@ const B2cStepRiskProfile: React.FC<B2cStepRiskProfileProps> = ({
     currentQuestionIndex,
     phase,
     isQuestionnaireLoading,
+    questionnaireLoadError = null,
+    onRetryQuestionnaire,
     blockBusy,
     allAnswered,
     onSelectAnswer,
@@ -196,9 +200,21 @@ const B2cStepRiskProfile: React.FC<B2cStepRiskProfileProps> = ({
                                 </p>
                             )}
                             {!isQuestionnaireLoading && total === 0 && (
-                                <p className="b2c-step-risk__hint">
-                                    {B2C_RISK_PROFILE_FORM.emptyQuestionnaire}
-                                </p>
+                                <div className="b2c-step-risk__hint-block">
+                                    <p className="b2c-step-risk__hint">
+                                        {questionnaireLoadError || B2C_RISK_PROFILE_FORM.emptyQuestionnaire}
+                                    </p>
+                                    {onRetryQuestionnaire ? (
+                                        <button
+                                            type="button"
+                                            className="b2c-step-risk__retry"
+                                            onClick={onRetryQuestionnaire}
+                                            disabled={blockBusy}
+                                        >
+                                            {B2C_RISK_PROFILE_FORM.retryQuestionnaire}
+                                        </button>
+                                    ) : null}
+                                </div>
                             )}
 
                             {currentQuestion ? (

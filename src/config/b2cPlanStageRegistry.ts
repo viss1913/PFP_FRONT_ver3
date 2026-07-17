@@ -18,6 +18,9 @@ export interface B2cPlanStageDefinition {
 export const B2C_PLAN_STAGE_REGISTRY: Record<string, B2cPlanStageDefinition> = {
     '/start': { page: '/start', kind: 'welcome', title: 'Старт' },
     start: { page: '/start', kind: 'welcome', title: 'Старт' },
+    /** Alias for agent LK stage_key `/welcome` (same UI as /start). */
+    '/welcome': { page: '/welcome', kind: 'welcome', title: 'Welcome' },
+    welcome: { page: '/welcome', kind: 'welcome', title: 'Welcome' },
     '/lichnye_dannye': { page: '/lichnye_dannye', kind: 'cjm', cjmStep: 1, title: 'Личные данные' },
     lichnye_dannye: { page: '/lichnye_dannye', kind: 'cjm', cjmStep: 1, title: 'Личные данные' },
     '/vybor_celi2': { page: '/vybor_celi2', kind: 'cjm', cjmStep: 3, title: 'Выбор цели' },

@@ -143,10 +143,14 @@ export function getGuestCalculateErrorMessage(error: unknown): string {
 function normalizeQuestionnaire(
     raw: RiskQuestionnaire | { questionnaire?: RiskQuestionnaire },
 ): RiskQuestionnaire {
-    if (raw && typeof raw === 'object' && 'questionnaire' in raw && raw.questionnaire) {
-        return raw.questionnaire;
-    }
-    return raw as RiskQuestionnaire;
+    const source =
+        raw && typeof raw === 'object' && 'questionnaire' in raw && raw.questionnaire
+            ? raw.questionnaire
+            : (raw as RiskQuestionnaire);
+    return {
+        ...source,
+        questions: Array.isArray(source?.questions) ? source.questions : [],
+    };
 }
 
 export const b2cApi = {

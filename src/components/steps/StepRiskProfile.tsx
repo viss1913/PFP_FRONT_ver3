@@ -17,6 +17,8 @@ interface StepProps {
     loading: boolean;
     questionnaire: RiskQuestionnaire | null;
     isQuestionnaireLoading: boolean;
+    questionnaireLoadError?: string | null;
+    onRetryQuestionnaire?: () => void;
     guestMode?: boolean;
 }
 
@@ -28,6 +30,8 @@ const StepRiskProfile: React.FC<StepProps> = ({
     loading,
     questionnaire,
     isQuestionnaireLoading,
+    questionnaireLoadError = null,
+    onRetryQuestionnaire,
     guestMode = false,
 }) => {
     const questions = React.useMemo(() => {
@@ -164,6 +168,8 @@ const StepRiskProfile: React.FC<StepProps> = ({
                 currentQuestionIndex={currentQuestionIndex}
                 phase={phase}
                 isQuestionnaireLoading={isQuestionnaireLoading}
+                questionnaireLoadError={questionnaireLoadError}
+                onRetryQuestionnaire={onRetryQuestionnaire}
                 blockBusy={blockBusy}
                 allAnswered={allAnswered}
                 onSelectAnswer={(code, option) => setAnswer(code, option, { autoAdvance: true })}
@@ -382,9 +388,16 @@ const StepRiskProfile: React.FC<StepProps> = ({
                 <p style={{ marginBottom: 26, color: 'var(--text-muted)' }}>Загружаем анкету риск-профиля…</p>
             )}
             {!isQuestionnaireLoading && questions.length === 0 && (
-                <p style={{ marginBottom: 26, color: 'var(--text-muted)' }}>
-                    Не удалось получить анкету риск-профиля. Попробуй обновить страницу.
-                </p>
+                <div style={{ marginBottom: 26 }}>
+                    <p style={{ marginBottom: 12, color: 'var(--text-muted)' }}>
+                        {questionnaireLoadError || 'Не удалось получить анкету риск-профиля. Попробуй обновить страницу.'}
+                    </p>
+                    {onRetryQuestionnaire ? (
+                        <button type="button" className="btn-secondary" onClick={onRetryQuestionnaire}>
+                            Загрузить анкету снова
+                        </button>
+                    ) : null}
+                </div>
             )}
 
             <div style={{ marginBottom: 26 }}>

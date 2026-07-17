@@ -18,4 +18,4 @@ alwaysApply: false
 - Кастомизация: сначала `src/content/b2c*`, `src/assets/b2c|goals`, `b2c-guest-plan.css` — не `CJMFlow` / API без нужды.
 - Не трогать Sber / ATB / agent LK / partner-widgets, если задача не про них.
 - CDN: `/plan/` со слэшем; SEO — `SEO.b2cPlan` + `copy-spa-fallbacks.mjs`.
-- Внешние агенты: ветка `conomy`, пуш обратно в `conomy` ок; не в `main` без договорённости.
+- Партнёры: clone `partner-handoff`, push в наш репо **запрещён** — [`docs/PARTNER_GIT_ACCESS.md`](../../docs/PARTNER_GIT_ACCESS.md)

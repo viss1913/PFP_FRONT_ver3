@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Ренессанс — демо сайта с чатом</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      :root {
+        --reni-violet: #38056c;
+        --reni-violet-2: #4a0a8a;
+        --reni-bg: #f7f5fb;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--reni-bg);
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+          sans-serif;
+        color: #161325;
+      }
+
+      .site-header {
+        padding: 20px clamp(16px, 4vw, 48px);
+        border-bottom: 1px solid #e7e1f3;
+        background: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .site-logo {
+        font-size: 24px;
+        font-weight: 800;
+        color: var(--reni-violet);
+      }
+
+      .site-nav {
+        display: flex;
+        gap: 18px;
+        font-size: 15px;
+        color: #4f4b62;
+      }
+
+      .hero {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: clamp(28px, 7vw, 80px) clamp(16px, 4vw, 48px);
+      }
+
+      .hero h1 {
+        margin: 0 0 14px;
+        font-size: clamp(32px, 5vw, 52px);
+        line-height: 1.05;
+        color: #1b1230;
+      }
+
+      .hero p {
+        margin: 0;
+        max-width: 680px;
+        font-size: clamp(16px, 2.4vw, 20px);
+        color: #4f4b62;
+        line-height: 1.45;
+      }
+
+      .cards {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 0 clamp(16px, 4vw, 48px) 120px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+      }
+
+      .card {
+        background: #fff;
+        border: 1px solid #e7e1f3;
+        border-radius: 14px;
+        padding: 16px;
+      }
+
+      .card h3 {
+        margin: 0 0 8px;
+        color: var(--reni-violet);
+      }
+
+      .card p {
+        margin: 0;
+        color: #5f5b70;
+      }
+
+      .chat-launcher {
+        position: fixed;
+        right: 20px;
+        bottom: 20px;
+        z-index: 20;
+      }
+
+      .chat-toggle {
+        border: 0;
+        background: transparent;
+        padding: 0;
+        cursor: pointer;
+        display: flex;
+        align-items: flex-end;
+        gap: 10px;
+        transform-origin: 80% 100%;
+        animation: launcher-float 3.2s ease-in-out infinite;
+      }
+
+      .chat-launcher-avatar {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        object-fit: cover;
+        box-shadow: 0 10px 26px rgba(56, 5, 108, 0.3);
+        border: 2px solid #fff;
+        background: #fff;
+        animation: avatar-pop 3.2s ease-in-out infinite;
+      }
+
+      .chat-launcher-bubble {
+        position: relative;
+        max-width: 250px;
+        background: #fff;
+        border: 1px solid #d8c8f0;
+        border-radius: 16px;
+        padding: 12px 14px;
+        box-shadow: 0 12px 32px rgba(56, 5, 108, 0.2);
+        text-align: left;
+        transition: box-shadow 0.18s ease, transform 0.18s ease;
+      }
+
+      .chat-launcher-bubble::after {
+        content: '';
+        position: absolute;
+        left: -8px;
+        bottom: 12px;
+        width: 12px;
+        height: 12px;
+        background: #fff;
+        border-left: 1px solid #d8c8f0;
+        border-bottom: 1px solid #d8c8f0;
+        transform: rotate(45deg);
+      }
+
+      .chat-launcher-title {
+        display: block;
+        font-size: 18px;
+        font-weight: 800;
+        line-height: 1.2;
+        color: var(--reni-violet);
+      }
+
+      .chat-launcher-desc {
+        display: block;
+        margin-top: 4px;
+        font-size: 13px;
+        line-height: 1.35;
+        color: #4f4b62;
+      }
+
+      .chat-toggle.is-open .chat-launcher-title {
+        color: #2f1f4c;
+      }
+
+      .chat-toggle:hover .chat-launcher-bubble,
+      .chat-toggle:focus-visible .chat-launcher-bubble {
+        transform: translateY(-1px);
+        box-shadow: 0 16px 34px rgba(56, 5, 108, 0.28);
+      }
+
+      .chat-toggle:focus-visible .chat-launcher-bubble {
+        outline: 2px solid #5f2ca3;
+        outline-offset: 2px;
+      }
+
+      .chat-launcher.is-chat-open .chat-launcher-bubble {
+        display: none;
+      }
+
+      .chat-launcher.is-chat-open .chat-toggle {
+        gap: 0;
+      }
+
+      .chat-launcher.is-chat-open {
+        display: none;
+      }
+
+      @keyframes launcher-float {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-3px);
+        }
+      }
+
+      @keyframes avatar-pop {
+        0%,
+        100% {
+          transform: scale(1);
+          box-shadow: 0 10px 26px rgba(56, 5, 108, 0.3);
+        }
+        50% {
+          transform: scale(1.06);
+          box-shadow: 0 14px 30px rgba(56, 5, 108, 0.36);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .chat-toggle,
+        .chat-launcher-avatar {
+          animation: none;
+        }
+      }
+
+      .chat-panel {
+        position: fixed;
+        right: 20px;
+        bottom: 84px;
+        width: min(440px, calc(100vw - 24px));
+        height: min(720px, calc(100vh - 110px));
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 20px 50px rgba(19, 13, 38, 0.35);
+        opacity: 0;
+        transform: translateY(10px) scale(0.98);
+        pointer-events: none;
+        transition: opacity 0.18s ease, transform 0.18s ease;
+      }
+
+      .chat-panel.is-open {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        pointer-events: auto;
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        right: 0;
+        bottom: 0;
+        border-radius: 0;
+        z-index: 40;
+      }
+
+      #reni-chat {
+        width: 100%;
+        height: 100%;
+      }
+
+      @media (max-width: 720px) {
+        .chat-panel {
+          right: 12px;
+          left: 12px;
+          width: auto;
+          bottom: 78px;
+          height: min(76vh, 680px);
+        }
+        .chat-panel.is-open {
+          right: 0;
+          left: 0;
+          bottom: 0;
+          height: 100vh;
+        }
+      }
+    </style>
+    <script src="./widget.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-logo">Ренессанс</div>
+      <nav class="site-nav">
+        <span>Продукты</span>
+        <span>Пенсия</span>
+        <span>Инвестиции</span>
+        <span>Контакты</span>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <h1>Финансы с человеческим лицом.</h1>
+      <p>
+        Это демо страницы: внизу справа живет кнопка AI-консультанта. Жми на нее
+        и откроется чат как на реальном сайте.
+      </p>
+    </section>
+
+    <section class="cards">
+      <article class="card">
+        <h3>Накопления</h3>
+        <p>Покажем, как управлять капиталом и не терять на горизонте лет.</p>
+      </article>
+      <article class="card">
+        <h3>Пенсия</h3>
+        <p>Подбор сценариев и расчет будущего дохода в одном окне.</p>
+      </article>
+      <article class="card">
+        <h3>Поддержка</h3>
+        <p>AI Рени отвечает быстро и ведет диалог простым языком.</p>
+      </article>
+    </section>
+
+    <div class="chat-launcher">
+      <button
+        class="chat-toggle"
+        id="chatToggle"
+        type="button"
+        aria-expanded="false"
+        aria-label="Открыть чат с Реней"
+      >
+        <img
+          class="chat-launcher-avatar"
+          id="chatLauncherAvatar"
+          alt="Аватар Рени"
+        />
+        <span class="chat-launcher-bubble">
+          <span class="chat-launcher-title">Привет, я Реня</span>
+          <span class="chat-launcher-desc">Очень умный консультант.</span>
+        </span>
+      </button>
+    </div>
+
+    <div class="chat-panel" id="chatPanel">
+      <div id="reni-chat"></div>
+    </div>
+
+    <script>
+      const panel = document.getElementById('chatPanel')
+      const toggle = document.getElementById('chatToggle')
+      const launcher = document.querySelector('.chat-launcher')
+      const launcherAvatar = document.getElementById('chatLauncherAvatar')
+      let initialized = false
+
+      function resolveLauncherAvatarSrc() {
+        const p = window.location.pathname || ''
+        return /\/src\/demo\.html$/i.test(p) ? '../assets/bot-avatar.png' : './assets/bot-avatar.png'
+      }
+      launcherAvatar.src = resolveLauncherAvatarSrc()
+
+      function closeChatPanel() {
+        panel.classList.remove('is-open')
+        launcher.classList.remove('is-chat-open')
+        toggle.classList.remove('is-open')
+        toggle.setAttribute('aria-expanded', 'false')
+        toggle.setAttribute('aria-label', 'Открыть чат с Реней')
+      }
+
+      function ensureChatMounted() {
+        if (initialized) return
+        window.RostechChatWidget.init({
+          projectKey: '__ROSTECH_PROJECT_KEY__',
+          mountSelector: '#reni-chat',
+          theme: 'reni',
+          skipStartGate: false,
+          onClose: closeChatPanel,
+        })
+        initialized = true
+      }
+
+      toggle.addEventListener('click', () => {
+        const open = panel.classList.toggle('is-open')
+        launcher.classList.toggle('is-chat-open', open)
+        toggle.classList.toggle('is-open', open)
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false')
+        toggle.setAttribute('aria-label', open ? 'Свернуть чат' : 'Открыть чат с Реней')
+        if (open) {
+          ensureChatMounted()
+        }
+      })
+    </script>
+  </body>
+</html>

@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Финам Автоследование — буклет, стр. 1</title>
+    <style>
+      :root {
+        --finam-yellow: #ffc800;
+        --finam-yellow-hover: #ffda4d;
+        --text-primary: #ffffff;
+        --text-secondary: #d4deee;
+        --text-muted: rgba(212, 222, 238, 0.72);
+        --safe-x: 64px;
+        --safe-bottom: 120px;
+        --page-w: 1080px;
+        --page-h: 1920px;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        min-height: 100%;
+        background: #060a12;
+        font-family: Inter, Manrope, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 24px 16px 48px;
+      }
+
+      .booklet {
+        position: relative;
+        width: min(100%, var(--page-w));
+        aspect-ratio: 9 / 16;
+        max-height: calc(100vh - 48px);
+        color: var(--text-primary);
+        overflow: hidden;
+        border-radius: 20px;
+        box-shadow: 0 32px 80px rgba(0, 0, 0, 0.55);
+        background: #0b1220 url('./autosledovanie-hero-bg.png') center center / cover no-repeat;
+      }
+
+      .booklet__overlay {
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(
+            180deg,
+            rgba(6, 10, 18, 0.92) 0%,
+            rgba(6, 10, 18, 0.55) 28%,
+            rgba(6, 10, 18, 0.08) 48%,
+            rgba(6, 10, 18, 0.35) 72%,
+            rgba(6, 10, 18, 0.88) 100%
+          );
+        pointer-events: none;
+      }
+
+      .booklet__inner {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        padding:
+          calc(var(--safe-x) * 0.72)
+          calc(var(--safe-x) * 0.72)
+          calc(var(--safe-bottom) * 0.55);
+      }
+
+      .booklet__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 28px;
+      }
+
+      .booklet__logo {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-size: clamp(18px, 2.4vw, 24px);
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        color: var(--text-primary);
+        text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+      }
+
+      .booklet__logo-mark {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: var(--finam-yellow);
+        color: #0b1220;
+        font-size: 18px;
+        font-weight: 900;
+        line-height: 1;
+      }
+
+      .booklet__badge {
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 200, 0, 0.35);
+        background: rgba(6, 10, 18, 0.55);
+        backdrop-filter: blur(8px);
+        color: var(--finam-yellow);
+        font-size: clamp(11px, 1.5vw, 13px);
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .booklet__title {
+        margin: 0 0 14px;
+        max-width: 11ch;
+        font-size: clamp(30px, 5vw, 50px);
+        font-weight: 800;
+        line-height: 1.06;
+        letter-spacing: -0.02em;
+        text-shadow: 0 4px 24px rgba(0, 0, 0, 0.55);
+      }
+
+      .booklet__title span {
+        color: var(--finam-yellow);
+      }
+
+      .booklet__subtitle {
+        margin: 0;
+        max-width: 36ch;
+        font-size: clamp(14px, 2vw, 18px);
+        line-height: 1.45;
+        color: var(--text-secondary);
+        text-shadow: 0 2px 16px rgba(0, 0, 0, 0.65);
+      }
+
+      .booklet__spacer {
+        flex: 1 1 auto;
+      }
+
+      .booklet__cta {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-height: 56px;
+        padding: 16px 24px;
+        border: none;
+        border-radius: 14px;
+        background: var(--finam-yellow);
+        color: #0b1220;
+        font: inherit;
+        font-size: clamp(15px, 2.1vw, 18px);
+        font-weight: 800;
+        letter-spacing: 0.01em;
+        text-decoration: none;
+        text-align: center;
+        cursor: pointer;
+        box-shadow:
+          0 10px 28px rgba(255, 200, 0, 0.28),
+          0 2px 0 rgba(0, 0, 0, 0.12) inset;
+        transition:
+          background 0.18s ease,
+          transform 0.18s ease,
+          box-shadow 0.18s ease;
+      }
+
+      .booklet__cta:hover {
+        background: var(--finam-yellow-hover);
+        transform: translateY(-1px);
+        box-shadow: 0 14px 32px rgba(255, 200, 0, 0.34);
+      }
+
+      .booklet__cta:active {
+        transform: translateY(0);
+      }
+
+      .booklet__cta-note {
+        margin: 10px 0 0;
+        text-align: center;
+        font-size: clamp(10px, 1.4vw, 12px);
+        color: var(--text-muted);
+        text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
+      }
+
+      .booklet__agent {
+        margin-top: 14px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: rgba(6, 10, 18, 0.62);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        font-size: clamp(11px, 1.5vw, 13px);
+        line-height: 1.4;
+        color: var(--text-secondary);
+      }
+
+      .booklet__agent strong {
+        color: var(--text-primary);
+      }
+
+      .booklet__agent[hidden] {
+        display: none;
+      }
+
+      .booklet__disclaimer {
+        margin: 16px 0 0;
+        font-size: clamp(9px, 1.25vw, 11px);
+        line-height: 1.4;
+        color: rgba(212, 222, 238, 0.55);
+        text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+      }
+
+      .booklet__page {
+        position: absolute;
+        right: calc(var(--safe-x) * 0.55);
+        bottom: calc(var(--safe-bottom) * 0.22);
+        z-index: 2;
+        font-size: 11px;
+        color: rgba(212, 222, 238, 0.4);
+        letter-spacing: 0.06em;
+        text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+      }
+
+      @media (min-width: 1080px) {
+        .booklet {
+          width: var(--page-w);
+          height: var(--page-h);
+          max-height: none;
+          aspect-ratio: auto;
+        }
+
+        .booklet__inner {
+          padding: var(--safe-x) var(--safe-x) var(--safe-bottom);
+        }
+      }
+
+      @media print {
+        body {
+          padding: 0;
+          background: #fff;
+        }
+
+        .booklet {
+          width: 108mm;
+          height: 192mm;
+          max-height: none;
+          border-radius: 0;
+          box-shadow: none;
+          page-break-after: always;
+        }
+      }
+    </style>
+  </head>
+  <body>
+  <!--
+    Настройка для агента — замените значения ниже перед отправкой клиенту.
+    REFERRAL_URL — обязательно (из ЛК: finam_agent_referral_url или ссылка на Comon).
+  -->
+  <script>
+    window.BOOKLET_CONFIG = {
+      referralUrl: '{{AGENT_REFERRAL_URL}}',
+      agentName: '{{AGENT_NAME}}',
+      agentPhone: '{{AGENT_PHONE}}',
+    };
+  </script>
+
+  <article class="booklet" aria-label="Финам Автоследование — страница 1">
+    <div class="booklet__overlay" aria-hidden="true"></div>
+
+    <div class="booklet__inner">
+      <header class="booklet__header">
+        <div class="booklet__logo" aria-label="Финам">
+          <span class="booklet__logo-mark" aria-hidden="true">F</span>
+          <span>ФИНАМ</span>
+        </div>
+        <span class="booklet__badge">Автоследование</span>
+      </header>
+
+      <h1 class="booklet__title">
+        Копируй сделки профи — <span>автоматически</span> на&nbsp;свой счёт
+      </h1>
+
+      <p class="booklet__subtitle">
+        Подключись к стратегии опытного трейдера — все его сделки повторяются
+        на твоём брокерском счёте в&nbsp;Финам.
+      </p>
+
+      <div class="booklet__spacer" aria-hidden="true"></div>
+
+      <a
+        id="referral-cta"
+        class="booklet__cta"
+        href="#"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Подключить автоследование
+      </a>
+      <p class="booklet__cta-note">Переход по персональной ссылке консультанта</p>
+
+      <div id="agent-block" class="booklet__agent" hidden>
+        <div>Ваш консультант: <strong id="agent-name"></strong></div>
+        <div id="agent-phone-line" hidden>Тел.: <strong id="agent-phone"></strong></div>
+      </div>
+
+      <p class="booklet__disclaimer">
+        Информация носит ознакомительный характер и не является индивидуальной
+        инвестиционной рекомендацией. Доходность в прошлом не гарантирует доходность
+        в будущем. Перед принятием решения ознакомьтесь с условиями выбранной стратегии.
+      </p>
+    </div>
+
+    <span class="booklet__page" aria-hidden="true">01 / 03</span>
+  </article>
+
+  <script>
+    (function applyBookletConfig() {
+      var cfg = window.BOOKLET_CONFIG || {};
+      var cta = document.getElementById('referral-cta');
+      var url = (cfg.referralUrl || '').trim();
+
+      var isPlaceholder =
+        !url ||
+        url.indexOf('{{') !== -1 ||
+        url === '#' ||
+        url === 'https://example.com';
+
+      if (isPlaceholder) {
+        cta.href = 'https://www.comon.ru/';
+        cta.title = 'Замените referralUrl в BOOKLET_CONFIG на вашу реферальную ссылку';
+      } else {
+        cta.href = url;
+      }
+
+      var agentName = (cfg.agentName || '').trim();
+      var agentPhone = (cfg.agentPhone || '').trim();
+      var hasAgentName = agentName && agentName.indexOf('{{') === -1;
+      var hasAgentPhone = agentPhone && agentPhone.indexOf('{{') === -1;
+
+      if (hasAgentName || hasAgentPhone) {
+        var block = document.getElementById('agent-block');
+        block.hidden = false;
+
+        if (hasAgentName) {
+          document.getElementById('agent-name').textContent = agentName;
+        } else {
+          document.getElementById('agent-name').textContent = '—';
+        }
+
+        if (hasAgentPhone) {
+          document.getElementById('agent-phone-line').hidden = false;
+          document.getElementById('agent-phone').textContent = agentPhone;
+        }
+      }
+    })();
+  </script>
+  </body>
+</html>

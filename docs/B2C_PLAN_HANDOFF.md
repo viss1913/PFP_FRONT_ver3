@@ -5,6 +5,8 @@
 
 **Связанные доки**
 
+- **Индекс для ИИ / Cursor:** [`AGENTS.md`](../AGENTS.md)
+- **Runbook партнёра:** [`PARTNER_AI_ONBOARDING.md`](./PARTNER_AI_ONBOARDING.md)
 - API / referral MVP: [`FRONT_B2C_REFERRAL_MVP.md`](./FRONT_B2C_REFERRAL_MVP.md)
 - OpenAPI: [`api_docs/b2c_lk.yaml`](../api_docs/b2c_lk.yaml)
 - Деплой (Yandex / CDN): [`DEPLOY_YANDEX.md`](./DEPLOY_YANDEX.md)
@@ -37,10 +39,12 @@ Sber / ATB / agent LK / partner-widgets **не трогаете**, если он
 ## 2. Быстрый старт у себя
 
 1. Скопировать репо (или архив ветки) к себе.
-2. Скопировать `.env.example` → `.env`, выставить:
-   - `VITE_API_BASE_URL` — ваш API (`…/api`)
-   - `VITE_SITE_URL` — ваш публичный origin (без trailing slash)
-3. Default `project_key`: [`src/api/projectKey.ts`](../src/api/projectKey.ts) **или** всегда передавать `?project_key=pk_…` в ссылке.
+2. Скопировать [`.env.partner.example`](../.env.partner.example) → `.env`, выставить:
+   - `VITE_API_BASE_URL` — **наш** API (`https://pfp-api.bank-future.com/api`)
+   - `VITE_SITE_URL` — **ваш** публичный origin (без trailing slash)
+   - `VITE_PARTNER_PROJECT_KEY` / `VITE_PARTNER_PROJECT_ID` — от BankFuture
+   - Подробно: [`PARTNER_PROJECT_KEY_SETUP.md`](./PARTNER_PROJECT_KEY_SETUP.md)
+3. Default `project_key` без env: [`src/api/projectKey.ts`](../src/api/projectKey.ts) **или** query `?project_key=pk_…` в ссылке.
 4. `npm install` → `npm run build` → поднять `dist/` на своём CDN/хостинге.
 5. Обязательно: URL **`/plan/` со слэшем** (иначе CDN может съесть query `ref` / `project_key`). См. `scripts/plan-query-redirect.html` + `scripts/copy-spa-fallbacks.mjs`.
 6. Smoke: открыть `/plan/?ref=TEST&project_key=pk_…` → welcome → пройти CJM → расчёт → кнопки отчёта (если бэк отдал `guest_token`).
@@ -268,34 +272,40 @@ Guest JWT ≠ agent JWT. Storage: `client_token` / guest session — см. `clie
 
 ---
 
-## 10. Как забрать код и пушить обратно
+## 10. Как забрать код (read-only)
 
-**Ветка:** `conomy` в репо `https://github.com/viss1913/PFP_FRONT_ver3`  
-(база guest `/plan` + этот handoff kit).
+**Ветка:** `partner-handoff` в репо `https://github.com/viss1913/PFP_FRONT_ver3`  
+Snapshot guest `/plan` + handoff kit. **Push в наш репо запрещён.**
 
-### Доступ
-
-1. Владелец репо добавляет вас **Collaborator** (Write) на GitHub → Settings → Collaborators.
-2. Клонируете репо и переключаетесь на ветку:
+### Clone (только handoff-ветка)
 
 ```bash
-git clone https://github.com/viss1913/PFP_FRONT_ver3.git
-cd PFP_FRONT_ver3
-git checkout conomy
-git pull origin conomy
+git clone --branch partner-handoff --single-branch \
+  https://github.com/viss1913/PFP_FRONT_ver3.git family-office-partner
+cd family-office-partner
 ```
 
-3. Кастомизируете whitelist (§6), свой `.env`, деплоите на **свой** домен/bucket.
-4. Пушите **только в `conomy`** (не в `main` / `b2c_ref` / `finam`):
+Или **Code → Download ZIP** на GitHub (ветка `partner-handoff`).
+
+### Свой git
 
 ```bash
-git add -A
-git commit -m "feat(conomy): …"
-git push origin conomy
+git remote remove origin
+git remote add origin https://github.com/YOUR-ORG/your-repo.git
+git push -u origin partner-handoff
 ```
 
-PR в `main` не обязателен — достаточно пуша в `conomy`.  
-Не коммитьте `.env`, ключи CDN и секреты.
+Все коммиты — **только у себя**. Кастомизация whitelist (§6), `.env`, деплой на **свой** домен.
+
+### Обновления от BankFuture
+
+```bash
+git remote add upstream https://github.com/viss1913/PFP_FRONT_ver3.git
+git fetch upstream partner-handoff
+git merge upstream/partner-handoff
+```
+
+Подробно: [`README.md`](../README.md), [`PARTNER_GIT_ACCESS.md`](./PARTNER_GIT_ACCESS.md).
 
 ### Cursor
 

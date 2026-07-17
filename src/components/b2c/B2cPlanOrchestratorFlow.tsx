@@ -13,7 +13,7 @@ import {
     mergeStagesFromApi,
 } from '../../config/b2cPlanStageRegistry';
 import { useB2cPlanOrchestrator } from '../../hooks/useB2cPlanOrchestrator';
-import type { B2cPlanUiEventPayload } from '../../types/b2cOrchestrator';
+import type { B2cPlanSessionContext, B2cPlanUiEventPayload } from '../../types/b2cOrchestrator';
 
 const DESKTOP_RESULT_MQ = '(min-width: 1024px)';
 
@@ -34,6 +34,8 @@ function useDesktopResultLayout(): boolean {
 export interface B2cPlanOrchestratorFlowProps {
     projectKey: string;
     inviterName?: string;
+    /** Referral agent context — sent on every orchestrator turn. */
+    sessionContext?: B2cPlanSessionContext | null;
     isPlanSaved: boolean;
     calculationResult: unknown;
     forceResultView?: boolean;
@@ -47,6 +49,7 @@ export interface B2cPlanOrchestratorFlowProps {
 const B2cPlanOrchestratorFlow: React.FC<B2cPlanOrchestratorFlowProps> = ({
     projectKey,
     inviterName,
+    sessionContext = null,
     isPlanSaved,
     calculationResult,
     forceResultView = false,
@@ -62,6 +65,7 @@ const B2cPlanOrchestratorFlow: React.FC<B2cPlanOrchestratorFlowProps> = ({
     const orchestrator = useB2cPlanOrchestrator({
         projectKey,
         initialStageKey: B2C_PLAN_DEFAULT_STAGE_KEY,
+        sessionContext,
     });
 
     const {

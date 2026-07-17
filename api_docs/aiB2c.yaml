@@ -329,9 +329,38 @@ components:
           description: ID типа цели при выборе на витрине.
         goal_name:
           type: string
+        session_context:
+          $ref: '#/components/schemas/AiB2cSessionContext'
+          description: |
+            Runtime session (ref + agent FIO). Front sends on every turn from referral preview.
+            Backend should prefer resolving agent by ref/guest session; use this as cache/fallback.
+            Substitute {{agent_full_name}}, {{agent_first_name}}, … in prompts before LLM.
       anyOf:
         - required: [ message ]
         - required: [ event ]
+
+    AiB2cSessionAgent:
+      type: object
+      required: [ full_name ]
+      properties:
+        id: { type: integer }
+        first_name: { type: string, nullable: true }
+        last_name: { type: string, nullable: true }
+        full_name:
+          type: string
+          description: "Иван Петров" или display_name — для {{agent_full_name}}
+        display_name: { type: string }
+
+    AiB2cSessionContext:
+      type: object
+      properties:
+        ref:
+          type: string
+          description: Referral slug from /plan/?ref=
+        agent:
+          allOf:
+            - $ref: '#/components/schemas/AiB2cSessionAgent'
+          nullable: true
 
     AiB2cSseClassifierCommand:
       type: object
