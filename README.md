@@ -5,6 +5,8 @@ React + TypeScript + Vite SPA для guest Family Office (`/plan`) и связа
 **Это read-only snapshot для партнёров.**  
 Работаете **у себя** (свой git, свой CDN). В наш репозиторий **ничего не пушите**.
 
+**Пошаговая инструкция для человека:** [`PARTNER_START.md`](PARTNER_START.md) ← **начните отсюда**
+
 | | |
 |---|---|
 | **API** | `https://pfp-api.bank-future.com/api` (общий сервер BankFuture) |

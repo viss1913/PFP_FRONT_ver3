@@ -12,7 +12,8 @@
 
 | Шаг | Документ |
 |-----|----------|
-| 1. Общая архитектура и lanes | [`docs/PARTNER_AI_ONBOARDING.md`](docs/PARTNER_AI_ONBOARDING.md) |
+| 1. **Пошаговая инструкция (человек)** | [`PARTNER_START.md`](PARTNER_START.md) |
+| 2. Общая архитектура и lanes | [`docs/PARTNER_AI_ONBOARDING.md`](docs/PARTNER_AI_ONBOARDING.md) |
 | 2. **Свой project_key → наш API** | [`docs/PARTNER_PROJECT_KEY_SETUP.md`](docs/PARTNER_PROJECT_KEY_SETUP.md) + [`.env.partner.example`](.env.partner.example) |
 | 3. Guest B2C `/plan` white-label | [`docs/B2C_PLAN_HANDOFF.md`](docs/B2C_PLAN_HANDOFF.md) |
 | 3. API контракты | [`api_docs/`](api_docs/) — см. таблицу ниже |
