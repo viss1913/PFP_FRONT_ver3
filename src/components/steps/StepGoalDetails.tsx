@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { ClientGoal } from '../../types/client';
+import { LIFE_INSURANCE_MAX_AMOUNT } from '../../utils/lifeInsuranceLimits';
 
 interface StepGoalDetailsProps {
     goal: ClientGoal; // The goal being edited
@@ -66,16 +67,18 @@ const StepGoalDetails: React.FC<StepGoalDetailsProps> = ({ goal, onSave, onCance
                         <label className="label">Страховая сумма (Лимит)</label>
                         <input
                             type="number"
+                            min={0}
+                            max={LIFE_INSURANCE_MAX_AMOUNT}
                             value={localGoal.insurance_limit || localGoal.target_amount || ''}
                             onChange={(e) => {
-                                const val = Number(e.target.value);
+                                const val = Math.min(LIFE_INSURANCE_MAX_AMOUNT, Math.max(0, Number(e.target.value) || 0));
                                 setLocalGoal(prev => ({
                                     ...prev,
                                     insurance_limit: val,
                                     target_amount: val
                                 }));
                             }}
-                            placeholder="Например: 10 000 000"
+                            placeholder="Например: 5 000 000"
                         />
                         <span className="hint">Сумма, которую выплатят при наступлении страхового случая</span>
                     </div>

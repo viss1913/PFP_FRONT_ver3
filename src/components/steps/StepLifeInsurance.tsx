@@ -2,19 +2,28 @@ import React, { useState, useEffect } from 'react';
 import type { CJMData } from '../CJMFlow';
 import avatarImage from '../../assets/avatar_full.png';
 import { rangeFillStyle } from '../../utils/rangeInputStyle';
+import B2cStepLifeInsurance from '../b2c/B2cStepLifeInsurance';
+import { LIFE_INSURANCE_MAX_AMOUNT } from '../../utils/lifeInsuranceLimits';
 
 interface StepLifeInsuranceProps {
     data: CJMData;
     setData: React.Dispatch<React.SetStateAction<CJMData>>;
     onNext: () => void;
     onPrev: () => void;
+    guestMode?: boolean;
 }
 
 const CAPITAL_FLOOR = 500_000;
-const LIFE_CAP_CEILING = 10_000_000;
+const LIFE_CAP_CEILING = LIFE_INSURANCE_MAX_AMOUNT;
 const STEP = 50_000;
 
-const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, onNext, onPrev }) => {
+const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({
+    data,
+    setData,
+    onNext,
+    onPrev,
+    guestMode = false,
+}) => {
     /** Тот же пул, что в StepFinReserve: активы или ввод по «Сохранить и преумножить» / Рента (без подмешивания финрезерва). */
     const assetsCapital = (data.assets || []).reduce((sum, a) => sum + (a.current_value || 0), 0);
     const investmentOrRentGoalCapital = (data.goals || [])
@@ -64,6 +73,20 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
 
     if (!showLifeInsuranceUi) {
         return null;
+    }
+
+    if (guestMode) {
+        return (
+            <B2cStepLifeInsurance
+                limit={limit}
+                minLimit={MIN_LIMIT}
+                maxLimit={MAX_LIMIT}
+                step={STEP}
+                onLimitChange={setLimit}
+                onNext={onNext}
+                onPrev={onPrev}
+            />
+        );
     }
 
     return (
@@ -172,7 +195,7 @@ const StepLifeInsurance: React.FC<StepLifeInsuranceProps> = ({ data, setData, on
                     </div>
                     ) : (
                         <p style={{ color: 'var(--text-muted)', fontSize: '15px', lineHeight: 1.5, marginBottom: '16px' }}>
-                            Максимум по формуле — 0 ₽ (капитал после резерва не даёт запас ×15 в пределах 10 млн).
+                            Максимум по формуле — 0 ₽ (капитал после резерва не даёт запас ×15 в пределах 5 млн).
                         </p>
                     )}
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import type { AtbMassGoalPreviewItem } from '../../utils/atbMassGoals';
+import { LIFE_INSURANCE_MAX_AMOUNT } from '../../utils/lifeInsuranceLimits';
 import { rangeFillStyle } from '../../utils/rangeInputStyle';
 
 interface SliderFieldProps {
@@ -169,7 +170,7 @@ const AtbMassGoalEditModal: React.FC<AtbMassGoalEditModalProps> = ({
                         label="Лимит"
                         value={draft.lifeTargetAmount ?? goal.target_amount ?? 0}
                         min={300_000}
-                        max={20_000_000}
+                        max={LIFE_INSURANCE_MAX_AMOUNT}
                         step={100_000}
                         onChange={(value) => setDraft((prev) => ({ ...prev, lifeTargetAmount: value }))}
                     />

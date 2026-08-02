@@ -1,4 +1,5 @@
 import React from 'react';
+import { LIFE_INSURANCE_MAX_AMOUNT } from '../../utils/lifeInsuranceLimits';
 import { SliderField } from './SharedFields';
 import type { BaseFormProps } from './SharedFields';
 
@@ -9,7 +10,7 @@ const LifeInsuranceForm: React.FC<BaseFormProps> = ({ editForm, setEditForm, for
                 label="Страховая сумма"
                 value={editForm.target_amount || 0}
                 min={500000}
-                max={100000000}
+                max={LIFE_INSURANCE_MAX_AMOUNT}
                 step={500000}
                 onChange={(val) => setEditForm({ ...editForm, target_amount: val })}
                 format={formatCurrency}
