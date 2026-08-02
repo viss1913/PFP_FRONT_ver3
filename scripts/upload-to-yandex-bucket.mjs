@@ -86,17 +86,23 @@ if (result.status !== 0) {
   process.exit(result.status ?? 1);
 }
 
-const planRedirectHtml = resolve(root, 'scripts/plan-query-redirect.html');
-if (existsSync(planRedirectHtml)) {
-  const planRedirectTarget = `${destination}plan`;
-  console.log(`Upload redirect: ${planRedirectHtml} → ${planRedirectTarget}`);
+const queryRedirectStubs = [
+  { file: 'plan-query-redirect.html', key: 'plan' },
+  { file: 'b2c-query-redirect.html', key: 'b2c' },
+];
+
+for (const { file, key } of queryRedirectStubs) {
+  const redirectHtml = resolve(root, 'scripts', file);
+  if (!existsSync(redirectHtml)) continue;
+  const redirectTarget = `${destination}${key}`;
+  console.log(`Upload redirect: ${redirectHtml} → ${redirectTarget}`);
   const redirectResult = spawnSync(
     'aws',
     [
       's3',
       'cp',
-      planRedirectHtml,
-      planRedirectTarget,
+      redirectHtml,
+      redirectTarget,
       '--endpoint-url',
       endpoint,
       '--content-type',

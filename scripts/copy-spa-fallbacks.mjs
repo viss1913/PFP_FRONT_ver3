@@ -12,15 +12,23 @@ const distDir = resolve(root, 'dist');
 const indexHtml = resolve(distDir, 'index.html');
 
 /** Path segments under dist/ — must match publicRoutes in src/routing/publicRoutes.ts */
-const SPA_ROUTES = ['sber', 'invite/activate', 'register', 'atb_mass', 'atb_bank', 'plan'];
+const SPA_ROUTES = ['sber', 'invite/activate', 'register', 'atb_mass', 'atb_bank', 'plan', 'b2c', 'cabinet'];
 
 /** Статические meta для crawler preview (Telegram / WhatsApp / VK). */
+const B2C_PLAN_META = {
+    title: 'Ваш Family Office — будущее вашей семьи',
+    description:
+        'Семейный капитал под контролем: защита, рост и понятный план. Family Office — пространство, где финансы семьи собираются в одну систему.',
+};
+
 const ROUTE_META = {
     plan: {
-        title: 'Ваш Family Office — будущее вашей семьи',
-        description:
-            'Семейный капитал под контролем: защита, рост и понятный план. Family Office — пространство, где финансы семьи собираются в одну систему.',
+        ...B2C_PLAN_META,
         canonicalPath: '/plan/',
+    },
+    b2c: {
+        ...B2C_PLAN_META,
+        canonicalPath: '/b2c/',
     },
 };
 

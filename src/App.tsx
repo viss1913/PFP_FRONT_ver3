@@ -65,21 +65,32 @@ function LoginPageConnected({ onLoginSuccess }: { onLoginSuccess: () => void }) 
     return <LoginPage onLoginSuccess={handleSuccess} />
 }
 
-function getInitialPage(): Page {
+export type AppEntryPoint = 'default' | 'cabinet';
+
+interface AppProps {
+    /** `/cabinet` — сразу логин или dashboard, без лендинга. */
+    entryPoint?: AppEntryPoint;
+}
+
+function getInitialPage(entryPoint: AppEntryPoint = 'default'): Page {
     const params = new URLSearchParams(window.location.search)
     if (params.get('page') === 'preview') return 'report-preview'
     if (params.get('page') === 'html-report-preview') return 'html-report-preview'
     if (params.get('page') === 'test' || params.get('page') === 'result-demo') return 'test'
     if (params.get('page') === 'privacy') return 'privacy'
+    if (entryPoint === 'cabinet') {
+        if (params.get('page') === 'login') return localStorage.getItem('token') ? 'list' : 'login'
+        return localStorage.getItem('token') ? 'list' : 'login'
+    }
     if (params.get('page') === 'landing') return 'landing'
     if (localStorage.getItem('token')) return 'list'
     if (params.get('page') === 'login') return 'login'
     return 'landing'
 }
 
-function App() {
+function App({ entryPoint = 'default' }: AppProps) {
     // Для тестирования: устанавливаем 'test' чтобы сразу видеть страницу результатов
-    const [currentPage, setCurrentPage] = useState<Page>(getInitialPage)
+    const [currentPage, setCurrentPage] = useState<Page>(() => getInitialPage(entryPoint))
     const [calculationResult, setCalculationResult] = useState<any>(null)
     const [newClientData, setNewClientData] = useState<{ fio: string; phone: string; email?: string; uuid: string } | null>(null);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -112,12 +123,12 @@ function App() {
             setCurrentPage('test');
         } else if (params.get('page') === 'privacy') {
             setCurrentPage('privacy');
-        } else if (params.get('page') === 'landing') {
+        } else if (entryPoint !== 'cabinet' && params.get('page') === 'landing') {
             setCurrentPage('landing');
         } else if (params.get('page') === 'login') {
             setCurrentPage(localStorage.getItem('token') ? 'list' : 'login');
         }
-    }, []);
+    }, [entryPoint]);
 
     const goToPrivacy = () => {
         const url = new URL(window.location.href);

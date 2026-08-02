@@ -40,6 +40,8 @@ function Root() {
                 <AtbMassEntryPage />
             ) : publicRoute === 'b2c-plan' ? (
                 <B2cGuestPlanPage />
+            ) : publicRoute === 'agent-cabinet' ? (
+                <App entryPoint="cabinet" />
             ) : (
                 <App />
             )}
