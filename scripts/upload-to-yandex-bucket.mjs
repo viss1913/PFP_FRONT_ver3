@@ -40,6 +40,14 @@ const awsEnv = {
   AWS_ACCESS_KEY_ID: accessKeyId,
   AWS_SECRET_ACCESS_KEY: secretAccessKey,
   AWS_DEFAULT_REGION: env.AWS_DEFAULT_REGION?.trim() || 'ru-central1',
+  HTTP_PROXY: '',
+  HTTPS_PROXY: '',
+  ALL_PROXY: '',
+  http_proxy: '',
+  https_proxy: '',
+  all_proxy: '',
+  NO_PROXY: '*',
+  no_proxy: '*',
 };
 
 const prefix = env.YC_S3_PREFIX?.trim().replace(/^\//, '').replace(/\/$/, '');
@@ -60,6 +68,10 @@ const result = spawnSync(
     '--delete',
     '--exclude',
     '.DS_Store',
+    '--exclude',
+    'rostech/*',
+    '--exclude',
+    'npf/*',
   ],
   { stdio: 'inherit', env: awsEnv },
 );
@@ -70,4 +82,83 @@ if (result.error) {
   process.exit(1);
 }
 
-process.exit(result.status ?? 1);
+if (result.status !== 0) {
+  process.exit(result.status ?? 1);
+}
+
+const queryRedirectStubs = [
+  { file: 'plan-query-redirect.html', key: 'plan' },
+  { file: 'b2c-query-redirect.html', key: 'b2c' },
+];
+
+for (const { file, key } of queryRedirectStubs) {
+  const redirectHtml = resolve(root, 'scripts', file);
+  if (!existsSync(redirectHtml)) continue;
+  const redirectTarget = `${destination}${key}`;
+  console.log(`Upload redirect: ${redirectHtml} → ${redirectTarget}`);
+  const redirectResult = spawnSync(
+    'aws',
+    [
+      's3',
+      'cp',
+      redirectHtml,
+      redirectTarget,
+      '--endpoint-url',
+      endpoint,
+      '--content-type',
+      'text/html; charset=utf-8',
+      '--cache-control',
+      'no-cache',
+    ],
+    { stdio: 'inherit', env: awsEnv },
+  );
+  if (redirectResult.status !== 0) {
+    process.exit(redirectResult.status ?? 1);
+  }
+}
+
+/**
+ * Constructor widgets (/rostech, /npf): main sync их exclude'ит, затем отдельный sync.
+ * Без dist/{lane}/index.html — HARD FAIL: иначе следующий деплой оставит CDN пустым
+ * или (если кто-то уберёт exclude) --delete снесёт прод.
+ */
+const partnerLanes = ['rostech', 'npf'];
+const missingPartner = partnerLanes.filter(
+  (lane) => !existsSync(resolve(distDir, lane, 'index.html')),
+);
+if (missingPartner.length) {
+  console.error(
+    `Нет partner-widgets в dist/: ${missingPartner.map((l) => l + '/').join(', ')}`,
+  );
+  console.error(
+    'Запусти полный npm run build (включает build-partner-widgets) ' +
+      'или npm run build:partner-widgets. Нельзя заливать SPA без виджетов.',
+  );
+  process.exit(1);
+}
+
+for (const lane of partnerLanes) {
+  const laneDir = resolve(distDir, lane);
+  const laneDest = `${destination}${lane}/`;
+  console.log(`Синхронизация partner-widget ${laneDir} → ${laneDest}`);
+  const laneResult = spawnSync(
+    'aws',
+    [
+      's3',
+      'sync',
+      laneDir,
+      laneDest,
+      '--endpoint-url',
+      endpoint,
+      '--delete',
+      '--exclude',
+      '.DS_Store',
+    ],
+    { stdio: 'inherit', env: awsEnv },
+  );
+  if (laneResult.status !== 0) {
+    process.exit(laneResult.status ?? 1);
+  }
+}
+
+process.exit(0);

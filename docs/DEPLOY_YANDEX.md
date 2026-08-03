@@ -23,6 +23,12 @@ AWS_SECRET_ACCESS_KEY=...
 BUCKET_NAME=family-office.bank-future.com
 # YC_S3_ENDPOINT=https://storage.yandexcloud.net
 # YC_S3_PREFIX=
+
+# Обязательно для /rostech и /npf (constructor site-chat, не /plan)
+ROSTECH_PROJECT_KEY=pk_...
+RENESSANS_PROJECT_KEY=pk_...
+# ROSTECH_API_BASE_URL=https://pfp-api.bank-future.com
+# RENESSANS_API_BASE_URL=https://pfp-api.bank-future.com
 ```
 
 Файл `.env` — UTF-8. Секреты не коммитить.
@@ -31,9 +37,11 @@ BUCKET_NAME=family-office.bank-future.com
 
 | Команда | Назначение |
 |---------|------------|
-| `npm run build` | Сборка в `dist/` |
-| `npm run deploy:yandex` | build + заливка в бакет |
-| `npm run upload:yandex` | Только заливка |
+| `npm run build` | Сборка SPA + SEO + **partner-widgets** (`dist/rostech`, `dist/npf`) |
+| `npm run deploy:yandex` | build + заливка + **smoke `/rostech` `/npf`** |
+| `npm run upload:yandex` | Только заливка (требует `dist/rostech` + `dist/npf`, иначе exit 1) |
+| `npm run upload:partner-widgets` | Только виджеты (если SPA уже залит, а чаты 404) |
+| `npm run smoke:partner-widgets` | Проверка живых URL виджетов |
 | `npm run test:yandex-s3` | Проверка доступа к бакету |
 | `npm run audit` | `npm audit` (уровень high+) |
 | `npm run audit:dist` | Список файлов + паттерны в JS |
@@ -46,13 +54,33 @@ SEO (Вебмастер, Метрика, чеклист): [`docs/SEO_WEBMASTER.m
 
 Служебный URL бакета: `http://family-office.bank-future.com.website.yandexcloud.net`
 
+## Partner widgets: `/rostech` и `/npf` (нельзя сносить)
+
+Отдельные static HTML + `widget.js` (constructor `site-chat/stream`). **Не** React SPA, **не** AI B2C / `/plan`.
+
+| URL | Env key |
+|-----|---------|
+| https://family-office.bank-future.com/rostech | `ROSTECH_PROJECT_KEY` |
+| https://family-office.bank-future.com/npf | `RENESSANS_PROJECT_KEY` |
+
+**Почему раньше пропадали:** `aws s3 sync dist/ s3://bucket/ --delete` удаляет в бакете всё, чего нет в локальном `dist/`. На ветке без `partner-widgets` и без `--exclude rostech/* npf/*` полный деплой SPA **сносил** чаты. Website hosting при 404 отдаёт корневой `index.html` → кажется, что «всё ушло в ЛК».
+
+**Защита в `upload-to-yandex-bucket.mjs`:**
+1. Main sync: `--exclude rostech/*` и `--exclude npf/*`
+2. Отдельный sync `dist/rostech` → `rostech/`, `dist/npf` → `npf/`
+3. Если нет `dist/*/index.html` — **hard fail**, upload не идёт
+4. `deploy:yandex` после заливки гоняет `smoke:partner-widgets`
+
+Экстренно без полного SPA: `npm run upload:partner-widgets`.
+
 ## Чеклист перед релизом
 
 1. `npm run security:check` — без ошибок (bucket warn = нужен деплой).
-2. `npm run deploy:yandex` — если бакет отставал от `dist/`.
+2. `npm run deploy:yandex` — если бакет отставал от `dist/` (внутри уже smoke виджетов).
 3. Вручную: [VirusTotal URL](https://www.virustotal.com/) → `https://family-office.bank-future.com`
 4. [Google Safe Browsing](https://transparencyreport.google.com/safe-browsing/search) — домен.
 5. DevTools → Network: нет запросов на неизвестные домены.
+6. Открыть `/rostech/` и `/npf/` — чат, не лендинг BankFuture.
 
 ## Права бакета (консоль Yandex)
 

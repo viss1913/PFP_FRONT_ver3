@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && node scripts/copy-spa-fallbacks.mjs && node scripts/generate-seo-static.mjs",
+    "build": "tsc -b && vite build && node scripts/copy-spa-fallbacks.mjs && node scripts/generate-seo-static.mjs && node scripts/build-partner-widgets.mjs",
+    "build:partner-widgets": "node scripts/build-partner-widgets.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "generate:landing-stats-image": "node scripts/generate-landing-stats-image.mjs",
@@ -15,7 +16,9 @@
     "security:check": "npm run audit && npm run build && npm run audit:dist && npm run audit:bucket",
     "test:yandex-s3": "node scripts/test-yandex-s3.mjs",
     "upload:yandex": "node scripts/upload-to-yandex-bucket.mjs",
-    "deploy:yandex": "npm run build && npm run upload:yandex"
+    "upload:partner-widgets": "npm run build:partner-widgets && node scripts/upload-partner-widgets-only.mjs",
+    "smoke:partner-widgets": "node scripts/smoke-partner-widgets.mjs",
+    "deploy:yandex": "npm run build && npm run upload:yandex && npm run smoke:partner-widgets"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.2",
