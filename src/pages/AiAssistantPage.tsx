@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import Header from '../components/Header';
+import type { NavPage } from '../components/lk/lkNavigation';
 import { AssistantList } from '../components/ai/AssistantList';
 import { ChatWindow } from '../components/ai/ChatWindow';
 import { aiService } from '../services/aiService';
 import type { AiAssistant, AiMessage } from '../types/ai';
-
-type NavPage = 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings';
 
 interface AiAssistantPageProps {
     onNavigate: (page: NavPage) => void;

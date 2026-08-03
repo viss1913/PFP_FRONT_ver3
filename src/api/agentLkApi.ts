@@ -3,6 +3,7 @@ import type { PortfolioRiskProfileType } from '../constants/portfolioRiskProfile
 import type { AgentMeProfileFields } from './authApi';
 import { API_BASE_URL } from './config';
 import { PROJECT_KEY } from './projectKey';
+import { pdfBase64ToBlob } from '../utils/contentFactoryPdf';
 
 const API_BASE = `${API_BASE_URL}/api/pfp`;
 
@@ -1038,6 +1039,135 @@ export function getSubagentInviteErrorMessage(error: unknown): string {
         if (backendMessage) return backendMessage;
     }
     return 'Не удалось отправить приглашение';
+}
+
+/** Content Factory — каталог HTML-офферов и презентации агента */
+export interface ContentFactoryOfferListItem {
+    id: number;
+    title: string;
+    kind: string;
+    brief: string | null;
+    cta_label: string | null;
+    published_at: string | null;
+    expires_at: string | null;
+    base_template_id: string;
+    page_count: number;
+}
+
+export interface ContentFactoryOfferDetail extends ContentFactoryOfferListItem {
+    cta_url_base: string | null;
+    preview_html: string | null;
+}
+
+export interface ContentFactoryOfferDeckItem extends ContentFactoryOfferListItem {
+    preview_html: string | null;
+}
+
+export interface AgentPresentation {
+    id: number;
+    title: string;
+    offer_ids: number[];
+    offers: ContentFactoryOfferDeckItem[];
+    status: 'draft' | 'ready' | 'sent';
+    recipient_client_id: number | null;
+    email_subject: string | null;
+    email_body: string | null;
+    created_at?: string;
+    updated_at?: string;
+    project_id?: number;
+    agent_id?: number;
+}
+
+export interface AgentPresentationCreatePayload {
+    title?: string;
+    offer_ids: number[];
+    recipient_client_id?: number;
+}
+
+export interface AgentPresentationPatchPayload {
+    title?: string;
+    offer_ids?: number[];
+    recipient_client_id?: number | null;
+    email_subject?: string;
+    email_body?: string;
+}
+
+export interface AgentPresentationPdfResponse {
+    presentation: AgentPresentation;
+    pdf_base64: string;
+    utm_agent: string;
+    content_type: string;
+}
+
+export interface AgentPresentationSendPayload {
+    to?: string;
+}
+
+export function getContentFactoryErrorMessage(error: unknown, fallback = 'Ошибка Content Factory'): string {
+    if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        const data = error.response?.data as { message?: string; error?: string } | undefined;
+        const backendMessage =
+            typeof data?.message === 'string'
+                ? data.message
+                : typeof data?.error === 'string'
+                  ? data.error
+                  : undefined;
+        if (status === 400) return backendMessage || 'Некорректные данные запроса';
+        if (status === 404) return backendMessage || 'Не найдено';
+        if (status === 502 || status === 503) {
+            return backendMessage || 'PDF-сервис на бэкенде недоступен';
+        }
+        if (backendMessage) return backendMessage;
+        if (status) return `${fallback} (HTTP ${status})`;
+    }
+    if (error instanceof Error && error.message) return error.message;
+    return fallback;
+}
+
+export async function getContentFactoryErrorMessageAsync(
+    error: unknown,
+    fallback = 'Ошибка Content Factory',
+): Promise<string> {
+    if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        const raw = error.response?.data;
+        if (raw instanceof Blob && raw.size < 16384) {
+            try {
+                const text = await raw.text();
+                try {
+                    const json = JSON.parse(text) as { message?: string; error?: string };
+                    const msg = json.message || json.error;
+                    if (msg) return status ? `${msg} (HTTP ${status})` : msg;
+                } catch {
+                    if (text.trim()) return status ? `${text.slice(0, 400)} (HTTP ${status})` : text.slice(0, 400);
+                }
+            } catch {
+                /* ignore */
+            }
+        }
+    }
+    return getContentFactoryErrorMessage(error, fallback);
+}
+
+async function assertPdfBlob(blob: Blob): Promise<void> {
+    if (!blob || blob.size === 0) throw new Error('Бэкенд вернул пустой PDF (0 байт)');
+    const head = new Uint8Array(await blob.slice(0, 4).arrayBuffer());
+    if (head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46) return;
+
+    const text = blob.size <= 16384 ? await blob.text() : '';
+    if (text.trimStart().startsWith('{')) {
+        try {
+            const json = JSON.parse(text) as { message?: string; error?: string };
+            throw new Error(json.message || json.error || 'Сервер вернул JSON вместо PDF');
+        } catch (e) {
+            if (e instanceof SyntaxError) {
+                throw new Error(text.slice(0, 300) || 'Сервер вернул не PDF');
+            }
+            throw e;
+        }
+    }
+    throw new Error(text.slice(0, 300) || 'Ответ не похож на PDF — проверь POST /presentations/:id/pdf на бэке');
 }
 
 export const agentLkApi = {
@@ -2176,6 +2306,120 @@ export const agentLkApi = {
             },
         );
         return response.data;
+    },
+
+    listContentFactoryOffers: async (): Promise<ContentFactoryOfferListItem[]> => {
+        const response = await axios.get<ContentFactoryOfferListItem[]>(
+            `${API_BASE}/content-factory/offers`,
+            { headers: getHeaders() },
+        );
+        return response.data;
+    },
+
+    getContentFactoryOffer: async (id: number): Promise<ContentFactoryOfferDetail> => {
+        const response = await axios.get<ContentFactoryOfferDetail>(
+            `${API_BASE}/content-factory/offers/${id}`,
+            { headers: getHeaders() },
+        );
+        return response.data;
+    },
+
+    listContentFactoryPresentations: async (): Promise<AgentPresentation[]> => {
+        const response = await axios.get<AgentPresentation[]>(
+            `${API_BASE}/content-factory/presentations`,
+            { headers: getHeaders() },
+        );
+        return response.data;
+    },
+
+    getContentFactoryPresentation: async (id: number): Promise<AgentPresentation> => {
+        const response = await axios.get<AgentPresentation>(
+            `${API_BASE}/content-factory/presentations/${id}`,
+            { headers: getHeaders() },
+        );
+        return response.data;
+    },
+
+    createContentFactoryPresentation: async (
+        payload: AgentPresentationCreatePayload,
+    ): Promise<AgentPresentation> => {
+        const response = await axios.post<AgentPresentation>(
+            `${API_BASE}/content-factory/presentations`,
+            payload,
+            { headers: getHeaders() },
+        );
+        return response.data;
+    },
+
+    patchContentFactoryPresentation: async (
+        id: number,
+        payload: AgentPresentationPatchPayload,
+    ): Promise<AgentPresentation> => {
+        const response = await axios.patch<AgentPresentation>(
+            `${API_BASE}/content-factory/presentations/${id}`,
+            payload,
+            { headers: getHeaders() },
+        );
+        return response.data;
+    },
+
+    generateContentFactoryPresentationPdf: async (
+        id: number,
+    ): Promise<AgentPresentationPdfResponse> => {
+        const response = await axios.post<AgentPresentationPdfResponse>(
+            `${API_BASE}/content-factory/presentations/${id}/pdf`,
+            {},
+            {
+                headers: getHeaders(),
+                timeout: 180_000,
+            },
+        );
+        const body = response.data;
+        if (!body?.pdf_base64?.trim()) {
+            throw new Error('Бэкенд не вернул pdf_base64 в JSON-ответе');
+        }
+        const probe = pdfBase64ToBlob(body.pdf_base64, body.content_type || 'application/pdf');
+        await assertPdfBlob(probe);
+        return body;
+    },
+
+    downloadContentFactoryPresentationPdf: async (id: number): Promise<Blob> => {
+        const response = await axios.post(
+            `${API_BASE}/content-factory/presentations/${id}/pdf`,
+            {},
+            {
+                headers: {
+                    ...getHeaders(),
+                    Accept: 'application/pdf',
+                },
+                params: { download: '1' },
+                responseType: 'blob',
+                timeout: 180_000,
+            },
+        );
+        const blob = response.data as Blob;
+        await assertPdfBlob(blob);
+        return blob;
+    },
+
+    createContentFactoryEmailDraft: async (id: number): Promise<AgentPresentation> => {
+        const response = await axios.post<AgentPresentation>(
+            `${API_BASE}/content-factory/presentations/${id}/email-draft`,
+            {},
+            { headers: getHeaders() },
+        );
+        return response.data;
+    },
+
+    sendContentFactoryPresentation: async (
+        id: number,
+        payload: AgentPresentationSendPayload = {},
+    ): Promise<void> => {
+        await axios.post(
+            `${API_BASE}/content-factory/presentations/${id}/send`,
+            payload,
+            { headers: getHeaders() },
+        );
     },
 };
 

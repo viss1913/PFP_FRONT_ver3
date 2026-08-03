@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Header from '../components/Header';
+import type { NavPage } from '../components/lk/lkNavigation';
 import { agentConstructorApi } from '../api/agentConstructorApi';
 import type { AgentBotConfig, AgentClient, AgentMessage } from '../types/agent';
 import { Settings, Users, MessageSquare, Send, Bot, ExternalLink, RefreshCw, CheckCircle2 } from 'lucide-react';
-
-type NavPage = 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings';
 
 interface AiAgentPageProps {
     onNavigate: (page: NavPage) => void;

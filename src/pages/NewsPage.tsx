@@ -1,12 +1,13 @@
 import React from 'react';
 import Header from '../components/Header';
+import type { NavPage } from '../components/lk/lkNavigation';
 import NewsFeedCard from '../components/news/NewsFeedCard';
 import NewsFeedSkeleton from '../components/news/NewsFeedSkeleton';
 import NewsQuietState from '../components/news/NewsQuietState';
 import { useNewsFeed } from '../hooks/useNewsFeed';
 
 interface NewsPageProps {
-    onNavigate: (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings') => void;
+    onNavigate: (page: NavPage) => void;
 }
 
 const DISCLAIMER =

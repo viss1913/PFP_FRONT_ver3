@@ -17,6 +17,8 @@ import { ChatWindow } from './ai/ChatWindow';
 import { aiService } from '../services/aiService';
 import type { AiMessage, AiAssistant } from '../types/ai';
 import type { NavPage } from './lk/lkNavigation';
+import ContentFactoryCrmTeaser from './contentFactory/ContentFactoryCrmTeaser';
+import '../styles/content-factory.css';
 
 const avatarBoxStyle: React.CSSProperties = {
     width: '44px',
@@ -288,6 +290,8 @@ const AiCrmPage: React.FC<AiCrmPageProps> = ({
                         Написать ассистенту
                     </button>
                 </div>
+
+                {!contentOnly ? <ContentFactoryCrmTeaser onNavigate={onNavigate} /> : null}
 
                 {!contentOnly && subagentsNetworkEnabled !== false ? (
                     <CrmViewSwitcher

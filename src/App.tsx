@@ -18,12 +18,14 @@ import ClientCardPage from './components/ClientCardPage'
 import NewsPage from './pages/NewsPage'
 import MacroStatsPage from './pages/MacroStatsPage'
 import SettingsPage from './pages/SettingsPage'
+import ContentFactoryPage from './pages/ContentFactoryPage'
 import LandingPage from './pages/LandingPage'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import { appendLandingParams } from './utils/landingNavigation'
 import { applyPageSeo, getAppPageSeo } from './seo/pageSeo'
 import type { LandingLang } from './content/landingCopy'
 import type { LandingVariant } from './content/landingAssets'
+import type { NavPage } from './components/lk/lkNavigation'
 
 type Page =
     | 'landing'
@@ -41,6 +43,7 @@ type Page =
     | 'news'
     | 'macro'
     | 'settings'
+    | 'content-factory'
     | 'client-card'
 
 const LK_PAGES: Page[] = [
@@ -54,6 +57,7 @@ const LK_PAGES: Page[] = [
     'news',
     'macro',
     'settings',
+    'content-factory',
 ]
 
 function LoginPageConnected({ onLoginSuccess }: { onLoginSuccess: () => void }) {
@@ -151,15 +155,15 @@ function App() {
         setCurrentPage('login');
     };
 
-    const handleNavigate = (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings') => {
+    const handleNavigate = (page: NavPage) => {
         console.log('Navigating to:', page);
         if (page === 'ai-assistant') setCurrentPage('ai-assistant');
         else if (page === 'ai-agent') setCurrentPage('ai-agent');
         else if (page === 'news') setCurrentPage('news');
         else if (page === 'macro') setCurrentPage('macro');
         else if (page === 'settings') setCurrentPage('settings');
+        else if (page === 'content-factory') setCurrentPage('content-factory');
         else if (page === 'crm' || page === 'pfp') setCurrentPage('list');
-        // Handle other pages if they have dedicated views
     };
 
     const handleLoginSuccess = () => {
@@ -390,6 +394,10 @@ function App() {
 
             {currentPage === 'settings' && (
                 <SettingsPage onNavigate={handleNavigate} />
+            )}
+
+            {currentPage === 'content-factory' && (
+                <ContentFactoryPage onNavigate={handleNavigate} />
             )}
 
             {currentPage === 'list' && (

@@ -14,6 +14,8 @@ info:
 
     **Resolut (AV Inform) для ЛК:** отдельная спека **`docs/api/pfp_resolut.yaml`** (прокси `products/quote/client/portfolio/link`, `plan-quotes` / `plan-publish-preview` / `publish-from-plan`, `suggest-quote-line`, `publish-preview` / `publish` / `publications`).
 
+    **Content Factory (материалы агента):** префикс **`/pfp/content-factory`**. Каталог опубликованных HTML-офферов (light list без HTML), превью через `preview_html` в `GET /offers/{id}` (`iframe srcDoc`, **без utm**). Агент собирает презентацию из нескольких офферов — порядок в массиве `offer_ids` = порядок страниц PDF. PDF и email добавляют `utm_agent` только на ссылки с `data-cta-slot` (`partner_agent_id` агента, иначе `agents.id`). Полная спека: **`content-factory.yaml`**, задачи фронта: **`CONTENT_FACTORY_AGENT_LK_FRONTEND.md`**.
+
     **AI B2C в ЛК агента — два независимых набора контекстов:**
     - **Site** — `/pfp/ai-b2c/brain-contexts`, `/pfp/ai-b2c/stages` (клиентский сайт: обычный чат и dynamic-flow).
     - **chat_AI** — `/pfp/ai-b2c-chat/brain-contexts`, `/pfp/ai-b2c-chat/stages` (отдельный endpoint клиента `POST /my/ai-b2c/chat_AI/stream`, своя история в БД).
@@ -395,6 +397,196 @@ paths:
           description: Email уже занят
         '502':
           description: Ошибка Resend
+
+  # ==================== CONTENT FACTORY (материалы агента) ====================
+  /pfp/content-factory/offers:
+    get:
+      tags: [ "Content Factory (материалы агента)" ]
+      summary: Каталог опубликованных офферов (без HTML)
+      description: |
+        Только `published`, не просроченные. Для превью одного оффера — `GET /offers/{id}`.
+        Полная спека: `content-factory.yaml`.
+      parameters:
+        - $ref: '#/components/parameters/XProjectKey'
+      responses:
+        '200':
+          description: Light cards for deck builder
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: './content-factory.yaml#/components/schemas/ContentFactoryOfferListItem'
+
+  /pfp/content-factory/offers/{id}:
+    get:
+      tags: [ "Content Factory (материалы агента)" ]
+      summary: Оффер с preview_html для iframe
+      description: |
+        `preview_html` — CTA подставлен (`cta_url_base`, `cta_label`), **utm_agent не добавляется**.
+        `generated_html` агенту не отдаётся.
+      parameters:
+        - $ref: '#/components/parameters/XProjectKey'
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Offer detail
+          content:
+            application/json:
+              schema:
+                $ref: './content-factory.yaml#/components/schemas/ContentFactoryOfferDetail'
+        '404':
+          description: Не найден или истёк срок
+
+  /pfp/content-factory/presentations:
+    get:
+      tags: [ "Content Factory (материалы агента)" ]
+      summary: Список презентаций агента
+      parameters:
+        - $ref: '#/components/parameters/XProjectKey'
+      responses:
+        '200':
+          description: Decks with ordered offers[]
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: './content-factory.yaml#/components/schemas/AgentPresentation'
+    post:
+      tags: [ "Content Factory (материалы агента)" ]
+      summary: Создать презентацию из офферов
+      description: |
+        `offer_ids` — упорядоченный массив id published-офферов. Индекс в массиве = порядок страниц в PDF.
+        Требуется `agentId` в JWT.
+      parameters:
+        - $ref: '#/components/parameters/XProjectKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: './content-factory.yaml#/components/schemas/AgentPresentationCreate'
+      responses:
+        '201':
+          description: Создано
+          content:
+            application/json:
+              schema:
+                $ref: './content-factory.yaml#/components/schemas/AgentPresentation'
+
+  /pfp/content-factory/presentations/{id}:
+    get:
+      tags: [ "Content Factory (материалы агента)" ]
+      summary: Презентация с offers[] в порядке offer_ids
+      parameters:
+        - $ref: '#/components/parameters/XProjectKey'
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: './content-factory.yaml#/components/schemas/AgentPresentation'
+        '404':
+          description: Не найдено
+    patch:
+      tags: [ "Content Factory (материалы агента)" ]
+      summary: Обновить deck (title, порядок offer_ids, email)
+      parameters:
+        - $ref: '#/components/parameters/XProjectKey'
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: './content-factory.yaml#/components/schemas/AgentPresentationPatch'
+      responses:
+        '200':
+          description: Обновлено
+          content:
+            application/json:
+              schema:
+                $ref: './content-factory.yaml#/components/schemas/AgentPresentation'
+
+  /pfp/content-factory/presentations/{id}/pdf:
+    post:
+      tags: [ "Content Factory (материалы агента)" ]
+      summary: Сгенерировать PDF с utm_agent на CTA-ссылках
+      description: |
+        `utm_agent` = `partner_agent_id` агента, если заполнен, иначе `agents.id`.
+        Добавляется query-параметр `utm_agent` только к `<a data-cta-slot>`.
+        `?download=1` — raw PDF вместо JSON base64.
+      parameters:
+        - $ref: '#/components/parameters/XProjectKey'
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: download
+          in: query
+          schema: { type: string, enum: ['1'] }
+      responses:
+        '200':
+          description: JSON или PDF
+          content:
+            application/json:
+              schema:
+                $ref: './content-factory.yaml#/components/schemas/AgentPresentationPdfResponse'
+            application/pdf:
+              schema: { type: string, format: binary }
+
+  /pfp/content-factory/presentations/{id}/email-draft:
+    post:
+      tags: [ "Content Factory (материалы агента)" ]
+      summary: Черновик subject/body для письма с PDF
+      parameters:
+        - $ref: '#/components/parameters/XProjectKey'
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Presentation with email_subject and email_body
+          content:
+            application/json:
+              schema:
+                $ref: './content-factory.yaml#/components/schemas/AgentPresentation'
+
+  /pfp/content-factory/presentations/{id}/send:
+    post:
+      tags: [ "Content Factory (материалы агента)" ]
+      summary: Отправить PDF клиенту на email (Resend)
+      parameters:
+        - $ref: '#/components/parameters/XProjectKey'
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                to:
+                  type: string
+                  format: email
+                  description: Опционально; иначе email из recipient_client_id
+      responses:
+        '200':
+          description: Отправлено
 
   # ==================== ПРОДУКТЫ ====================
   /pfp/products:
@@ -4279,6 +4471,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/NewsFeedItem'
+
+  parameters:
+    XProjectKey:
+      name: x-project-key
+      in: header
+      required: true
+      schema: { type: string }
+      description: Публичный ключ проекта (pk_…)
 
   securitySchemes:
     bearerAuth:

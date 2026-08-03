@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from 'react';
 import Header from '../components/Header';
+import type { NavPage } from '../components/lk/lkNavigation';
 import ProductCommissionSchemaEditor, {
     type ProductCommissionRuleForm,
 } from '../components/settings/ProductCommissionSchemaEditor';
@@ -56,8 +57,6 @@ import {
     RISK_PROFILE_LABELS_RU,
     type PortfolioRiskProfileType,
 } from '../constants/portfolioRiskProfiles';
-
-type NavPage = 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings';
 
 interface SettingsPageProps {
     onNavigate: (page: NavPage) => void;

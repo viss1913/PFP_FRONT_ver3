@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Header from '../components/Header';
+import type { NavPage } from '../components/lk/lkNavigation';
 import { smmApi, type SmmPost, type SmmAgentProfile } from '../api/smmApi';
 import { Send, Image as ImageIcon, History, SendHorizontal, LayoutDashboard } from 'lucide-react';
-
-type NavPage = 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings';
 
 interface AiSmmPageProps {
     onNavigate: (page: NavPage) => void;

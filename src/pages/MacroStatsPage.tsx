@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import Header from '../components/Header';
+import type { NavPage } from '../components/lk/lkNavigation';
 import { macroApi, type MacroLatestItem, type MacroHistoryPoint } from '../api/macroApi';
 import {
     XAxis,
@@ -12,7 +13,7 @@ import {
 } from 'recharts';
 
 interface MacroStatsPageProps {
-    onNavigate: (page: 'crm' | 'pfp' | 'ai-assistant' | 'ai-agent' | 'news' | 'macro' | 'settings') => void;
+    onNavigate: (page: NavPage) => void;
 }
 
 const CHART_COLORS = {

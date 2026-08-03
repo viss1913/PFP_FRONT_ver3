@@ -194,7 +194,24 @@
 
 ---
 
-### 6. Где смотреть схемы и детали
+### 6. Content Factory — материалы агента (`/pfp/content-factory/*`)
+
+**Подробная задача для фронта:** [`CONTENT_FACTORY_AGENT_LK_FRONTEND.md`](./CONTENT_FACTORY_AGENT_LK_FRONTEND.md)
+
+Кратко:
+
+- **`GET /api/pfp/content-factory/offers`** — каталог (без HTML)
+- **`GET /api/pfp/content-factory/offers/{id}`** — `preview_html` для iframe
+- **`GET/POST /api/pfp/content-factory/presentations`** — deck агента
+- **`PATCH /presentations/{id}`** — порядок офферов в `offer_ids[]`
+- **`POST /presentations/{id}/pdf`** — PDF (`?download=1` — файл); utm на бэке
+- **`POST /presentations/{id}/email-draft`** и **`/send`** — письмо клиенту
+
+Схемы: `content-factory.yaml`. OpenAPI paths: `agent_lk.yaml`, тег **Content Factory**.
+
+---
+
+### 7. Где смотреть схемы и детали
 
 - Полная структура запросов/ответов, схемы (`Product`, `Portfolio`, `ClientShort`, `ClientPlan`, `SystemSetting`, AI-сущности и т.д.) описаны в:
   - `agent_lk.yaml` (текущая спека ЛК Агента),
